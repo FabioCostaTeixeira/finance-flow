@@ -2,55 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Financial Dashboard Design System - Dark Mode */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @layer base {
   :root {
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
-
     --card: 222 47% 14%;
     --card-foreground: 210 40% 98%;
-
     --popover: 222 47% 12%;
     --popover-foreground: 210 40% 98%;
-
     --primary: 217 91% 60%;
     --primary-foreground: 222 47% 11%;
-
     --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
-
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
-
     --accent: 217 33% 20%;
     --accent-foreground: 210 40% 98%;
-
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-
     --success: 142 76% 36%;
     --success-foreground: 210 40% 98%;
-
     --warning: 38 92% 50%;
     --warning-foreground: 222 47% 11%;
-
     --receita: 217 91% 60%;
     --receita-foreground: 222 47% 11%;
     --receita-muted: 217 50% 20%;
-
     --despesa: 0 84% 60%;
     --despesa-foreground: 210 40% 98%;
     --despesa-muted: 0 50% 20%;
-
     --border: 217 33% 20%;
     --input: 217 33% 17%;
     --ring: 217 91% 60%;
-
     --radius: 0.75rem;
-
     --sidebar-background: 222 47% 9%;
     --sidebar-foreground: 215 20% 65%;
     --sidebar-primary: 217 91% 60%;
@@ -59,7 +44,6 @@
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 217 33% 17%;
     --sidebar-ring: 217 91% 60%;
-
     --chart-1: 217 91% 60%;
     --chart-2: 142 76% 36%;
     --chart-3: 38 92% 50%;
@@ -67,46 +51,6 @@
     --chart-5: 262 83% 58%;
   }
 
-  .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-
-    --card: 222 47% 14%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222 47% 12%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
-
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-
-    --accent: 217 33% 20%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217 33% 20%;
-    --input: 217 33% 17%;
-    --ring: 217 91% 60%;
-    --sidebar-background: 222 47% 9%;
-    --sidebar-foreground: 215 20% 65%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 217 33% 17%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 17%;
-    --sidebar-ring: 217 91% 60%;
-  }
-}
-
-@layer base {
   * {
     @apply border-border;
   }
@@ -134,36 +78,35 @@
   }
 
   .status-a-receber {
-    @apply bg-receita-muted text-primary;
+    @apply bg-blue-500/20 text-blue-400;
   }
 
   .status-recebido {
-    @apply bg-success/20 text-green-400;
+    @apply bg-green-500/20 text-green-400;
   }
 
   .status-a-pagar {
-    @apply bg-despesa-muted text-destructive;
+    @apply bg-red-500/20 text-red-400;
   }
 
   .status-pago {
-    @apply bg-success/20 text-green-400;
+    @apply bg-green-500/20 text-green-400;
   }
 
   .status-parcial {
-    @apply bg-warning/20 text-yellow-400;
+    @apply bg-yellow-500/20 text-yellow-400;
   }
 
   .fab-button {
-    @apply fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 z-50;
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(217 91% 50%) 100%);
+    @apply fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 z-50 bg-primary;
   }
 
   .sidebar-item {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground;
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-accent hover:text-foreground;
   }
 
   .sidebar-item-active {
-    @apply bg-sidebar-primary/10 text-sidebar-primary font-medium border-l-2 border-sidebar-primary;
+    @apply bg-primary/10 text-primary font-medium border-l-2 border-primary;
   }
 
   .chat-bubble-user {
@@ -175,81 +118,12 @@
   }
 
   .input-glass {
-    @apply bg-input/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 backdrop-blur-sm;
-  }
-
-  .glow-primary {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
-  }
-
-  .glow-success {
-    box-shadow: 0 0 20px hsl(var(--success) / 0.3);
-  }
-
-  .glow-destructive {
-    box-shadow: 0 0 20px hsl(var(--destructive) / 0.3);
+    @apply bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20;
   }
 }
 
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--border)) transparent;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--border));
-    border-radius: 3px;
-  }
-
-  .animate-slide-in {
-    animation: slideIn 0.3s ease-out;
-  }
-
-  @keyframes slideIn {
-    from {
-      opacity: 0;
-      transform: translateX(-10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
-
-  .animate-fade-in {
-    animation: fadeIn 0.2s ease-out;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  .animate-scale-in {
-    animation: scaleIn 0.2s ease-out;
-  }
-
-  @keyframes scaleIn {
-    from {
-      opacity: 0;
-      transform: scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
   }
 }
