@@ -43,7 +43,7 @@ export function AppSidebar() {
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                 <LayoutDashboard className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="font-semibold text-foreground">FinanceHub</span>
+              <span className="font-semibold text-foreground">Financeiro MarySysten</span>
             </motion.div>
           )}
         </AnimatePresence>
