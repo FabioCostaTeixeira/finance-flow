@@ -172,6 +172,8 @@ export type Database = {
         | "pago"
         | "a_pagar"
         | "parcial"
+        | "atrasado"
+        | "vencida"
       tipo_lancamento: "receita" | "despesa"
     }
     CompositeTypes: {
@@ -307,6 +309,8 @@ export const Constants = {
         "pago",
         "a_pagar",
         "parcial",
+        "atrasado",
+        "vencida",
       ],
       tipo_lancamento: ["receita", "despesa"],
     },
