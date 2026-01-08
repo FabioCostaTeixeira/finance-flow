@@ -25,31 +25,45 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useCategoriasWithSearch, useCreateCategoria, Categoria } from '@/hooks/useCategorias';
+import { useCategorias, useCreateCategoria, Categoria } from '@/hooks/useCategorias';
 import { toast } from '@/hooks/use-toast';
+import { fuzzySearch } from '@/lib/recurrence';
 
-interface CategoriaComboboxProps {
+interface SubcategoriaComboboxProps {
   tipo: 'receita' | 'despesa';
+  categoriaPaiId: string | null;
   value: string | null;
   onChange: (value: string | null) => void;
-  showOnlyParents?: boolean;
+  disabled?: boolean;
 }
 
-export function CategoriaCombobox({ tipo, value, onChange, showOnlyParents = false }: CategoriaComboboxProps) {
+export function SubcategoriaCombobox({ 
+  tipo, 
+  categoriaPaiId, 
+  value, 
+  onChange,
+  disabled 
+}: SubcategoriaComboboxProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [newCategoriaName, setNewCategoriaName] = useState('');
+  const [newSubcategoriaName, setNewSubcategoriaName] = useState('');
 
-  const { data: filteredCategorias = [], allCategorias = [] } = useCategoriasWithSearch(tipo, searchQuery);
+  const { data: allCategorias = [] } = useCategorias(tipo);
   const createCategoria = useCreateCategoria();
 
-  // Filter to show only parent categories if requested
-  const displayCategorias = showOnlyParents
-    ? filteredCategorias.filter((c) => !c.categoria_pai_id)
-    : filteredCategorias;
+  // Filter subcategories of the selected parent category
+  const subcategorias = useMemo(() => {
+    if (!categoriaPaiId) return [];
+    return allCategorias.filter((c) => c.categoria_pai_id === categoriaPaiId);
+  }, [allCategorias, categoriaPaiId]);
 
-  const selectedCategoria = useMemo(() => {
+  const filteredSubcategorias = useMemo(() => {
+    if (!searchQuery) return subcategorias;
+    return fuzzySearch(subcategorias, searchQuery);
+  }, [subcategorias, searchQuery]);
+
+  const selectedSubcategoria = useMemo(() => {
     return allCategorias.find((c) => c.id === value);
   }, [allCategorias, value]);
 
@@ -58,30 +72,33 @@ export function CategoriaCombobox({ tipo, value, onChange, showOnlyParents = fal
   };
 
   const handleNotFound = () => {
-    if (searchQuery.trim() && displayCategorias.length === 0) {
-      setNewCategoriaName(searchQuery.trim());
+    if (searchQuery.trim() && filteredSubcategorias.length === 0) {
+      setNewSubcategoriaName(searchQuery.trim());
       setShowCreateDialog(true);
     }
   };
 
-  const handleCreateCategoria = async () => {
+  const handleCreateSubcategoria = async () => {
+    if (!categoriaPaiId) return;
+    
     try {
-      const newCategoria = await createCategoria.mutateAsync({
-        nome: newCategoriaName,
+      const newSubcategoria = await createCategoria.mutateAsync({
+        nome: newSubcategoriaName,
         tipo,
+        categoria_pai_id: categoriaPaiId,
       });
-      onChange(newCategoria.id);
+      onChange(newSubcategoria.id);
       setShowCreateDialog(false);
       setSearchQuery('');
       setOpen(false);
       toast({
-        title: 'Categoria criada',
-        description: `A categoria "${newCategoriaName}" foi criada com sucesso.`,
+        title: 'Subcategoria criada',
+        description: `A subcategoria "${newSubcategoriaName}" foi criada com sucesso.`,
       });
     } catch (error) {
       toast({
-        title: 'Erro ao criar categoria',
-        description: 'Não foi possível criar a categoria.',
+        title: 'Erro ao criar subcategoria',
+        description: 'Não foi possível criar a subcategoria.',
         variant: 'destructive',
       });
     }
@@ -96,15 +113,16 @@ export function CategoriaCombobox({ tipo, value, onChange, showOnlyParents = fal
             role="combobox"
             aria-expanded={open}
             className="w-full justify-between input-glass"
+            disabled={disabled || !categoriaPaiId}
           >
-            {selectedCategoria?.nome || 'Selecione uma categoria...'}
+            {selectedSubcategoria?.nome || 'Selecione uma subcategoria...'}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[300px] p-0" align="start">
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Buscar categoria..."
+              placeholder="Buscar subcategoria..."
               value={searchQuery}
               onValueChange={handleSearch}
             />
@@ -112,7 +130,7 @@ export function CategoriaCombobox({ tipo, value, onChange, showOnlyParents = fal
               <CommandEmpty>
                 <div className="py-2 px-3">
                   <p className="text-sm text-muted-foreground mb-2">
-                    Categoria não encontrada.
+                    Subcategoria não encontrada.
                   </p>
                   <Button
                     variant="outline"
@@ -126,12 +144,12 @@ export function CategoriaCombobox({ tipo, value, onChange, showOnlyParents = fal
                 </div>
               </CommandEmpty>
               <CommandGroup>
-                {displayCategorias.map((categoria) => (
+                {filteredSubcategorias.map((subcategoria) => (
                   <CommandItem
-                    key={categoria.id}
-                    value={categoria.id}
+                    key={subcategoria.id}
+                    value={subcategoria.id}
                     onSelect={() => {
-                      onChange(categoria.id === value ? null : categoria.id);
+                      onChange(subcategoria.id === value ? null : subcategoria.id);
                       setOpen(false);
                       setSearchQuery('');
                     }}
@@ -139,10 +157,10 @@ export function CategoriaCombobox({ tipo, value, onChange, showOnlyParents = fal
                     <Check
                       className={cn(
                         'mr-2 h-4 w-4',
-                        value === categoria.id ? 'opacity-100' : 'opacity-0'
+                        value === subcategoria.id ? 'opacity-100' : 'opacity-0'
                       )}
                     />
-                    {categoria.nome}
+                    {subcategoria.nome}
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -154,14 +172,14 @@ export function CategoriaCombobox({ tipo, value, onChange, showOnlyParents = fal
       <AlertDialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cadastrar nova categoria</AlertDialogTitle>
+            <AlertDialogTitle>Cadastrar nova subcategoria</AlertDialogTitle>
             <AlertDialogDescription>
-              Deseja cadastrar a categoria "{newCategoriaName}" agora?
+              Deseja cadastrar a subcategoria "{newSubcategoriaName}" agora?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCreateCategoria}>
+            <AlertDialogAction onClick={handleCreateSubcategoria}>
               Cadastrar
             </AlertDialogAction>
           </AlertDialogFooter>

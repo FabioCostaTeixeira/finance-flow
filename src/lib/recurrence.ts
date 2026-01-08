@@ -120,6 +120,8 @@ export const statusLabels: Record<string, string> = {
   a_pagar: 'A Pagar',
   pago: 'Pago',
   parcial: 'Parcial',
+  atrasado: 'Atrasado',
+  vencida: 'Vencida',
 };
 
 /**

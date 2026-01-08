@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { format } from 'date-fns';
+import { format, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { MoreHorizontal, Trash2, CheckCircle, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,10 +19,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
 import { LancamentoWithCategoria, useLancamentos, useDeleteLancamento } from '@/hooks/useLancamentos';
+import { useCategorias } from '@/hooks/useCategorias';
 import { BaixaModal } from './BaixaModal';
-import { formatCurrency, statusLabels } from '@/lib/recurrence';
+import { LancamentosFilters, LancamentosFiltersState } from './LancamentosFilters';
+import { formatCurrency } from '@/lib/recurrence';
+import { getComputedStatus, getStatusConfig } from '@/lib/statusUtils';
 import { toast } from '@/hooks/use-toast';
 
 interface LancamentosTableProps {
@@ -31,11 +33,71 @@ interface LancamentosTableProps {
 
 export function LancamentosTable({ tipo }: LancamentosTableProps) {
   const { data: lancamentos = [], isLoading } = useLancamentos(tipo);
+  const { data: categorias = [] } = useCategorias(tipo);
   const deleteLancamento = useDeleteLancamento();
   const [selectedLancamento, setSelectedLancamento] = useState<LancamentoWithCategoria | null>(null);
   const [baixaModalOpen, setBaixaModalOpen] = useState(false);
+  const [filters, setFilters] = useState<LancamentosFiltersState>({
+    dataInicio: undefined,
+    dataFim: undefined,
+    categoriaId: undefined,
+    subcategoriaId: undefined,
+    status: undefined,
+  });
 
   const isReceita = tipo === 'receita';
+
+  // Helper to find parent category of a subcategory
+  const getParentCategoryId = (categoriaId: string | null): string | null => {
+    if (!categoriaId) return null;
+    const cat = categorias.find((c) => c.id === categoriaId);
+    return cat?.categoria_pai_id || null;
+  };
+
+  // Filter lancamentos
+  const filteredLancamentos = useMemo(() => {
+    return lancamentos.filter((lancamento) => {
+      // Date filter
+      if (filters.dataInicio) {
+        const lancDate = parseISO(lancamento.data_vencimento);
+        if (isBefore(lancDate, startOfDay(filters.dataInicio))) return false;
+      }
+      if (filters.dataFim) {
+        const lancDate = parseISO(lancamento.data_vencimento);
+        if (isAfter(lancDate, endOfDay(filters.dataFim))) return false;
+      }
+
+      // Category filter - check if lancamento category matches OR is a subcategory of filtered category
+      if (filters.categoriaId) {
+        const lancCatId = lancamento.categoria_id;
+        const lancParentId = getParentCategoryId(lancCatId);
+        
+        // Match if lancamento category equals filter category OR parent equals filter category
+        if (lancCatId !== filters.categoriaId && lancParentId !== filters.categoriaId) {
+          return false;
+        }
+      }
+
+      // Subcategory filter
+      if (filters.subcategoriaId) {
+        if (lancamento.categoria_id !== filters.subcategoriaId) return false;
+      }
+
+      // Status filter (considering computed status)
+      if (filters.status) {
+        const computedStatus = getComputedStatus({
+          status: lancamento.status,
+          tipo: lancamento.tipo,
+          data_vencimento: lancamento.data_vencimento,
+          valor: lancamento.valor,
+          valor_pago: lancamento.valor_pago,
+        });
+        if (computedStatus !== filters.status) return false;
+      }
+
+      return true;
+    });
+  }, [lancamentos, filters, categorias]);
 
   const handleBaixar = (lancamento: LancamentoWithCategoria) => {
     setSelectedLancamento(lancamento);
@@ -58,24 +120,50 @@ export function LancamentosTable({ tipo }: LancamentosTableProps) {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusClasses: Record<string, string> = {
-      a_receber: 'status-a-receber',
-      recebido: 'status-recebido',
-      a_pagar: 'status-a-pagar',
-      pago: 'status-pago',
-      parcial: 'status-parcial',
-    };
+  const getStatusBadge = (lancamento: LancamentoWithCategoria) => {
+    const computedStatus = getComputedStatus({
+      status: lancamento.status,
+      tipo: lancamento.tipo,
+      data_vencimento: lancamento.data_vencimento,
+      valor: lancamento.valor,
+      valor_pago: lancamento.valor_pago,
+    });
+    
+    const config = getStatusConfig(computedStatus, tipo);
 
     return (
-      <span className={cn('status-badge', statusClasses[status])}>
-        {statusLabels[status]}
+      <span className={cn(
+        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
+        config.className
+      )}>
+        {config.label}
       </span>
     );
   };
 
-  const canBaixar = (status: string) => {
-    return ['a_receber', 'a_pagar', 'parcial'].includes(status);
+  const canBaixar = (lancamento: LancamentoWithCategoria) => {
+    const computedStatus = getComputedStatus({
+      status: lancamento.status,
+      tipo: lancamento.tipo,
+      data_vencimento: lancamento.data_vencimento,
+      valor: lancamento.valor,
+      valor_pago: lancamento.valor_pago,
+    });
+    return ['a_receber', 'a_pagar', 'parcial', 'atrasado', 'vencida'].includes(computedStatus);
+  };
+
+  // Get category display name with parent if subcategory
+  const getCategoryDisplay = (lancamento: LancamentoWithCategoria) => {
+    const cat = categorias.find((c) => c.id === lancamento.categoria_id);
+    if (!cat) return '-';
+    
+    if (cat.categoria_pai_id) {
+      const parent = categorias.find((c) => c.id === cat.categoria_pai_id);
+      if (parent) {
+        return `${parent.nome} > ${cat.nome}`;
+      }
+    }
+    return cat.nome;
   };
 
   if (isLoading) {
@@ -87,7 +175,13 @@ export function LancamentosTable({ tipo }: LancamentosTableProps) {
   }
 
   return (
-    <>
+    <div className="space-y-4">
+      <LancamentosFilters
+        tipo={tipo}
+        filters={filters}
+        onFiltersChange={setFilters}
+      />
+
       <div className="glass-card rounded-xl overflow-hidden">
         <Table>
           <TableHeader>
@@ -104,14 +198,14 @@ export function LancamentosTable({ tipo }: LancamentosTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {lancamentos.length === 0 ? (
+            {filteredLancamentos.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   Nenhum lançamento encontrado
                 </TableCell>
               </TableRow>
             ) : (
-              lancamentos.map((lancamento, index) => (
+              filteredLancamentos.map((lancamento, index) => (
                 <motion.tr
                   key={lancamento.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -130,9 +224,9 @@ export function LancamentosTable({ tipo }: LancamentosTableProps) {
                     {formatCurrency(Number(lancamento.valor))}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {lancamento.categorias?.nome || '-'}
+                    {getCategoryDisplay(lancamento)}
                   </TableCell>
-                  <TableCell>{getStatusBadge(lancamento.status)}</TableCell>
+                  <TableCell>{getStatusBadge(lancamento)}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {lancamento.total_parcelas > 1
                       ? `${lancamento.parcela_atual}/${lancamento.total_parcelas}`
@@ -140,7 +234,7 @@ export function LancamentosTable({ tipo }: LancamentosTableProps) {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {canBaixar(lancamento.status) && (
+                      {canBaixar(lancamento) && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -195,6 +289,6 @@ export function LancamentosTable({ tipo }: LancamentosTableProps) {
         open={baixaModalOpen}
         onOpenChange={setBaixaModalOpen}
       />
-    </>
+    </div>
   );
 }

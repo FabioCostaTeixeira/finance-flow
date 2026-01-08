@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CategoriaCombobox } from './CategoriaCombobox';
+import { SubcategoriaCombobox } from './SubcategoriaCombobox';
 import { useCreateLancamento } from '@/hooks/useLancamentos';
 import { frequenciaLabels, Frequencia } from '@/lib/recurrence';
 import { toast } from '@/hooks/use-toast';
@@ -42,6 +43,7 @@ const lancamentoSchema = z.object({
   data_vencimento: z.date(),
   banco: z.string().optional(),
   categoria_id: z.string().optional(),
+  subcategoria_id: z.string().optional(),
   observacao: z.string().optional(),
   recorrente: z.boolean().default(false),
   frequencia: z.enum(['semanal', 'mensal', 'trimestral', 'semestral']).optional(),
@@ -75,12 +77,15 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
 
   const onSubmit = async (data: LancamentoFormData) => {
     try {
+      // Use subcategory if selected, otherwise use category
+      const finalCategoriaId = data.subcategoria_id || data.categoria_id;
+      
       await createLancamento.mutateAsync({
         data_vencimento: data.data_vencimento,
         cliente_credor: data.cliente_credor,
         valor: data.valor,
         banco: data.banco,
-        categoria_id: data.categoria_id,
+        categoria_id: finalCategoriaId,
         observacao: data.observacao,
         tipo,
         recorrente: isRecorrente,
@@ -184,13 +189,30 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Categoria</Label>
-            <CategoriaCombobox
-              tipo={tipo}
-              value={form.watch('categoria_id') || null}
-              onChange={(value) => form.setValue('categoria_id', value || undefined)}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Categoria</Label>
+              <CategoriaCombobox
+                tipo={tipo}
+                value={form.watch('categoria_id') || null}
+                onChange={(value) => {
+                  form.setValue('categoria_id', value || undefined);
+                  form.setValue('subcategoria_id', undefined); // Reset subcategory
+                }}
+                showOnlyParents
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Subcategoria</Label>
+              <SubcategoriaCombobox
+                tipo={tipo}
+                categoriaPaiId={form.watch('categoria_id') || null}
+                value={form.watch('subcategoria_id') || null}
+                onChange={(value) => form.setValue('subcategoria_id', value || undefined)}
+                disabled={!form.watch('categoria_id')}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
