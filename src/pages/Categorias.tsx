@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Tags, Plus, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Tags, Plus, Trash2, TrendingUp, TrendingDown, ChevronRight, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,8 +27,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { useCategorias, useCreateCategoria, useDeleteCategoria } from '@/hooks/useCategorias';
-import { normalizarTexto } from '@/lib/recurrence';
+import { useCategorias, useCreateCategoria, useDeleteCategoria, Categoria } from '@/hooks/useCategorias';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -36,10 +35,15 @@ export default function CategoriasPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [nome, setNome] = useState('');
   const [tipo, setTipo] = useState<'receita' | 'despesa'>('receita');
+  const [categoriaPaiId, setCategoriaPaiId] = useState<string | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   const { data: categorias = [], isLoading } = useCategorias();
   const createCategoria = useCreateCategoria();
   const deleteCategoria = useDeleteCategoria();
+
+  // Filter parent categories by selected type
+  const categoriasPai = categorias.filter((c) => c.tipo === tipo && !c.categoria_pai_id);
 
   const handleCreate = async () => {
     if (!nome.trim()) {
@@ -52,16 +56,21 @@ export default function CategoriasPage() {
     }
 
     try {
-      await createCategoria.mutateAsync({ nome: nome.trim(), tipo });
+      await createCategoria.mutateAsync({ 
+        nome: nome.trim(), 
+        tipo,
+        categoria_pai_id: categoriaPaiId || undefined,
+      });
       toast({
-        title: 'Categoria criada',
-        description: `A categoria "${nome}" foi criada com sucesso.`,
+        title: categoriaPaiId ? 'Subcategoria criada' : 'Categoria criada',
+        description: `A ${categoriaPaiId ? 'subcategoria' : 'categoria'} "${nome}" foi criada com sucesso.`,
       });
       setNome('');
+      setCategoriaPaiId(null);
       setDialogOpen(false);
     } catch (error) {
       toast({
-        title: 'Erro ao criar categoria',
+        title: 'Erro ao criar',
         description: 'Não foi possível criar a categoria.',
         variant: 'destructive',
       });
@@ -84,8 +93,76 @@ export default function CategoriasPage() {
     }
   };
 
-  const categoriasReceita = categorias.filter((c) => c.tipo === 'receita');
-  const categoriasDespesa = categorias.filter((c) => c.tipo === 'despesa');
+  const toggleExpand = (id: string) => {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Get parent categories
+  const getParentCategorias = (tipoFilter: 'receita' | 'despesa') => {
+    return categorias.filter((c) => c.tipo === tipoFilter && !c.categoria_pai_id);
+  };
+
+  // Get subcategories for a parent
+  const getSubcategorias = (parentId: string) => {
+    return categorias.filter((c) => c.categoria_pai_id === parentId);
+  };
+
+  const categoriasReceita = getParentCategorias('receita');
+  const categoriasDespesa = getParentCategorias('despesa');
+
+  const renderCategoryRow = (categoria: Categoria, isSubcategory = false) => {
+    const subcategorias = getSubcategorias(categoria.id);
+    const hasSubcategorias = subcategorias.length > 0;
+    const isExpanded = expandedCategories.has(categoria.id);
+
+    return (
+      <>
+        <TableRow key={categoria.id} className="table-row-hover">
+          <TableCell>
+            <div className={cn("flex items-center gap-2", isSubcategory && "pl-6")}>
+              {!isSubcategory && hasSubcategorias && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => toggleExpand(categoria.id)}
+                >
+                  <ChevronRight className={cn("w-4 h-4 transition-transform", isExpanded && "rotate-90")} />
+                </Button>
+              )}
+              {!isSubcategory && !hasSubcategorias && <div className="w-6" />}
+              {isSubcategory && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+              <span>{categoria.nome}</span>
+              {hasSubcategorias && (
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {subcategorias.length} sub
+                </Badge>
+              )}
+            </div>
+          </TableCell>
+          <TableCell>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+              onClick={() => handleDelete(categoria.id, categoria.nome)}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </TableCell>
+        </TableRow>
+        {isExpanded && subcategorias.map((sub) => renderCategoryRow(sub, true))}
+      </>
+    );
+  };
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
@@ -101,7 +178,7 @@ export default function CategoriasPage() {
             Categorias
           </h1>
           <p className="text-muted-foreground mt-1">
-            Organize seus lançamentos por categoria
+            Organize seus lançamentos por categoria e subcategoria
           </p>
         </div>
 
@@ -114,7 +191,7 @@ export default function CategoriasPage() {
           </DialogTrigger>
           <DialogContent className="glass-card">
             <DialogHeader>
-              <DialogTitle>Nova Categoria</DialogTitle>
+              <DialogTitle>Nova Categoria / Subcategoria</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
@@ -129,7 +206,13 @@ export default function CategoriasPage() {
               </div>
               <div className="space-y-2">
                 <Label>Tipo</Label>
-                <Select value={tipo} onValueChange={(v: 'receita' | 'despesa') => setTipo(v)}>
+                <Select 
+                  value={tipo} 
+                  onValueChange={(v: 'receita' | 'despesa') => {
+                    setTipo(v);
+                    setCategoriaPaiId(null); // Reset parent when type changes
+                  }}
+                >
                   <SelectTrigger className="input-glass">
                     <SelectValue />
                   </SelectTrigger>
@@ -149,11 +232,42 @@ export default function CategoriasPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label>Categoria Pai (opcional - deixe vazio para categoria principal)</Label>
+                <Select 
+                  value={categoriaPaiId || "none"} 
+                  onValueChange={(v) => setCategoriaPaiId(v === "none" ? null : v)}
+                >
+                  <SelectTrigger className="input-glass">
+                    <SelectValue placeholder="Selecione uma categoria pai" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      <div className="flex items-center gap-2">
+                        <FolderOpen className="w-4 h-4" />
+                        Nenhuma (categoria principal)
+                      </div>
+                    </SelectItem>
+                    {categoriasPai.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        <div className="flex items-center gap-2">
+                          <ChevronRight className="w-4 h-4" />
+                          {cat.nome}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex gap-3 pt-4">
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setDialogOpen(false)}
+                  onClick={() => {
+                    setDialogOpen(false);
+                    setNome('');
+                    setCategoriaPaiId(null);
+                  }}
                 >
                   Cancelar
                 </Button>
@@ -184,7 +298,9 @@ export default function CategoriasPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Categorias de Receita</p>
-              <p className="text-xl font-bold text-primary">{categoriasReceita.length}</p>
+              <p className="text-xl font-bold text-primary">
+                {categoriasReceita.length} categorias, {categorias.filter(c => c.tipo === 'receita' && c.categoria_pai_id).length} subcategorias
+              </p>
             </div>
           </div>
         </div>
@@ -195,7 +311,9 @@ export default function CategoriasPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Categorias de Despesa</p>
-              <p className="text-xl font-bold text-destructive">{categoriasDespesa.length}</p>
+              <p className="text-xl font-bold text-destructive">
+                {categoriasDespesa.length} categorias, {categorias.filter(c => c.tipo === 'despesa' && c.categoria_pai_id).length} subcategorias
+              </p>
             </div>
           </div>
         </div>
@@ -229,21 +347,7 @@ export default function CategoriasPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                categoriasReceita.map((categoria) => (
-                  <TableRow key={categoria.id} className="table-row-hover">
-                    <TableCell>{categoria.nome}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(categoria.id, categoria.nome)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                categoriasReceita.map((categoria) => renderCategoryRow(categoria))
               )}
             </TableBody>
           </Table>
@@ -275,21 +379,7 @@ export default function CategoriasPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                categoriasDespesa.map((categoria) => (
-                  <TableRow key={categoria.id} className="table-row-hover">
-                    <TableCell>{categoria.nome}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(categoria.id, categoria.nome)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                categoriasDespesa.map((categoria) => renderCategoryRow(categoria))
               )}
             </TableBody>
           </Table>
