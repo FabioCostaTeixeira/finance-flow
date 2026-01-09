@@ -191,6 +191,7 @@ export function LancamentosTable({ tipo }: LancamentosTableProps) {
                 {isReceita ? 'Cliente' : 'Credor'}
               </TableHead>
               <TableHead className="text-muted-foreground">Valor</TableHead>
+              <TableHead className="text-muted-foreground">Banco</TableHead>
               <TableHead className="text-muted-foreground">Categoria</TableHead>
               <TableHead className="text-muted-foreground">Status</TableHead>
               <TableHead className="text-muted-foreground">Parcela</TableHead>
@@ -200,7 +201,7 @@ export function LancamentosTable({ tipo }: LancamentosTableProps) {
           <TableBody>
             {filteredLancamentos.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   Nenhum lançamento encontrado
                 </TableCell>
               </TableRow>
@@ -222,6 +223,9 @@ export function LancamentosTable({ tipo }: LancamentosTableProps) {
                     isReceita ? 'text-primary' : 'text-destructive'
                   )}>
                     {formatCurrency(Number(lancamento.valor))}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {lancamento.bancos?.nome || '-'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {getCategoryDisplay(lancamento)}

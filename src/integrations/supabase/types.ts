@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      bancos: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       categorias: {
         Row: {
           categoria_pai_id: string | null
@@ -76,6 +97,7 @@ export type Database = {
       lancamentos: {
         Row: {
           banco: string | null
+          banco_id: string | null
           categoria_id: string | null
           cliente_credor: string
           created_at: string | null
@@ -94,6 +116,7 @@ export type Database = {
         }
         Insert: {
           banco?: string | null
+          banco_id?: string | null
           categoria_id?: string | null
           cliente_credor: string
           created_at?: string | null
@@ -112,6 +135,7 @@ export type Database = {
         }
         Update: {
           banco?: string | null
+          banco_id?: string | null
           categoria_id?: string | null
           cliente_credor?: string
           created_at?: string | null
@@ -129,6 +153,13 @@ export type Database = {
           valor_pago?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "lancamentos_banco_id_fkey"
+            columns: ["banco_id"]
+            isOneToOne: false
+            referencedRelation: "bancos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lancamentos_categoria_id_fkey"
             columns: ["categoria_id"]
@@ -162,7 +193,16 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      get_bancos_com_saldos: {
+        Args: { data_fim?: string; data_inicio?: string }
+        Returns: {
+          banco_id: string
+          banco_nome: string
+          saldo: number
+          total_entradas: number
+          total_saidas: number
+        }[]
+      }
     }
     Enums: {
       frequencia_recorrencia: "semanal" | "mensal" | "trimestral" | "semestral"

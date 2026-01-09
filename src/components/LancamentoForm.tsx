@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select';
 import { CategoriaCombobox } from './CategoriaCombobox';
 import { SubcategoriaCombobox } from './SubcategoriaCombobox';
+import { BancoCombobox } from './BancoCombobox';
 import { useCreateLancamento } from '@/hooks/useLancamentos';
 import { frequenciaLabels, Frequencia } from '@/lib/recurrence';
 import { toast } from '@/hooks/use-toast';
@@ -41,7 +42,7 @@ const lancamentoSchema = z.object({
   cliente_credor: z.string().min(1, 'Campo obrigatório'),
   valor: z.number().positive('Valor deve ser maior que zero'),
   data_vencimento: z.date(),
-  banco: z.string().optional(),
+  banco_id: z.string().optional(),
   categoria_id: z.string().optional(),
   subcategoria_id: z.string().optional(),
   observacao: z.string().optional(),
@@ -68,7 +69,7 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
       cliente_credor: '',
       valor: 0,
       data_vencimento: new Date(),
-      banco: '',
+      banco_id: undefined,
       observacao: '',
       recorrente: false,
       qtd_parcelas: 1,
@@ -84,7 +85,7 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
         data_vencimento: data.data_vencimento,
         cliente_credor: data.cliente_credor,
         valor: data.valor,
-        banco: data.banco,
+        banco_id: data.banco_id,
         categoria_id: finalCategoriaId,
         observacao: data.observacao,
         tipo,
@@ -216,12 +217,10 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="banco">Banco</Label>
-            <Input
-              id="banco"
-              placeholder="Nome do banco"
-              className="input-glass"
-              {...form.register('banco')}
+            <Label>Banco</Label>
+            <BancoCombobox
+              value={form.watch('banco_id') || null}
+              onChange={(value) => form.setValue('banco_id', value || undefined)}
             />
           </div>
 
