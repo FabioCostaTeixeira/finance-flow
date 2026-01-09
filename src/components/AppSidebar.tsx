@@ -6,6 +6,7 @@ import {
   TrendingUp,
   TrendingDown,
   Tags,
+  Landmark,
   ChevronLeft,
   ChevronRight,
   LayoutDashboard,
@@ -17,6 +18,7 @@ const menuItems = [
   { path: '/receitas', label: 'Receitas', icon: TrendingUp },
   { path: '/despesas', label: 'Despesas', icon: TrendingDown },
   { path: '/categorias', label: 'Categorias', icon: Tags },
+  { path: '/bancos', label: 'Bancos', icon: Landmark },
 ];
 
 export function AppSidebar() {

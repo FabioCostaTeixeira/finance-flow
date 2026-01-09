@@ -8,7 +8,7 @@ export interface Lancamento {
   cliente_credor: string;
   valor: number;
   valor_pago: number;
-  banco: string | null;
+  banco_id: string | null;
   status: 'a_receber' | 'recebido' | 'pago' | 'a_pagar' | 'parcial';
   tipo: 'receita' | 'despesa';
   categoria_id: string | null;
@@ -27,13 +27,25 @@ export interface LancamentoWithCategoria extends Lancamento {
     nome: string;
     categoria_pai_id: string | null;
   } | null;
+  bancos: {
+    id: string;
+    nome: string;
+  } | null;
+}
+
+export interface LancamentoWithCategoria extends Lancamento {
+  categorias: {
+    id: string;
+    nome: string;
+    categoria_pai_id: string | null;
+  } | null;
 }
 
 export interface CreateLancamentoInput {
   data_vencimento: Date;
   cliente_credor: string;
   valor: number;
-  banco?: string;
+  banco_id?: string;
   tipo: 'receita' | 'despesa';
   categoria_id?: string;
   observacao?: string;
@@ -54,6 +66,10 @@ export function useLancamentos(tipo?: 'receita' | 'despesa') {
             id,
             nome,
             categoria_pai_id
+          ),
+          bancos (
+            id,
+            nome
           )
         `)
         .order('data_vencimento', { ascending: true });
@@ -90,7 +106,7 @@ export function useCreateLancamento() {
           data_vencimento: parcela.data_vencimento.toISOString().split('T')[0],
           cliente_credor: input.cliente_credor,
           valor: input.valor,
-          banco: input.banco || null,
+          banco_id: input.banco_id || null,
           status: baseStatus as 'a_receber' | 'a_pagar',
           tipo: input.tipo,
           categoria_id: input.categoria_id || null,
@@ -115,7 +131,7 @@ export function useCreateLancamento() {
             data_vencimento: input.data_vencimento.toISOString().split('T')[0],
             cliente_credor: input.cliente_credor,
             valor: input.valor,
-            banco: input.banco || null,
+            banco_id: input.banco_id || null,
             status: baseStatus,
             tipo: input.tipo,
             categoria_id: input.categoria_id || null,
