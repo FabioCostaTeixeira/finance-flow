@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { calcularRecorrencia, gerarRecorrenciaId, Frequencia } from '@/lib/recurrence';
+import { Banco } from './useBancos';
 
 export interface Lancamento {
   id: string;
@@ -8,7 +9,7 @@ export interface Lancamento {
   cliente_credor: string;
   valor: number;
   valor_pago: number;
-  banco: string | null;
+  banco_id: string | null;
   status: 'a_receber' | 'recebido' | 'pago' | 'a_pagar' | 'parcial';
   tipo: 'receita' | 'despesa';
   categoria_id: string | null;
@@ -21,19 +22,20 @@ export interface Lancamento {
   updated_at: string;
 }
 
-export interface LancamentoWithCategoria extends Lancamento {
+export interface LancamentoExtendido extends Lancamento {
   categorias: {
     id: string;
     nome: string;
     categoria_pai_id: string | null;
   } | null;
+  bancos: Pick<Banco, 'id' | 'nome'> | null;
 }
 
 export interface CreateLancamentoInput {
   data_vencimento: Date;
   cliente_credor: string;
   valor: number;
-  banco?: string;
+  banco_id?: string;
   tipo: 'receita' | 'despesa';
   categoria_id?: string;
   observacao?: string;
@@ -50,11 +52,8 @@ export function useLancamentos(tipo?: 'receita' | 'despesa') {
         .from('lancamentos')
         .select(`
           *,
-          categorias (
-            id,
-            nome,
-            categoria_pai_id
-          )
+          categorias ( id, nome, categoria_pai_id ),
+          bancos ( id, nome )
         `)
         .order('data_vencimento', { ascending: true });
 
@@ -65,7 +64,7 @@ export function useLancamentos(tipo?: 'receita' | 'despesa') {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as LancamentoWithCategoria[];
+      return data as LancamentoExtendido[];
     },
   });
 }
@@ -90,7 +89,7 @@ export function useCreateLancamento() {
           data_vencimento: parcela.data_vencimento.toISOString().split('T')[0],
           cliente_credor: input.cliente_credor,
           valor: input.valor,
-          banco: input.banco || null,
+          banco_id: input.banco_id || null,
           status: baseStatus as 'a_receber' | 'a_pagar',
           tipo: input.tipo,
           categoria_id: input.categoria_id || null,
@@ -115,7 +114,7 @@ export function useCreateLancamento() {
             data_vencimento: input.data_vencimento.toISOString().split('T')[0],
             cliente_credor: input.cliente_credor,
             valor: input.valor,
-            banco: input.banco || null,
+            banco_id: input.banco_id || null,
             status: baseStatus,
             tipo: input.tipo,
             categoria_id: input.categoria_id || null,

@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LayoutDashboard,
+  Landmark,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +18,7 @@ const menuItems = [
   { path: '/receitas', label: 'Receitas', icon: TrendingUp },
   { path: '/despesas', label: 'Despesas', icon: TrendingDown },
   { path: '/categorias', label: 'Categorias', icon: Tags },
+  { path: '/bancos', label: 'Bancos', icon: Landmark },
 ];
 
 export function AppSidebar() {

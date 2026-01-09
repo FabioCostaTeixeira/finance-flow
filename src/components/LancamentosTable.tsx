@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { MoreHorizontal, Trash2, CheckCircle, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LancamentoWithCategoria, useDeleteLancamento } from '@/hooks/useLancamentos';
+import { LancamentoExtendido, useDeleteLancamento } from '@/hooks/useLancamentos';
 import { useCategorias } from '@/hooks/useCategorias';
 import { BaixaModal } from './BaixaModal';
 import { LancamentosFilters, LancamentosFiltersState } from './LancamentosFilters';
@@ -29,7 +29,7 @@ import { toast } from '@/hooks/use-toast';
 
 interface LancamentosTableProps {
   tipo: 'receita' | 'despesa';
-  lancamentos: LancamentoWithCategoria[];
+  lancamentos: LancamentoExtendido[];
   isLoading: boolean;
   filters: LancamentosFiltersState;
   onFiltersChange: (filters: LancamentosFiltersState) => void;
@@ -44,12 +44,12 @@ export function LancamentosTable({
 }: LancamentosTableProps) {
   const { data: categorias = [] } = useCategorias(tipo);
   const deleteLancamento = useDeleteLancamento();
-  const [selectedLancamento, setSelectedLancamento] = useState<LancamentoWithCategoria | null>(null);
+  const [selectedLancamento, setSelectedLancamento] = useState<LancamentoExtendido | null>(null);
   const [baixaModalOpen, setBaixaModalOpen] = useState(false);
 
   const isReceita = tipo === 'receita';
 
-  const handleBaixar = (lancamento: LancamentoWithCategoria) => {
+  const handleBaixar = (lancamento: LancamentoExtendido) => {
     setSelectedLancamento(lancamento);
     setBaixaModalOpen(true);
   };
@@ -70,7 +70,7 @@ export function LancamentosTable({
     }
   };
 
-  const getStatusBadge = (lancamento: LancamentoWithCategoria) => {
+  const getStatusBadge = (lancamento: LancamentoExtendido) => {
     const computedStatus = getComputedStatus({
       status: lancamento.status,
       tipo: lancamento.tipo,
@@ -91,7 +91,7 @@ export function LancamentosTable({
     );
   };
 
-  const canBaixar = (lancamento: LancamentoWithCategoria) => {
+  const canBaixar = (lancamento: LancamentoExtendido) => {
     const computedStatus = getComputedStatus({
       status: lancamento.status,
       tipo: lancamento.tipo,
@@ -103,7 +103,7 @@ export function LancamentosTable({
   };
 
   // Get category display name with parent if subcategory
-  const getCategoryDisplay = (lancamento: LancamentoWithCategoria) => {
+  const getCategoryDisplay = (lancamento: LancamentoExtendido) => {
     const cat = categorias.find((c) => c.id === lancamento.categoria_id);
     if (!cat) return '-';
     
@@ -142,6 +142,7 @@ export function LancamentosTable({
               </TableHead>
               <TableHead className="text-muted-foreground">Valor</TableHead>
               <TableHead className="text-muted-foreground">Categoria</TableHead>
+              <TableHead className="text-muted-foreground">Banco</TableHead>
               <TableHead className="text-muted-foreground">Status</TableHead>
               <TableHead className="text-muted-foreground">Parcela</TableHead>
               <TableHead className="text-muted-foreground text-right">Ações</TableHead>
@@ -150,7 +151,7 @@ export function LancamentosTable({
           <TableBody>
             {lancamentos.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   Nenhum lançamento encontrado
                 </TableCell>
               </TableRow>
@@ -175,6 +176,9 @@ export function LancamentosTable({
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {getCategoryDisplay(lancamento)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {lancamento.bancos?.nome || '-'}
                   </TableCell>
                   <TableCell>{getStatusBadge(lancamento)}</TableCell>
                   <TableCell className="text-muted-foreground">
