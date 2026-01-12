@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, ChevronsUpDown, Plus } from 'lucide-react';
+import { Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,8 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { useBancos, useCreateBanco } from '@/hooks/useBancos';
-import { toast } from '@/hooks/use-toast';
+import { useBancos } from '@/hooks/useBancos';
 
 interface BancoComboboxProps {
   value: string | null;
@@ -25,39 +24,9 @@ interface BancoComboboxProps {
 
 export function BancoCombobox({ value, onChange }: BancoComboboxProps) {
   const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const { data: bancos = [] } = useBancos();
-  const createBanco = useCreateBanco();
+  const { data: bancos = [], isLoading } = useBancos();
 
   const selectedBanco = bancos.find((b) => b.id === value);
-
-  const handleCreateBanco = async () => {
-    if (!search.trim()) return;
-
-    try {
-      const newBanco = await createBanco.mutateAsync(search.trim());
-      onChange(newBanco.id);
-      setOpen(false);
-      setSearch('');
-      toast({
-        title: 'Banco criado',
-        description: `"${search}" foi adicionado à lista.`,
-      });
-    } catch (error) {
-      toast({
-        title: 'Erro ao criar banco',
-        description: 'Não foi possível criar o banco.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const filteredBancos = bancos.filter((b) =>
-    b.nome.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const showCreateOption =
-    search.trim() && !filteredBancos.some((b) => b.nome.toLowerCase() === search.toLowerCase());
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -67,40 +36,22 @@ export function BancoCombobox({ value, onChange }: BancoComboboxProps) {
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between input-glass"
+          disabled={isLoading}
         >
-          {selectedBanco?.nome || 'Selecione o banco...'}
+          {selectedBanco?.nome || 'Selecione um banco...'}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0">
+      <PopoverContent className="w-[300px] p-0" align="start">
         <Command>
-          <CommandInput
-            placeholder="Buscar ou criar banco..."
-            value={search}
-            onValueChange={setSearch}
-          />
+          <CommandInput placeholder="Buscar banco..." />
           <CommandList>
-            <CommandEmpty className="py-2">
-              {showCreateOption ? (
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start gap-2"
-                  onClick={handleCreateBanco}
-                >
-                  <Plus className="h-4 w-4" />
-                  Criar "{search}"
-                </Button>
-              ) : (
-                <span className="text-sm text-muted-foreground px-2">
-                  Nenhum banco encontrado
-                </span>
-              )}
-            </CommandEmpty>
+            <CommandEmpty>Nenhum banco encontrado.</CommandEmpty>
             <CommandGroup>
-              {filteredBancos.map((banco) => (
+              {bancos.map((banco) => (
                 <CommandItem
                   key={banco.id}
-                  value={banco.nome}
+                  value={banco.nome} // Command uses this for searching
                   onSelect={() => {
                     onChange(banco.id === value ? null : banco.id);
                     setOpen(false);
@@ -115,12 +66,6 @@ export function BancoCombobox({ value, onChange }: BancoComboboxProps) {
                   {banco.nome}
                 </CommandItem>
               ))}
-              {showCreateOption && filteredBancos.length > 0 && (
-                <CommandItem onSelect={handleCreateBanco} className="text-primary">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Criar "{search}"
-                </CommandItem>
-              )}
             </CommandGroup>
           </CommandList>
         </Command>

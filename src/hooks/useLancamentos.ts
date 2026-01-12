@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { calcularRecorrencia, gerarRecorrenciaId, Frequencia } from '@/lib/recurrence';
+import { Banco } from './useBancos';
 
 export interface Lancamento {
   id: string;
@@ -21,24 +22,13 @@ export interface Lancamento {
   updated_at: string;
 }
 
-export interface LancamentoWithCategoria extends Lancamento {
+export interface LancamentoExtendido extends Lancamento {
   categorias: {
     id: string;
     nome: string;
     categoria_pai_id: string | null;
   } | null;
-  bancos: {
-    id: string;
-    nome: string;
-  } | null;
-}
-
-export interface LancamentoWithCategoria extends Lancamento {
-  categorias: {
-    id: string;
-    nome: string;
-    categoria_pai_id: string | null;
-  } | null;
+  bancos: Pick<Banco, 'id' | 'nome'> | null;
 }
 
 export interface CreateLancamentoInput {
@@ -62,15 +52,8 @@ export function useLancamentos(tipo?: 'receita' | 'despesa') {
         .from('lancamentos')
         .select(`
           *,
-          categorias (
-            id,
-            nome,
-            categoria_pai_id
-          ),
-          bancos (
-            id,
-            nome
-          )
+          categorias ( id, nome, categoria_pai_id ),
+          bancos ( id, nome )
         `)
         .order('data_vencimento', { ascending: true });
 
@@ -81,7 +64,7 @@ export function useLancamentos(tipo?: 'receita' | 'despesa') {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as LancamentoWithCategoria[];
+      return data as LancamentoExtendido[];
     },
   });
 }

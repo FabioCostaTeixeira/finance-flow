@@ -217,7 +217,7 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
           </div>
 
           <div className="space-y-2">
-            <Label>Banco</Label>
+            <Label htmlFor="banco">Banco</Label>
             <BancoCombobox
               value={form.watch('banco_id') || null}
               onChange={(value) => form.setValue('banco_id', value || undefined)}

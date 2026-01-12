@@ -5,17 +5,15 @@ export interface Banco {
   id: string;
   nome: string;
   created_at: string;
-  updated_at: string;
 }
 
-export interface BancoComSaldo {
-  banco_id: string;
-  banco_nome: string;
+export interface BancoComSaldo extends Banco {
   total_entradas: number;
   total_saidas: number;
   saldo: number;
 }
 
+// Hook to get simple list of banks (for dropdowns)
 export function useBancos() {
   return useQuery({
     queryKey: ['bancos'],
@@ -23,21 +21,23 @@ export function useBancos() {
       const { data, error } = await supabase
         .from('bancos')
         .select('*')
-        .order('nome');
-
+        .order('nome', { ascending: true });
       if (error) throw error;
       return data as Banco[];
     },
   });
 }
 
-export function useBancosComSaldos(dataInicio?: Date, dataFim?: Date) {
+// Hook to get banks with their calculated balances
+export function useBancosComSaldos(startDate?: Date, endDate?: Date) {
+  const queryKey = ['bancosComSaldos', startDate, endDate];
+
   return useQuery({
-    queryKey: ['bancos-saldos', dataInicio?.toISOString(), dataFim?.toISOString()],
+    queryKey,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_bancos_com_saldos', {
-        data_inicio: dataInicio ? dataInicio.toISOString().split('T')[0] : null,
-        data_fim: dataFim ? dataFim.toISOString().split('T')[0] : null,
+        start_date: startDate?.toISOString().split('T')[0],
+        end_date: endDate?.toISOString().split('T')[0],
       });
 
       if (error) throw error;
@@ -46,9 +46,9 @@ export function useBancosComSaldos(dataInicio?: Date, dataFim?: Date) {
   });
 }
 
+
 export function useCreateBanco() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (nome: string) => {
       const { data, error } = await supabase
@@ -56,20 +56,18 @@ export function useCreateBanco() {
         .insert({ nome })
         .select()
         .single();
-
       if (error) throw error;
-      return data as Banco;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bancos'] });
-      queryClient.invalidateQueries({ queryKey: ['bancos-saldos'] });
+      queryClient.invalidateQueries({ queryKey: ['bancosComSaldos'] });
     },
   });
 }
 
 export function useUpdateBanco() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({ id, nome }: { id: string; nome: string }) => {
       const { data, error } = await supabase
@@ -78,32 +76,26 @@ export function useUpdateBanco() {
         .eq('id', id)
         .select()
         .single();
-
       if (error) throw error;
-      return data as Banco;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bancos'] });
-      queryClient.invalidateQueries({ queryKey: ['bancos-saldos'] });
+      queryClient.invalidateQueries({ queryKey: ['bancosComSaldos'] });
     },
   });
 }
 
 export function useDeleteBanco() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('bancos')
-        .delete()
-        .eq('id', id);
-
+      const { error } = await supabase.from('bancos').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bancos'] });
-      queryClient.invalidateQueries({ queryKey: ['bancos-saldos'] });
+      queryClient.invalidateQueries({ queryKey: ['bancosComSaldos'] });
     },
   });
 }
