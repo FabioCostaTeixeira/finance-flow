@@ -23,7 +23,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { LancamentoWithCategoria, useBaixarLancamento } from '@/hooks/useLancamentos';
+import { LancamentoExtendido, useBaixarLancamento } from '@/hooks/useLancamentos';
 import { formatCurrency } from '@/lib/recurrence';
 import { toast } from '@/hooks/use-toast';
 
@@ -38,7 +38,7 @@ const baixaSchema = z.object({
 type BaixaFormData = z.infer<typeof baixaSchema>;
 
 interface BaixaModalProps {
-  lancamento: LancamentoWithCategoria | null;
+  lancamento: LancamentoExtendido | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
