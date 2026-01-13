@@ -22,6 +22,7 @@ export default function DespesasPage() {
     categoriaId: undefined,
     subcategoriaId: undefined,
     status: undefined,
+    bancoId: undefined,
   });
 
   const getParentCategoryId = (categoriaId: string | null): string | null => {
@@ -59,6 +60,9 @@ export default function DespesasPage() {
           valor_pago: lancamento.valor_pago,
         });
         if (computedStatus !== filters.status) return false;
+      }
+      if (filters.bancoId) {
+        if (lancamento.banco_id !== filters.bancoId) return false;
       }
       return true;
     });

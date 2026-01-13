@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
+import { AlertasNotificacao } from "@/components/AlertasNotificacao";
 import Index from "./pages/Index";
 import Insights from "./pages/Insights";
 import Receitas from "./pages/Receitas";
@@ -22,6 +23,10 @@ const App = () => (
       <BrowserRouter>
         <div className="flex min-h-screen w-full">
           <AppSidebar />
+          {/* Header com alertas - posição fixa no canto superior direito */}
+          <div className="fixed top-4 right-4 z-50">
+            <AlertasNotificacao />
+          </div>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/insights" element={<Insights />} />

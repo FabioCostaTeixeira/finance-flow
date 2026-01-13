@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useCategorias } from '@/hooks/useCategorias';
+import { useBancos } from '@/hooks/useBancos';
 import { statusLabels } from '@/lib/recurrence';
 
 export interface LancamentosFiltersState {
@@ -27,6 +28,7 @@ export interface LancamentosFiltersState {
   categoriaId: string | undefined;
   subcategoriaId: string | undefined;
   status: string | undefined;
+  bancoId: string | undefined;
 }
 
 interface LancamentosFiltersProps {
@@ -38,6 +40,7 @@ interface LancamentosFiltersProps {
 export function LancamentosFilters({ tipo, filters, onFiltersChange }: LancamentosFiltersProps) {
   const [showFilters, setShowFilters] = useState(false);
   const { data: categorias = [] } = useCategorias(tipo);
+  const { data: bancos = [] } = useBancos();
 
   // Get parent categories (no parent)
   const parentCategorias = useMemo(() => {
@@ -60,6 +63,7 @@ export function LancamentosFilters({ tipo, filters, onFiltersChange }: Lancament
     filters.categoriaId,
     filters.subcategoriaId,
     filters.status,
+    filters.bancoId,
   ].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -69,6 +73,7 @@ export function LancamentosFilters({ tipo, filters, onFiltersChange }: Lancament
       categoriaId: undefined,
       subcategoriaId: undefined,
       status: undefined,
+      bancoId: undefined,
     });
   };
 
@@ -115,7 +120,7 @@ export function LancamentosFilters({ tipo, filters, onFiltersChange }: Lancament
       </div>
 
       {showFilters && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 p-4 glass-card rounded-lg">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 p-4 glass-card rounded-lg">
           {/* Data Início */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Data Início</label>
@@ -240,6 +245,29 @@ export function LancamentosFilters({ tipo, filters, onFiltersChange }: Lancament
                 {statusOptions.map((status) => (
                   <SelectItem key={status} value={status}>
                     {statusLabels[status as keyof typeof statusLabels]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Banco */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Banco</label>
+            <Select
+              value={filters.bancoId || 'all'}
+              onValueChange={(value) =>
+                onFiltersChange({ ...filters, bancoId: value === 'all' ? undefined : value })
+              }
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {bancos.map((banco) => (
+                  <SelectItem key={banco.id} value={banco.id}>
+                    {banco.nome}
                   </SelectItem>
                 ))}
               </SelectContent>
