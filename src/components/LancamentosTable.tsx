@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { MoreHorizontal, Trash2, CheckCircle, DollarSign, AlertTriangle } from 'lucide-react';
+import { MoreHorizontal, Trash2, CheckCircle, DollarSign, AlertTriangle, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -35,6 +35,7 @@ import { LancamentoExtendido, useDeleteLancamento } from '@/hooks/useLancamentos
 import { useDeleteLancamentosEmLote } from '@/hooks/useDeleteLancamentosEmLote';
 import { useCategorias } from '@/hooks/useCategorias';
 import { BaixaModal } from './BaixaModal';
+import { EditLancamentoModal } from './EditLancamentoModal';
 import { LancamentosFilters, LancamentosFiltersState } from './LancamentosFilters';
 import { formatCurrency } from '@/lib/recurrence';
 import { getComputedStatus, getStatusConfig } from '@/lib/statusUtils';
@@ -64,6 +65,8 @@ export function LancamentosTable({
   
   const [selectedLancamento, setSelectedLancamento] = useState<LancamentoExtendido | null>(null);
   const [baixaModalOpen, setBaixaModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingLancamento, setEditingLancamento] = useState<LancamentoExtendido | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -87,6 +90,11 @@ export function LancamentosTable({
   const handleBaixar = (lancamento: LancamentoExtendido) => {
     setSelectedLancamento(lancamento);
     setBaixaModalOpen(true);
+  };
+
+  const handleEdit = (lancamento: LancamentoExtendido) => {
+    setEditingLancamento(lancamento);
+    setEditModalOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -354,6 +362,12 @@ export function LancamentosTable({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
+                              onClick={() => handleEdit(lancamento)}
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                               className="text-destructive focus:text-destructive"
                               onClick={() => handleDelete(lancamento.id)}
                               disabled={!isDeletavel}
@@ -377,6 +391,12 @@ export function LancamentosTable({
         lancamento={selectedLancamento}
         open={baixaModalOpen}
         onOpenChange={setBaixaModalOpen}
+      />
+
+      <EditLancamentoModal
+        lancamento={editingLancamento}
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
       />
 
       {/* Dialog de confirmação de exclusão em lote */}

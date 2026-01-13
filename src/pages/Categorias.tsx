@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Tags, Plus, Trash2, TrendingUp, TrendingDown, ChevronRight, FolderOpen } from 'lucide-react';
+import { Tags, Plus, Trash2, TrendingUp, TrendingDown, ChevronRight, FolderOpen, Edit, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useCategorias, useCreateCategoria, useDeleteCategoria, Categoria } from '@/hooks/useCategorias';
+import { useUpdateCategoria } from '@/hooks/useUpdateCategoria';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -41,6 +42,11 @@ export default function CategoriasPage() {
   const { data: categorias = [], isLoading } = useCategorias();
   const createCategoria = useCreateCategoria();
   const deleteCategoria = useDeleteCategoria();
+  const updateCategoria = useUpdateCategoria();
+
+  // Estado para edição inline
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingNome, setEditingNome] = useState('');
 
   // Filter parent categories by selected type
   const categoriasPai = categorias.filter((c) => c.tipo === tipo && !c.categoria_pai_id);
@@ -93,6 +99,36 @@ export default function CategoriasPage() {
     }
   };
 
+  const handleStartEdit = (categoria: Categoria) => {
+    setEditingId(categoria.id);
+    setEditingNome(categoria.nome);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingNome('');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId || !editingNome.trim()) return;
+    
+    try {
+      await updateCategoria.mutateAsync({ id: editingId, nome: editingNome.trim() });
+      toast({
+        title: 'Categoria atualizada',
+        description: 'O nome foi alterado com sucesso.',
+      });
+      setEditingId(null);
+      setEditingNome('');
+    } catch (error) {
+      toast({
+        title: 'Erro ao atualizar',
+        description: 'Não foi possível atualizar a categoria.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const toggleExpand = (id: string) => {
     setExpandedCategories((prev) => {
       const next = new Set(prev);
@@ -140,8 +176,23 @@ export default function CategoriasPage() {
               )}
               {!isSubcategory && !hasSubcategorias && <div className="w-6" />}
               {isSubcategory && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-              <span>{categoria.nome}</span>
-              {hasSubcategorias && (
+              
+              {editingId === categoria.id ? (
+                <Input
+                  value={editingNome}
+                  onChange={(e) => setEditingNome(e.target.value)}
+                  className="h-7 w-40"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveEdit();
+                    if (e.key === 'Escape') handleCancelEdit();
+                  }}
+                />
+              ) : (
+                <span>{categoria.nome}</span>
+              )}
+              
+              {hasSubcategorias && editingId !== categoria.id && (
                 <Badge variant="secondary" className="ml-2 text-xs">
                   {subcategorias.length} sub
                 </Badge>
@@ -149,14 +200,48 @@ export default function CategoriasPage() {
             </div>
           </TableCell>
           <TableCell>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-              onClick={() => handleDelete(categoria.id, categoria.nome)}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              {editingId === categoria.id ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0 text-primary hover:text-primary"
+                    onClick={handleSaveEdit}
+                    disabled={updateCategoria.isPending}
+                  >
+                    <Check className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    onClick={handleCancelEdit}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => handleStartEdit(categoria)}
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                    onClick={() => handleDelete(categoria.id, categoria.nome)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </>
+              )}
+            </div>
           </TableCell>
         </TableRow>
         {isExpanded && subcategorias.map((sub) => renderCategoryRow(sub, true))}

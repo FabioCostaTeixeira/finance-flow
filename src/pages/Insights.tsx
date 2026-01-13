@@ -4,6 +4,7 @@ import { Brain, Send, Trash2, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useChatMessages, useAddChatMessage, useClearChatHistory } from '@/hooks/useChatMessages';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +21,7 @@ export default function InsightsPage() {
   const { data: messages = [], isLoading: messagesLoading } = useChatMessages();
   const addMessage = useAddChatMessage();
   const clearHistory = useClearChatHistory();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -102,6 +104,10 @@ export default function InsightsPage() {
       const aiResponse = await streamChat(chatHistory);
       await addMessage.mutateAsync({ role: 'assistant', content: aiResponse });
       setStreamingContent('');
+      
+      // Invalidar queries caso a IA tenha criado novos lançamentos
+      queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
+      queryClient.invalidateQueries({ queryKey: ['bancosComSaldos'] });
     } catch (error) {
       toast({
         title: 'Erro',
@@ -154,9 +160,14 @@ export default function InsightsPage() {
                 <Sparkles className="w-8 h-8 text-primary" />
               </div>
               <h2 className="text-xl font-semibold mb-2">Bem-vindo ao Insights IA</h2>
-              <p className="text-muted-foreground mb-4">Faça perguntas sobre suas finanças e receba análises inteligentes baseadas nos seus dados reais.</p>
+              <p className="text-muted-foreground mb-4">Faça perguntas sobre suas finanças, peça análises ou registre novos lançamentos de forma conversacional.</p>
               <div className="flex flex-wrap gap-2 justify-center">
-                {['Qual minha maior despesa este mês?', 'Quanto tenho a receber?', 'Me dê um resumo financeiro'].map((suggestion) => (
+                {[
+                  'Qual minha maior despesa este mês?', 
+                  'Quanto tenho a receber?', 
+                  'Lançar receita de R$100 do Uber',
+                  'Me dê um resumo financeiro'
+                ].map((suggestion) => (
                   <Button key={suggestion} variant="outline" size="sm" onClick={() => setInput(suggestion)} className="text-xs">
                     {suggestion}
                   </Button>
@@ -202,7 +213,7 @@ export default function InsightsPage() {
               <Send className="w-4 h-4" />
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 text-center">A IA analisa seus dados financeiros reais para fornecer insights personalizados.</p>
+          <p className="text-xs text-muted-foreground mt-2 text-center">A IA analisa seus dados e pode criar lançamentos diretamente. Exemplo: "Lançar despesa de R$50 da farmácia"</p>
         </div>
       </motion.div>
     </div>
