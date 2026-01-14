@@ -14,6 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_access_logs: {
+        Row: {
+          api_key_id: string
+          created_at: string
+          endpoint: string
+          id: string
+          ip_address: string | null
+          response_status: number | null
+          user_agent: string | null
+        }
+        Insert: {
+          api_key_id: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          ip_address?: string | null
+          response_status?: number | null
+          user_agent?: string | null
+        }
+        Update: {
+          api_key_id?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          ip_address?: string | null
+          response_status?: number | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_access_logs_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_keys: {
+        Row: {
+          ativa: boolean
+          chave: string
+          created_at: string
+          id: string
+          nome: string
+          ultimo_acesso: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativa?: boolean
+          chave: string
+          created_at?: string
+          id?: string
+          nome: string
+          ultimo_acesso?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativa?: boolean
+          chave?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          ultimo_acesso?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bancos: {
         Row: {
           created_at: string

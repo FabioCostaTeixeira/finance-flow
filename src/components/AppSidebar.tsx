@@ -7,6 +7,7 @@ import {
   TrendingDown,
   Tags,
   Landmark,
+  Key,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ const menuItems = [
   { path: '/despesas', label: 'Despesas', icon: TrendingDown },
   { path: '/categorias', label: 'Categorias', icon: Tags },
   { path: '/bancos', label: 'Bancos', icon: Landmark },
+  { path: '/api', label: 'API', icon: Key },
 ];
 
 export function AppSidebar() {

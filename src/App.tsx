@@ -11,6 +11,7 @@ import Receitas from "./pages/Receitas";
 import Despesas from "./pages/Despesas";
 import Categorias from "./pages/Categorias";
 import Bancos from "./pages/Bancos";
+import ApiKeys from "./pages/ApiKeys";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/despesas" element={<Despesas />} />
             <Route path="/categorias" element={<Categorias />} />
             <Route path="/bancos" element={<Bancos />} />
+            <Route path="/api" element={<ApiKeys />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

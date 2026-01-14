@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Brain, Send, Trash2, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useChatMessages, useAddChatMessage, useClearChatHistory } from '@/hooks/useChatMessages';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
@@ -207,9 +207,22 @@ export default function InsightsPage() {
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-6 border-t border-border/50">
         <div className="max-w-3xl mx-auto">
-          <div className="flex gap-3">
-            <Input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder="Pergunte sobre suas finanças..." className="input-glass" disabled={isLoading} />
-            <Button onClick={handleSend} disabled={!input.trim() || isLoading} className="px-6">
+          <div className="flex gap-3 items-end">
+            <Textarea 
+              value={input} 
+              onChange={(e) => setInput(e.target.value)} 
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }} 
+              placeholder="Pergunte sobre suas finanças... (Ctrl+Enter para enviar)" 
+              className="input-glass min-h-[60px] max-h-[200px] resize-none" 
+              disabled={isLoading}
+              rows={2}
+            />
+            <Button onClick={handleSend} disabled={!input.trim() || isLoading} className="px-6 h-[60px]">
               <Send className="w-4 h-4" />
             </Button>
           </div>
