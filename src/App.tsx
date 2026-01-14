@@ -12,6 +12,7 @@ import Despesas from "./pages/Despesas";
 import Categorias from "./pages/Categorias";
 import Bancos from "./pages/Bancos";
 import ApiKeys from "./pages/ApiKeys";
+import ApiDocumentation from "./pages/ApiDocumentation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/categorias" element={<Categorias />} />
             <Route path="/bancos" element={<Bancos />} />
             <Route path="/api" element={<ApiKeys />} />
+            <Route path="/api/docs" element={<ApiDocumentation />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
