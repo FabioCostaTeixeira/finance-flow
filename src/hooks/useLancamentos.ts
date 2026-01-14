@@ -174,7 +174,7 @@ export function useBaixarLancamento() {
         .update({
           valor_pago: novoValorPago,
           status: novoStatus,
-          data_pagamento: dataPagamento.toISOString().split('T')[0],
+          data_pagamento: format(dataPagamento, 'yyyy-MM-dd'),
         })
         .eq('id', id)
         .select()

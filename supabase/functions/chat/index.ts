@@ -123,7 +123,8 @@ ${lancamentos.slice(0, 10).map((l: any) => `- ${l.data_vencimento}: ${l.tipo ===
 ${atrasados.slice(0, 5).map((l: any) => `- ${l.data_vencimento}: ${l.cliente_credor} - R$ ${Number(l.valor).toFixed(2)} (${l.tipo})`).join("\n") || "- Nenhum atraso"}
 `;
 
-    const systemPrompt = `Você é um assistente financeiro inteligente especializado em análise de dados financeiros.
+    const systemPrompt = `A data de hoje é ${now.toLocaleDateString('pt-BR')}. Use esta data como referência para "hoje".
+Você é um assistente financeiro inteligente especializado em análise de dados financeiros.
 Você tem acesso aos dados financeiros reais do usuário e pode CRIAR novos lançamentos (receitas e despesas) no banco de dados.
 
 SUAS CAPACIDADES:
