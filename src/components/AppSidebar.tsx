@@ -9,9 +9,9 @@ import {
   Landmark,
   ChevronLeft,
   ChevronRight,
-  LayoutDashboard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import logo from '@/assets/logo.jpg';
 
 const menuItems = [
   { path: '/insights', label: 'Insights IA', icon: Brain },
@@ -33,27 +33,22 @@ export function AppSidebar() {
       className="h-screen bg-sidebar border-r border-sidebar-border flex flex-col"
     >
       {/* Logo */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
+      <div className="h-20 flex items-center justify-center px-4 border-b border-sidebar-border">
         <AnimatePresence mode="wait">
           {!collapsed && (
             <motion.div
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
-              className="flex items-center gap-2"
+              className="flex items-center justify-center"
             >
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <LayoutDashboard className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <span className="font-semibold text-foreground">Financeiro MarySysten</span>
+              <img src={logo} alt="Mary Personal" className="h-16 w-auto object-contain" />
             </motion.div>
           )}
         </AnimatePresence>
         
         {collapsed && (
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center mx-auto">
-            <LayoutDashboard className="w-5 h-5 text-primary-foreground" />
-          </div>
+          <img src={logo} alt="Mary Personal" className="h-10 w-10 object-cover rounded-full" />
         )}
       </div>
 
