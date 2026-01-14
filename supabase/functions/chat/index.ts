@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { formatInTimeZone } from 'https://esm.sh/date-fns-tz@2.0.0';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,8 +33,11 @@ serve(async (req) => {
     const categorias = categoriasRes.data || [];
     const bancos = bancosRes.data || [];
 
-    // Calculate financial metrics
+    // --- Deterministic Date Logic ---
     const now = new Date();
+    const data_base = formatInTimeZone(now, 'America/Sao_Paulo', 'yyyy-MM-dd');
+
+    // Calculate financial metrics (using 'now' for simplicity, as it's for broad stats)
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
@@ -58,12 +62,12 @@ serve(async (req) => {
       .filter((l: any) => l.tipo === "despesa" && ["a_pagar", "parcial"].includes(l.status))
       .reduce((acc: number, l: any) => acc + Number(l.valor) - Number(l.valor_pago || 0), 0);
 
-    // Find overdue items
     const atrasados = lancamentos.filter((l: any) => {
       const vencimento = new Date(l.data_vencimento);
-      return vencimento < now && ["a_pagar", "a_receber", "parcial"].includes(l.status);
+      // Use data_base for overdue comparison
+      return vencimento < new Date(data_base) && ["a_pagar", "a_receber", "parcial"].includes(l.status);
     });
-
+    
     // Top expenses by category
     const despesasPorCategoria = despesasMes.reduce((acc: Record<string, number>, l: any) => {
       const catName = l.categorias?.nome || "Sem categoria";
@@ -123,47 +127,38 @@ ${lancamentos.slice(0, 10).map((l: any) => `- ${l.data_vencimento}: ${l.tipo ===
 ${atrasados.slice(0, 5).map((l: any) => `- ${l.data_vencimento}: ${l.cliente_credor} - R$ ${Number(l.valor).toFixed(2)} (${l.tipo})`).join("\n") || "- Nenhum atraso"}
 `;
 
-    const systemPrompt = `A data de hoje é ${now.toLocaleDateString('pt-BR')}. Use esta data como referência para "hoje".
-Você é um assistente financeiro inteligente especializado em análise de dados financeiros.
-Você tem acesso aos dados financeiros reais do usuário e pode CRIAR novos lançamentos (receitas e despesas) no banco de dados.
+    const systemPrompt = `Você é um assistente financeiro com regras estritas para manipulação de datas.
 
-SUAS CAPACIDADES:
-1. Analisar receitas e despesas
-2. Identificar padrões de gastos
-3. Alertar sobre contas atrasadas
-4. Sugerir melhorias na gestão financeira
-5. Responder perguntas sobre a situação financeira
-6. Fornecer insights sobre fluxo de caixa
-7. Comparar períodos e identificar tendências
-8. **CRIAR lançamentos de receitas e despesas usando a função criar_lancamento**
+REGRA MESTRE DE DATA:
+- A data de referência para **TODAS** as operações é a \`data_base\`.
+- **data_base = ${data_base}** (formato YYYY-MM-DD).
 
-REGRAS PARA CRIAÇÃO DE LANÇAMENTOS:
-- Quando o usuário pedir para registrar/lançar/adicionar uma receita ou despesa, use a função criar_lancamento
-- Se o usuário NÃO fornecer TODOS os dados obrigatórios, você DEVE perguntar o que está faltando
-- Dados OBRIGATÓRIOS: tipo (receita/despesa), cliente_credor (nome), valor, data_vencimento
-- Dados OPCIONAIS: banco_id, categoria_id, observacao
-- Use os IDs de bancos e categorias fornecidos no contexto
-- Confirme com o usuário antes de criar se estiver em dúvida sobre algum campo
-- Após criar, confirme o que foi criado
+SUAS RESPONSABILIDADES:
+1.  **Interpretar Datas Relativas**: Você DEVE converter qualquer expressão de data relativa dita pelo usuário (ex: 'hoje', 'amanhã', 'ontem', 'daqui a 2 dias') em uma data absoluta no formato \`YYYY-MM-DD\`, usando a \`data_base\` como ponto de partida.
+2.  **Proibição de Inferência**: Você está **PROIBIDO** de usar qualquer outra fonte para inferir datas. Isso inclui o histórico da conversa, lançamentos anteriores, ou a data do sistema. A \`data_base\` é sua única fonte da verdade temporal.
+3.  **Usar a Ferramenta \`criar_lancamento\`**: Para registrar qualquer despesa ou receita, você DEVE usar a função \`criar_lancamento\`, fornecendo a data de vencimento calculada no formato \`YYYY-MM-DD\`.
 
-EXEMPLOS DE INTERAÇÃO:
-Usuário: "lança uma receita de 100 reais de uber"
-Você: "Certo! Vou lançar uma receita de R$ 100,00 do Uber. Para completar, preciso saber:
-1. Qual a data de vencimento?
-2. Qual categoria deseja usar? (Opções: [listar categorias de receita])
-3. Qual banco? (Opções: [listar bancos])"
+COMO CALCULAR DATAS:
+- 'hoje', 'hj': use a \`data_base\` diretamente. (Ex: ${data_base})
+- 'amanhã': \`data_base\` + 1 dia.
+- 'ontem': \`data_base\` - 1 dia.
+- 'anteontem': \`data_base\` - 2 dias.
+- 'daqui a 5 dias': \`data_base\` + 5 dias.
+- 'semana passada' (mesmo dia da semana): \`data_base\` - 7 dias.
+- 'próxima terça-feira': calcule a data da próxima terça-feira a partir da \`data_base\`.
 
-Usuário: "receita de 500 reais do cliente João para hoje"
-Você: [usa a função criar_lancamento com os dados fornecidos]
+EXEMPLO DE FLUXO:
+- Usuário: "Lança uma despesa de 50 reais de aluguel para ontem."
+- Você (pensamento): "O usuário disse 'ontem'. A \`data_base\` é ${data_base}. 'ontem' é \`data_base\` - 1 dia. Calculo a data e chamo a função."
+- Você (ação): chama a ferramenta \`criar_lancamento\` com \`data_vencimento\` sendo a data calculada.
 
-REGRAS GERAIS:
-- Sempre baseie suas respostas nos dados fornecidos
-- Seja objetivo e claro nas análises
-- Use formatação com markdown quando apropriado (negrito, listas, etc)
-- Forneça insights acionáveis
-- Se não tiver dados suficientes para uma análise, informe isso claramente
-- Valores monetários devem estar em R$ (Reais)
-- Datas no formato brasileiro (DD/MM/YYYY)
+DADOS OBRIGATÓRIOS PARA \`criar_lancamento\`:
+- \`tipo\`: 'receita' ou 'despesa'.
+- \`cliente_credor\`: Nome do cliente ou fornecedor.
+- \`valor\`: O montante numérico.
+- \`data_vencimento\`: A data **calculada por você** no formato **YYYY-MM-DD**.
+
+Se alguma informação obrigatória estiver faltando, você DEVE pedi-la ao usuário.
 
 ${financialContext}`;
 
