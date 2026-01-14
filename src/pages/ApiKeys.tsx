@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Key, Plus, Copy, Trash2, Eye, EyeOff, Power, Activity, Clock, Globe } from 'lucide-react';
+import { Key, Plus, Copy, Trash2, Eye, EyeOff, Power, Activity, Clock, Globe, Book } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -67,6 +68,13 @@ export default function ApiKeysPage() {
             </h1>
             <p className="text-muted-foreground mt-1">Gerencie suas chaves de acesso para integração com Power BI e outros serviços</p>
           </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" asChild className="gap-2">
+              <Link to="/api/docs">
+                <Book className="w-4 h-4" />
+                Documentação
+              </Link>
+            </Button>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -97,6 +105,7 @@ export default function ApiKeysPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
       </motion.div>
 
