@@ -33,22 +33,23 @@ export function AppSidebar() {
       className="h-screen bg-sidebar border-r border-sidebar-border flex flex-col"
     >
       {/* Logo */}
-      <div className="h-20 flex items-center justify-center px-4 border-b border-sidebar-border">
+      <div className="h-20 flex items-center justify-between px-4 border-b border-sidebar-border">
         <AnimatePresence mode="wait">
           {!collapsed && (
             <motion.div
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
-              className="flex items-center justify-center"
+              className="flex items-center gap-3"
             >
-              <img src={logo} alt="Mary Personal" className="h-16 w-auto object-contain" />
+              <img src={logo} alt="Mary Personal" className="h-12 w-12 object-cover rounded-full" />
+              <span className="font-semibold text-foreground text-sm">Financeiro MarySysten</span>
             </motion.div>
           )}
         </AnimatePresence>
         
         {collapsed && (
-          <img src={logo} alt="Mary Personal" className="h-10 w-10 object-cover rounded-full" />
+          <img src={logo} alt="Mary Personal" className="h-10 w-10 object-cover rounded-full mx-auto" />
         )}
       </div>
 
