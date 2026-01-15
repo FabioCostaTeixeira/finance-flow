@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import {
 import { CategoriaCombobox } from './CategoriaCombobox';
 import { SubcategoriaCombobox } from './SubcategoriaCombobox';
 import { BancoCombobox } from './BancoCombobox';
+import { CurrencyInput } from '@/components/CurrencyInput';
 import { useUpdateLancamento } from '@/hooks/useUpdateLancamento';
 import { LancamentoExtendido } from '@/hooks/useLancamentos';
 import { useCategorias } from '@/hooks/useCategorias';
@@ -83,7 +84,7 @@ export function EditLancamentoModal({ lancamento, open, onOpenChange }: EditLanc
       form.reset({
         cliente_credor: lancamento.cliente_credor,
         valor: Number(lancamento.valor),
-        data_vencimento: new Date(lancamento.data_vencimento),
+        data_vencimento: parseISO(lancamento.data_vencimento),
         banco_id: lancamento.banco_id || undefined,
         categoria_id: parentId,
         subcategoria_id: subId,
@@ -157,13 +158,19 @@ export function EditLancamentoModal({ lancamento, open, onOpenChange }: EditLanc
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="valor">Valor (R$)</Label>
-              <Input
-                id="valor"
-                type="number"
-                step="0.01"
-                placeholder="0,00"
-                className="input-glass"
-                {...form.register('valor', { valueAsNumber: true })}
+              <Controller
+                name="valor"
+                control={form.control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="valor"
+                    placeholder="0,00"
+                    className="input-glass"
+                    value={Number(field.value) || 0}
+                    onValueChange={(v) => field.onChange(v)}
+                    disabled={updateLancamento.isPending}
+                  />
+                )}
               />
               {form.formState.errors.valor && (
                 <p className="text-sm text-destructive">

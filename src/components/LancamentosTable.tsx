@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { MoreHorizontal, Trash2, CheckCircle, DollarSign, AlertTriangle, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -306,7 +306,7 @@ export function LancamentosTable({
                       />
                     </TableCell>
                     <TableCell className="font-medium">
-                      {format(new Date(lancamento.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}
+                      {format(parseISO(lancamento.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}
                     </TableCell>
                     <TableCell>{lancamento.cliente_credor}</TableCell>
                     <TableCell className={cn(

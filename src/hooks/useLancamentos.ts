@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { calcularRecorrencia, gerarRecorrenciaId, Frequencia } from '@/lib/recurrence';
+import { toISODateLocal } from '@/lib/date';
 import { Banco } from './useBancos';
 
 export interface Lancamento {
@@ -87,7 +88,7 @@ export function useCreateLancamento() {
         );
 
         const lancamentos = parcelas.map((parcela) => ({
-          data_vencimento: parcela.data_vencimento.toISOString().split('T')[0],
+          data_vencimento: toISODateLocal(parcela.data_vencimento),
           cliente_credor: input.cliente_credor,
           valor: input.valor,
           banco_id: input.banco_id || null,
@@ -112,7 +113,7 @@ export function useCreateLancamento() {
         const { data, error } = await supabase
           .from('lancamentos')
           .insert({
-            data_vencimento: input.data_vencimento.toISOString().split('T')[0],
+            data_vencimento: toISODateLocal(input.data_vencimento),
             cliente_credor: input.cliente_credor,
             valor: input.valor,
             banco_id: input.banco_id || null,
