@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toISODateLocal } from '@/lib/date';
 
 export interface Banco {
   id: string;
@@ -44,8 +45,8 @@ export function useBancosComSaldos(startDate?: Date, endDate?: Date) {
     queryKey,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_bancos_com_saldos', {
-        data_inicio: startDate?.toISOString().split('T')[0],
-        data_fim: endDate?.toISOString().split('T')[0],
+        data_inicio: startDate ? toISODateLocal(startDate) : undefined,
+        data_fim: endDate ? toISODateLocal(endDate) : undefined,
       });
 
       if (error) throw error;

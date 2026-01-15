@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,6 +34,7 @@ import {
 import { CategoriaCombobox } from './CategoriaCombobox';
 import { SubcategoriaCombobox } from './SubcategoriaCombobox';
 import { BancoCombobox } from './BancoCombobox';
+import { CurrencyInput } from '@/components/CurrencyInput';
 import { useCreateLancamento } from '@/hooks/useLancamentos';
 import { frequenciaLabels, Frequencia } from '@/lib/recurrence';
 import { toast } from '@/hooks/use-toast';
@@ -145,13 +146,19 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="valor">Valor (R$)</Label>
-              <Input
-                id="valor"
-                type="number"
-                step="0.01"
-                placeholder="0,00"
-                className="input-glass"
-                {...form.register('valor', { valueAsNumber: true })}
+              <Controller
+                name="valor"
+                control={form.control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="valor"
+                    placeholder="0,00"
+                    className="input-glass"
+                    value={Number(field.value) || 0}
+                    onValueChange={(v) => field.onChange(v)}
+                    disabled={createLancamento.isPending}
+                  />
+                )}
               />
               {form.formState.errors.valor && (
                 <p className="text-sm text-destructive">

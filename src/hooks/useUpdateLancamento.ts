@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-
+import { toISODateLocal } from '@/lib/date';
 export interface UpdateLancamentoInput {
   id: string;
   data_vencimento?: Date;
@@ -19,7 +19,7 @@ export function useUpdateLancamento() {
       const updateData: Record<string, unknown> = {};
       
       if (input.data_vencimento !== undefined) {
-        updateData.data_vencimento = input.data_vencimento.toISOString().split('T')[0];
+        updateData.data_vencimento = toISODateLocal(input.data_vencimento);
       }
       if (input.cliente_credor !== undefined) {
         updateData.cliente_credor = input.cliente_credor;
