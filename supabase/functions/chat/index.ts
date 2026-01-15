@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { formatInTimeZone } from 'https://esm.sh/date-fns-tz@2.0.0';
+import { addDays } from "https://esm.sh/date-fns@3.6.0";
+import { formatInTimeZone, zonedTimeToUtc } from "https://esm.sh/date-fns-tz@2.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,7 +36,38 @@ serve(async (req) => {
 
     // --- Deterministic Date Logic ---
     const now = new Date();
-    const data_base = formatInTimeZone(now, 'America/Sao_Paulo', 'yyyy-MM-dd');
+    const TZ = "America/Sao_Paulo";
+    const data_base = formatInTimeZone(now, TZ, "yyyy-MM-dd");
+
+    const baseUtcMidnight = zonedTimeToUtc(`${data_base}T00:00:00`, TZ);
+
+    const resolveRelativeDate = (raw: string) => {
+      const t = raw.trim().toLowerCase();
+      if (t === "hoje" || t === "hj") return data_base;
+      if (t === "amanha" || t === "amanhã") return formatInTimeZone(addDays(baseUtcMidnight, 1), TZ, "yyyy-MM-dd");
+      if (t === "ontem") return formatInTimeZone(addDays(baseUtcMidnight, -1), TZ, "yyyy-MM-dd");
+      if (t === "anteontem") return formatInTimeZone(addDays(baseUtcMidnight, -2), TZ, "yyyy-MM-dd");
+      return null;
+    };
+
+    const normalizeDateInput = (raw: unknown): string | null => {
+      if (typeof raw !== "string") return null;
+      const s = raw.trim();
+      const rel = resolveRelativeDate(s);
+      if (rel) return rel;
+
+      // YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+      // DD/MM/YYYY
+      const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (m) {
+        const [, dd, mm, yyyy] = m;
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      return null;
+    };
 
     // Calculate financial metrics (using 'now' for simplicity, as it's for broad stats)
     const currentMonth = now.getMonth();
@@ -270,6 +302,27 @@ ${financialContext}`;
               continue;
             }
 
+            // Blindagem de data: normaliza e força datas relativas (ex: 'hoje') a baterem com data_base.
+            const lastUserMessage = [...messages]
+              .slice()
+              .reverse()
+              .find((m: any) => m?.role === "user")?.content as string | undefined;
+
+            const userAskedToday = /(^|\W)(hj|hoje)(\W|$)/i.test(lastUserMessage || "");
+            const normalizedDate = normalizeDateInput(args.data_vencimento);
+            const safeDataVencimento = userAskedToday ? data_base : normalizedDate;
+
+            if (!safeDataVencimento) {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({
+                  success: false,
+                  error: "Data inválida. Use YYYY-MM-DD (ex: 2026-01-15), DD/MM/YYYY (ex: 15/01/2026) ou datas relativas (hoje/amanhã/ontem).",
+                }),
+              });
+              continue;
+            }
+
             // Determinar status baseado no tipo
             const status = args.tipo === "receita" ? "a_receber" : "a_pagar";
 
@@ -280,7 +333,7 @@ ${financialContext}`;
                 tipo: args.tipo,
                 cliente_credor: args.cliente_credor,
                 valor: args.valor,
-                data_vencimento: args.data_vencimento,
+                data_vencimento: safeDataVencimento,
                 banco_id: args.banco_id || null,
                 categoria_id: args.categoria_id || null,
                 observacao: args.observacao || null,
