@@ -12,6 +12,10 @@ export interface BancoComSaldo extends Banco {
   total_entradas: number;
   total_saidas: number;
   saldo: number;
+  entradas_recebidas: number;
+  entradas_a_receber: number;
+  saidas_pagas: number;
+  saidas_a_pagar: number;
 }
 
 // Hook to get simple list of banks (for dropdowns)
@@ -35,6 +39,10 @@ export interface BancoComSaldoRPC {
   total_entradas: number;
   total_saidas: number;
   saldo: number;
+  entradas_recebidas: number;
+  entradas_a_receber: number;
+  saidas_pagas: number;
+  saidas_a_pagar: number;
 }
 
 // Hook to get banks with their calculated balances
@@ -59,6 +67,10 @@ export function useBancosComSaldos(startDate?: Date, endDate?: Date) {
         total_entradas: item.total_entradas,
         total_saidas: item.total_saidas,
         saldo: item.saldo,
+        entradas_recebidas: item.entradas_recebidas,
+        entradas_a_receber: item.entradas_a_receber,
+        saidas_pagas: item.saidas_pagas,
+        saidas_a_pagar: item.saidas_a_pagar,
       })) as BancoComSaldo[];
     },
   });

@@ -266,6 +266,10 @@ export type Database = {
         Returns: {
           banco_id: string
           banco_nome: string
+          entradas_a_receber: number
+          entradas_recebidas: number
+          saidas_a_pagar: number
+          saidas_pagas: number
           saldo: number
           total_entradas: number
           total_saidas: number
