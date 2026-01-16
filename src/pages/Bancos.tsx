@@ -164,41 +164,63 @@ export default function BancosPage() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent border-border/50">
-              <TableHead className="text-muted-foreground">Banco</TableHead>
-              <TableHead className="text-muted-foreground text-right">Entradas</TableHead>
-              <TableHead className="text-muted-foreground text-right">Saídas</TableHead>
-              <TableHead className="text-muted-foreground text-right">Saldo do Período</TableHead>
+              <TableHead className="text-muted-foreground" rowSpan={2}>Banco</TableHead>
+              <TableHead className="text-muted-foreground text-center border-l border-border/30" colSpan={2}>Entradas</TableHead>
+              <TableHead className="text-muted-foreground text-center border-l border-border/30" colSpan={2}>Saídas</TableHead>
+              <TableHead className="text-muted-foreground text-center border-l border-border/30" colSpan={2}>Saldo</TableHead>
+            </TableRow>
+            <TableRow className="hover:bg-transparent border-border/50">
+              <TableHead className="text-muted-foreground text-right text-xs border-l border-border/30">Projetado</TableHead>
+              <TableHead className="text-muted-foreground text-right text-xs">Recebido</TableHead>
+              <TableHead className="text-muted-foreground text-right text-xs border-l border-border/30">A Pagar</TableHead>
+              <TableHead className="text-muted-foreground text-right text-xs">Pago</TableHead>
+              <TableHead className="text-muted-foreground text-right text-xs border-l border-border/30">Projetado</TableHead>
+              <TableHead className="text-muted-foreground text-right text-xs">Atual</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-8">Carregando dados...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-8">Carregando dados...</TableCell></TableRow>
             ) : bancosComSaldo.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   Nenhum dado encontrado para o período.
                 </TableCell>
               </TableRow>
             ) : (
-                bancosComSaldo.map((banco, index) => (
-                <motion.tr
-                  key={banco.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="table-row-hover border-border/30"
-                >
-                  <TableCell className="font-medium">{banco.nome}</TableCell>
-                  <TableCell className="text-right text-primary font-semibold">{formatCurrency(banco.total_entradas)}</TableCell>
-                  <TableCell className="text-right text-destructive font-semibold">{formatCurrency(banco.total_saidas)}</TableCell>
-                  <TableCell className={cn(
-                    "text-right font-bold",
-                    banco.saldo >= 0 ? "text-success" : "text-amber-500"
-                  )}>
-                    {formatCurrency(banco.saldo)}
-                  </TableCell>
-                </motion.tr>
-              ))
+                bancosComSaldo.map((banco, index) => {
+                  const saldoAtual = banco.entradas_recebidas - banco.saidas_pagas;
+                  return (
+                    <motion.tr
+                      key={banco.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="table-row-hover border-border/30"
+                    >
+                      <TableCell className="font-medium">{banco.nome}</TableCell>
+                      {/* Entradas */}
+                      <TableCell className="text-right text-primary/70 border-l border-border/30">{formatCurrency(banco.total_entradas)}</TableCell>
+                      <TableCell className="text-right text-primary font-semibold">{formatCurrency(banco.entradas_recebidas)}</TableCell>
+                      {/* Saídas */}
+                      <TableCell className="text-right text-destructive/70 border-l border-border/30">{formatCurrency(banco.saidas_a_pagar)}</TableCell>
+                      <TableCell className="text-right text-destructive font-semibold">{formatCurrency(banco.saidas_pagas)}</TableCell>
+                      {/* Saldo */}
+                      <TableCell className={cn(
+                        "text-right border-l border-border/30",
+                        banco.saldo >= 0 ? "text-success/70" : "text-amber-500/70"
+                      )}>
+                        {formatCurrency(banco.saldo)}
+                      </TableCell>
+                      <TableCell className={cn(
+                        "text-right font-bold",
+                        saldoAtual >= 0 ? "text-success" : "text-amber-500"
+                      )}>
+                        {formatCurrency(saldoAtual)}
+                      </TableCell>
+                    </motion.tr>
+                  );
+                })
             )}
           </TableBody>
         </Table>

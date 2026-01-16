@@ -102,9 +102,19 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
           : 'Lançamento criado com sucesso.',
       });
 
-      form.reset();
+      form.reset({
+        cliente_credor: '',
+        valor: 0,
+        data_vencimento: new Date(),
+        banco_id: undefined,
+        categoria_id: undefined,
+        subcategoria_id: undefined,
+        observacao: '',
+        recorrente: false,
+        qtd_parcelas: 1,
+      });
       setIsRecorrente(false);
-      onOpenChange(false);
+      // Modal stays open for new entries
     } catch (error) {
       toast({
         title: 'Erro ao criar lançamento',
