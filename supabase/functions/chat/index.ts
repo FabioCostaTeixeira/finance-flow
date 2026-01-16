@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { addDays } from "https://esm.sh/date-fns@3.6.0";
-import { formatInTimeZone, zonedTimeToUtc } from "https://esm.sh/date-fns-tz@2.0.0";
+import { formatInTimeZone, zonedTimeToUtc } from "https://esm.sh/date-fns-tz@2.0.0?deps=date-fns@3.6.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
