@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { addDays } from "https://esm.sh/date-fns@3.6.0";
-import { formatInTimeZone, zonedTimeToUtc } from "https://esm.sh/date-fns-tz@2.0.0?deps=date-fns@3.6.0";
+import { formatInTimeZone, fromZonedTime } from "https://esm.sh/date-fns-tz@3.0.0?deps=date-fns@3.6.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,7 +39,7 @@ serve(async (req) => {
     const TZ = "America/Sao_Paulo";
     const data_base = formatInTimeZone(now, TZ, "yyyy-MM-dd");
 
-    const baseUtcMidnight = zonedTimeToUtc(`${data_base}T00:00:00`, TZ);
+    const baseUtcMidnight = fromZonedTime(`${data_base}T00:00:00`, TZ);
 
     const resolveRelativeDate = (raw: string) => {
       const t = raw.trim().toLowerCase();
