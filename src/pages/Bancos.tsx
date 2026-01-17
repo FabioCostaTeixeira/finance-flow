@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Landmark, TrendingUp, TrendingDown, Scale, Edit, Trash2, Plus } from 'lucide-react';
+import { Landmark, TrendingUp, TrendingDown, Scale, Edit, Trash2, Plus, CheckCircle, Clock, Wallet, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { formatCurrency } from '@/lib/recurrence';
 import { useBancosComSaldos, useBancos, useCreateBanco, useUpdateBanco, useDeleteBanco } from '@/hooks/useBancos';
 import { DateRange } from 'react-day-picker';
-import { addDays, startOfMonth, endOfMonth } from 'date-fns';
+import { startOfMonth, endOfMonth } from 'date-fns';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import {
   Table,
@@ -20,7 +20,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -28,6 +27,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 // Small component to manage bank names
 function GerenciarBancosDialog() {
@@ -123,8 +129,80 @@ export default function BancosPage() {
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
   });
+  const [selectedBancoId, setSelectedBancoId] = useState<string | undefined>(undefined);
 
   const { data: bancosComSaldo = [], isLoading } = useBancosComSaldos(date?.from, date?.to);
+  const { data: bancosList = [] } = useBancos();
+
+  // Filtrar bancos se um banco específico foi selecionado
+  const filteredBancos = useMemo(() => {
+    if (!selectedBancoId) return bancosComSaldo;
+    return bancosComSaldo.filter(banco => banco.id === selectedBancoId);
+  }, [bancosComSaldo, selectedBancoId]);
+
+  // Calcular totais dos cards baseado nos bancos filtrados
+  const totals = useMemo(() => {
+    return filteredBancos.reduce((acc, banco) => ({
+      entradasProjetado: acc.entradasProjetado + banco.total_entradas,
+      entradasRecebido: acc.entradasRecebido + banco.entradas_recebidas,
+      saidasAPagar: acc.saidasAPagar + banco.saidas_a_pagar,
+      saidasPago: acc.saidasPago + banco.saidas_pagas,
+      saldoProjetado: acc.saldoProjetado + banco.saldo,
+      saldoAtual: acc.saldoAtual + (banco.entradas_recebidas - banco.saidas_pagas),
+    }), {
+      entradasProjetado: 0,
+      entradasRecebido: 0,
+      saidasAPagar: 0,
+      saidasPago: 0,
+      saldoProjetado: 0,
+      saldoAtual: 0,
+    });
+  }, [filteredBancos]);
+
+  const stats = [
+    {
+      label: 'Entradas - Projetado',
+      value: formatCurrency(totals.entradasProjetado),
+      icon: TrendingUp,
+      color: 'text-primary/70',
+      bg: 'bg-primary/10',
+    },
+    {
+      label: 'Entradas - Recebido',
+      value: formatCurrency(totals.entradasRecebido),
+      icon: CheckCircle,
+      color: 'text-primary',
+      bg: 'bg-primary/10',
+    },
+    {
+      label: 'Saídas - A Pagar',
+      value: formatCurrency(totals.saidasAPagar),
+      icon: Clock,
+      color: 'text-destructive/70',
+      bg: 'bg-destructive/10',
+    },
+    {
+      label: 'Saídas - Pago',
+      value: formatCurrency(totals.saidasPago),
+      icon: ArrowDownCircle,
+      color: 'text-destructive',
+      bg: 'bg-destructive/10',
+    },
+    {
+      label: 'Saldo - Projetado',
+      value: formatCurrency(totals.saldoProjetado),
+      icon: Scale,
+      color: totals.saldoProjetado >= 0 ? 'text-success/70' : 'text-amber-500/70',
+      bg: totals.saldoProjetado >= 0 ? 'bg-success/10' : 'bg-amber-500/10',
+    },
+    {
+      label: 'Saldo - Atual',
+      value: formatCurrency(totals.saldoAtual),
+      icon: Wallet,
+      color: totals.saldoAtual >= 0 ? 'text-success' : 'text-amber-500',
+      bg: totals.saldoAtual >= 0 ? 'bg-success/10' : 'bg-amber-500/10',
+    },
+  ];
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
@@ -132,7 +210,7 @@ export default function BancosPage() {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
+        className="flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -143,15 +221,59 @@ export default function BancosPage() {
             Visualize o fluxo de caixa por banco em um período.
           </p>
         </div>
-        <div className="flex items-center gap-4">
-            <DatePickerWithRange date={date} onDateChange={setDate} />
-            <Dialog>
-                <DialogTrigger asChild>
-                    <Button variant="outline">Gerenciar Nomes</Button>
-                </DialogTrigger>
-                <GerenciarBancosDialog />
-            </Dialog>
+        <div className="flex flex-wrap items-center gap-4">
+          <Select
+            value={selectedBancoId || "all"}
+            onValueChange={(value) => setSelectedBancoId(value === "all" ? undefined : value)}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Todos os bancos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os bancos</SelectItem>
+              {bancosList.map((banco) => (
+                <SelectItem key={banco.id} value={banco.id}>
+                  {banco.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <DatePickerWithRange date={date} onDateChange={setDate} />
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline">Gerenciar Nomes</Button>
+            </DialogTrigger>
+            <GerenciarBancosDialog />
+          </Dialog>
         </div>
+      </motion.div>
+
+      {/* Stats Cards */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4"
+      >
+        {stats.map((stat, index) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.1 + index * 0.05 }}
+            className="glass-card rounded-xl p-4"
+          >
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-lg ${stat.bg}`}>
+                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground truncate">{stat.label}</p>
+                <p className={`text-lg font-bold ${stat.color}`}>{stat.value}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
       </motion.div>
 
       {/* Table */}
@@ -181,14 +303,14 @@ export default function BancosPage() {
           <TableBody>
             {isLoading ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-8">Carregando dados...</TableCell></TableRow>
-            ) : bancosComSaldo.length === 0 ? (
+            ) : filteredBancos.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   Nenhum dado encontrado para o período.
                 </TableCell>
               </TableRow>
             ) : (
-                bancosComSaldo.map((banco, index) => {
+                filteredBancos.map((banco, index) => {
                   const saldoAtual = banco.entradas_recebidas - banco.saidas_pagas;
                   return (
                     <motion.tr
