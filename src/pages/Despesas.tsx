@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingDown, CheckCircle, Clock } from 'lucide-react';
-import { parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
+import { parseISO, isAfter, isBefore, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { LancamentosTable } from '@/components/LancamentosTable';
 import { LancamentoForm } from '@/components/LancamentoForm';
 import { FloatingActionButton } from '@/components/FloatingActionButton';
@@ -17,8 +17,8 @@ export default function DespesasPage() {
   const { data: categorias = [] } = useCategorias('despesa');
 
   const [filters, setFilters] = useState<LancamentosFiltersState>({
-    dataInicio: undefined,
-    dataFim: undefined,
+    dataInicio: startOfMonth(new Date()),
+    dataFim: endOfMonth(new Date()),
     categoriaId: undefined,
     subcategoriaId: undefined,
     status: undefined,
@@ -125,7 +125,7 @@ export default function DespesasPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 md:grid-cols-3 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-4"
       >
         {stats.map((stat, index) => (
           <motion.div
@@ -133,15 +133,15 @@ export default function DespesasPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1 + index * 0.05 }}
-            className="glass-card rounded-xl p-5"
+            className="glass-card rounded-xl p-4"
           >
-            <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-lg ${stat.bg}`}>
-                <stat.icon className={`w-6 h-6 ${stat.color}`} />
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-lg ${stat.bg}`}>
+                <stat.icon className={`w-5 h-5 ${stat.color}`} />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{stat.label}</p>
-                <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground truncate">{stat.label}</p>
+                <p className={`text-lg font-bold ${stat.color}`}>{stat.value}</p>
               </div>
             </div>
           </motion.div>
