@@ -253,7 +253,7 @@ export default function BancosPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4"
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3"
       >
         {stats.map((stat, index) => (
           <motion.div
@@ -261,15 +261,15 @@ export default function BancosPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1 + index * 0.05 }}
-            className="glass-card rounded-xl p-4"
+            className="glass-card rounded-xl p-3"
           >
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-lg ${stat.bg}`}>
-                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+            <div className="flex items-center gap-2">
+              <div className={`p-2 rounded-lg shrink-0 ${stat.bg}`}>
+                <stat.icon className={`w-4 h-4 ${stat.color}`} />
               </div>
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground truncate">{stat.label}</p>
-                <p className={`text-lg font-bold ${stat.color}`}>{stat.value}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] leading-tight text-muted-foreground truncate">{stat.label}</p>
+                <p className={`text-sm font-bold truncate ${stat.color}`}>{stat.value}</p>
               </div>
             </div>
           </motion.div>
