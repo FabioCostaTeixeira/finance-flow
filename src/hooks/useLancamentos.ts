@@ -44,6 +44,8 @@ export interface CreateLancamentoInput {
   recorrente?: boolean;
   frequencia?: Frequencia;
   qtd_parcelas?: number;
+  lancar_como_pago?: boolean;
+  data_pagamento?: Date;
 }
 
 export function useLancamentos(tipo?: 'receita' | 'despesa') {
@@ -110,20 +112,33 @@ export function useCreateLancamento() {
         return data;
       } else {
         // Lançamento único
+        const shouldMarkAsPaid = input.lancar_como_pago && input.tipo === 'despesa';
+        const finalStatus = shouldMarkAsPaid ? 'pago' : baseStatus;
+
+        const insertData: Record<string, unknown> = {
+          data_vencimento: toISODateLocal(input.data_vencimento),
+          cliente_credor: input.cliente_credor,
+          valor: input.valor,
+          banco_id: input.banco_id || null,
+          status: finalStatus,
+          tipo: input.tipo,
+          categoria_id: input.categoria_id || null,
+          observacao: input.observacao || null,
+          parcela_atual: 1,
+          total_parcelas: 1,
+        };
+
+        // Se marcado como pago, adicionar valor_pago e data_pagamento
+        if (shouldMarkAsPaid) {
+          insertData.valor_pago = input.valor;
+          insertData.data_pagamento = input.data_pagamento 
+            ? toISODateLocal(input.data_pagamento) 
+            : toISODateLocal(new Date());
+        }
+
         const { data, error } = await supabase
           .from('lancamentos')
-          .insert({
-            data_vencimento: toISODateLocal(input.data_vencimento),
-            cliente_credor: input.cliente_credor,
-            valor: input.valor,
-            banco_id: input.banco_id || null,
-            status: baseStatus,
-            tipo: input.tipo,
-            categoria_id: input.categoria_id || null,
-            observacao: input.observacao || null,
-            parcela_atual: 1,
-            total_parcelas: 1,
-          })
+          .insert(insertData as any)
           .select()
           .single();
 

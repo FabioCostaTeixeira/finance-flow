@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, Filter, X } from 'lucide-react';
+import { CalendarIcon, Filter, X, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import {
   Popover,
@@ -29,6 +30,7 @@ export interface LancamentosFiltersState {
   subcategoriaId: string | undefined;
   status: string | undefined;
   bancoId: string | undefined;
+  searchTerm: string | undefined;
 }
 
 interface LancamentosFiltersProps {
@@ -64,6 +66,7 @@ export function LancamentosFilters({ tipo, filters, onFiltersChange }: Lancament
     filters.subcategoriaId,
     filters.status,
     filters.bancoId,
+    filters.searchTerm,
   ].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -74,6 +77,7 @@ export function LancamentosFilters({ tipo, filters, onFiltersChange }: Lancament
       subcategoriaId: undefined,
       status: undefined,
       bancoId: undefined,
+      searchTerm: undefined,
     });
   };
 
@@ -87,7 +91,18 @@ export function LancamentosFilters({ tipo, filters, onFiltersChange }: Lancament
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Campo de busca por nome */}
+        <div className="relative flex-1 min-w-[200px] max-w-[300px]">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder={tipo === 'receita' ? 'Buscar por cliente...' : 'Buscar por credor...'}
+            value={filters.searchTerm || ''}
+            onChange={(e) => onFiltersChange({ ...filters, searchTerm: e.target.value || undefined })}
+            className="pl-9 h-9"
+          />
+        </div>
+
         <Button
           variant="outline"
           size="sm"

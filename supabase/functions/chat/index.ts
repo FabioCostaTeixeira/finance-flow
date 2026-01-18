@@ -159,7 +159,7 @@ ${lancamentos.slice(0, 10).map((l: any) => `- ${l.data_vencimento}: ${l.tipo ===
 ${atrasados.slice(0, 5).map((l: any) => `- ${l.data_vencimento}: ${l.cliente_credor} - R$ ${Number(l.valor).toFixed(2)} (${l.tipo})`).join("\n") || "- Nenhum atraso"}
 `;
 
-    const systemPrompt = `Você é um assistente financeiro com regras estritas para manipulação de datas.
+    const systemPrompt = `Você é um assistente financeiro com regras estritas para manipulação de datas e capacidade de criar, atualizar, excluir e baixar lançamentos.
 
 REGRA MESTRE DE DATA:
 - A data de referência para **TODAS** as operações é a \`data_base\`.
@@ -168,7 +168,11 @@ REGRA MESTRE DE DATA:
 SUAS RESPONSABILIDADES:
 1.  **Interpretar Datas Relativas**: Você DEVE converter qualquer expressão de data relativa dita pelo usuário (ex: 'hoje', 'amanhã', 'ontem', 'daqui a 2 dias') em uma data absoluta no formato \`YYYY-MM-DD\`, usando a \`data_base\` como ponto de partida.
 2.  **Proibição de Inferência**: Você está **PROIBIDO** de usar qualquer outra fonte para inferir datas. Isso inclui o histórico da conversa, lançamentos anteriores, ou a data do sistema. A \`data_base\` é sua única fonte da verdade temporal.
-3.  **Usar a Ferramenta \`criar_lancamento\`**: Para registrar qualquer despesa ou receita, você DEVE usar a função \`criar_lancamento\`, fornecendo a data de vencimento calculada no formato \`YYYY-MM-DD\`.
+3.  **Usar Ferramentas Apropriadas**:
+    - \`criar_lancamento\`: Para criar novos lançamentos financeiros
+    - \`atualizar_lancamento\`: Para modificar lançamentos existentes (valor, data, cliente, categoria, etc.)
+    - \`excluir_lancamento\`: Para remover lançamentos (use com cuidado!)
+    - \`baixar_lancamento\`: Para marcar lançamentos como pagos ou recebidos
 
 COMO CALCULAR DATAS:
 - 'hoje', 'hj': use a \`data_base\` diretamente. (Ex: ${data_base})
@@ -189,6 +193,16 @@ DADOS OBRIGATÓRIOS PARA \`criar_lancamento\`:
 - \`cliente_credor\`: Nome do cliente ou fornecedor.
 - \`valor\`: O montante numérico.
 - \`data_vencimento\`: A data **calculada por você** no formato **YYYY-MM-DD**.
+
+REGRAS PARA ATUALIZAÇÃO E EXCLUSÃO:
+- Para atualizar ou excluir, você precisa do ID do lançamento.
+- Consulte os últimos lançamentos no contexto para encontrar IDs.
+- Ao atualizar, mencione claramente o que foi alterado.
+- Ao excluir, confirme a ação com o usuário antes de executar.
+
+REGRAS PARA BAIXA:
+- Use \`baixar_lancamento\` para marcar como pago ou recebido.
+- Informe o valor sendo pago e a data do pagamento.
 
 Se alguma informação obrigatória estiver faltando, você DEVE pedi-la ao usuário.
 
@@ -234,6 +248,92 @@ ${financialContext}`;
               }
             },
             required: ["tipo", "cliente_credor", "valor", "data_vencimento"],
+            additionalProperties: false
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "atualizar_lancamento",
+          description: "Atualiza um lançamento financeiro existente. Use para alterar dados como valor, data, cliente/credor, categoria, banco ou observação.",
+          parameters: {
+            type: "object",
+            properties: {
+              id: {
+                type: "string",
+                description: "ID do lançamento a ser atualizado (UUID)"
+              },
+              cliente_credor: {
+                type: "string",
+                description: "Novo nome do cliente ou credor"
+              },
+              valor: {
+                type: "number",
+                description: "Novo valor do lançamento"
+              },
+              data_vencimento: {
+                type: "string",
+                description: "Nova data de vencimento no formato YYYY-MM-DD"
+              },
+              banco_id: {
+                type: "string",
+                description: "ID do novo banco (UUID)"
+              },
+              categoria_id: {
+                type: "string",
+                description: "ID da nova categoria (UUID)"
+              },
+              observacao: {
+                type: "string",
+                description: "Nova observação"
+              }
+            },
+            required: ["id"],
+            additionalProperties: false
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "excluir_lancamento",
+          description: "Exclui um lançamento financeiro. Use com cuidado, esta ação não pode ser desfeita.",
+          parameters: {
+            type: "object",
+            properties: {
+              id: {
+                type: "string",
+                description: "ID do lançamento a ser excluído (UUID)"
+              }
+            },
+            required: ["id"],
+            additionalProperties: false
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "baixar_lancamento",
+          description: "Marca um lançamento como pago ou recebido, total ou parcialmente.",
+          parameters: {
+            type: "object",
+            properties: {
+              id: {
+                type: "string",
+                description: "ID do lançamento a ser baixado (UUID)"
+              },
+              valor_pago: {
+                type: "number",
+                description: "Valor sendo pago/recebido nesta baixa"
+              },
+              data_pagamento: {
+                type: "string",
+                description: "Data do pagamento no formato YYYY-MM-DD"
+              }
+            },
+            required: ["id", "valor_pago", "data_pagamento"],
             additionalProperties: false
           }
         }
@@ -377,6 +477,236 @@ ${financialContext}`;
               content: JSON.stringify({ 
                 success: false, 
                 error: `Erro ao processar: ${e instanceof Error ? e.message : 'Erro desconhecido'}` 
+              })
+            });
+          }
+        } else if (toolCall.function.name === "atualizar_lancamento") {
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            
+            if (!args.id) {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: false, 
+                  error: "ID do lançamento é obrigatório para atualização" 
+                })
+              });
+              continue;
+            }
+
+            const updateData: Record<string, unknown> = {};
+            if (args.cliente_credor) updateData.cliente_credor = args.cliente_credor;
+            if (args.valor) updateData.valor = args.valor;
+            if (args.data_vencimento) {
+              const normalizedDate = normalizeDateInput(args.data_vencimento);
+              if (normalizedDate) updateData.data_vencimento = normalizedDate;
+            }
+            if (args.banco_id) updateData.banco_id = args.banco_id;
+            if (args.categoria_id) updateData.categoria_id = args.categoria_id;
+            if (args.observacao !== undefined) updateData.observacao = args.observacao;
+
+            if (Object.keys(updateData).length === 0) {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: false, 
+                  error: "Nenhum campo para atualizar foi fornecido" 
+                })
+              });
+              continue;
+            }
+
+            const { data: lancamentoAtualizado, error: updateError } = await supabase
+              .from("lancamentos")
+              .update(updateData)
+              .eq("id", args.id)
+              .select()
+              .single();
+
+            if (updateError) {
+              console.error("Update error:", updateError);
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: false, 
+                  error: `Erro ao atualizar: ${updateError.message}` 
+                })
+              });
+            } else {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: true, 
+                  data: lancamentoAtualizado,
+                  message: `Lançamento atualizado com sucesso!`
+                })
+              });
+            }
+          } catch (e) {
+            console.error("Update tool call error:", e);
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ 
+                success: false, 
+                error: `Erro ao processar atualização: ${e instanceof Error ? e.message : 'Erro desconhecido'}` 
+              })
+            });
+          }
+        } else if (toolCall.function.name === "excluir_lancamento") {
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            
+            if (!args.id) {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: false, 
+                  error: "ID do lançamento é obrigatório para exclusão" 
+                })
+              });
+              continue;
+            }
+
+            // Buscar o lançamento antes de excluir para confirmar
+            const { data: lancamentoExistente } = await supabase
+              .from("lancamentos")
+              .select("*")
+              .eq("id", args.id)
+              .single();
+
+            if (!lancamentoExistente) {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: false, 
+                  error: "Lançamento não encontrado" 
+                })
+              });
+              continue;
+            }
+
+            const { error: deleteError } = await supabase
+              .from("lancamentos")
+              .delete()
+              .eq("id", args.id);
+
+            if (deleteError) {
+              console.error("Delete error:", deleteError);
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: false, 
+                  error: `Erro ao excluir: ${deleteError.message}` 
+                })
+              });
+            } else {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: true, 
+                  data: lancamentoExistente,
+                  message: `Lançamento de ${lancamentoExistente.cliente_credor} - R$ ${Number(lancamentoExistente.valor).toFixed(2)} excluído com sucesso!`
+                })
+              });
+            }
+          } catch (e) {
+            console.error("Delete tool call error:", e);
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ 
+                success: false, 
+                error: `Erro ao processar exclusão: ${e instanceof Error ? e.message : 'Erro desconhecido'}` 
+              })
+            });
+          }
+        } else if (toolCall.function.name === "baixar_lancamento") {
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            
+            if (!args.id || args.valor_pago === undefined || !args.data_pagamento) {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: false, 
+                  error: "Dados obrigatórios faltando. Necessário: id, valor_pago, data_pagamento" 
+                })
+              });
+              continue;
+            }
+
+            // Buscar lançamento atual
+            const { data: lancamento, error: fetchError } = await supabase
+              .from("lancamentos")
+              .select("*")
+              .eq("id", args.id)
+              .single();
+
+            if (fetchError || !lancamento) {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: false, 
+                  error: "Lançamento não encontrado" 
+                })
+              });
+              continue;
+            }
+
+            const valorTotal = Number(lancamento.valor);
+            const valorPagoAtual = Number(lancamento.valor_pago) || 0;
+            const novoValorPago = valorPagoAtual + args.valor_pago;
+
+            let novoStatus: string;
+            if (novoValorPago >= valorTotal) {
+              novoStatus = lancamento.tipo === "receita" ? "recebido" : "pago";
+            } else {
+              novoStatus = "parcial";
+            }
+
+            const normalizedPaymentDate = normalizeDateInput(args.data_pagamento) || data_base;
+
+            const { data: lancamentoBaixado, error: baixaError } = await supabase
+              .from("lancamentos")
+              .update({
+                valor_pago: novoValorPago,
+                status: novoStatus,
+                data_pagamento: normalizedPaymentDate,
+              })
+              .eq("id", args.id)
+              .select()
+              .single();
+
+            if (baixaError) {
+              console.error("Baixa error:", baixaError);
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: false, 
+                  error: `Erro ao baixar: ${baixaError.message}` 
+                })
+              });
+            } else {
+              const statusLabel = lancamento.tipo === "receita" 
+                ? (novoStatus === "recebido" ? "recebido" : "parcialmente recebido")
+                : (novoStatus === "pago" ? "pago" : "parcialmente pago");
+              
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: true, 
+                  data: lancamentoBaixado,
+                  message: `Lançamento ${statusLabel}! Valor baixado: R$ ${Number(args.valor_pago).toFixed(2)}`
+                })
+              });
+            }
+          } catch (e) {
+            console.error("Baixa tool call error:", e);
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ 
+                success: false, 
+                error: `Erro ao processar baixa: ${e instanceof Error ? e.message : 'Erro desconhecido'}` 
               })
             });
           }

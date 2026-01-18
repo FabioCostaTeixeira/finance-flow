@@ -50,6 +50,8 @@ const lancamentoSchema = z.object({
   recorrente: z.boolean().default(false),
   frequencia: z.enum(['semanal', 'mensal', 'trimestral', 'semestral']).optional(),
   qtd_parcelas: z.number().min(1).max(120).optional(),
+  lancar_como_pago: z.boolean().default(false),
+  data_pagamento: z.date().optional(),
 });
 
 type LancamentoFormData = z.infer<typeof lancamentoSchema>;
@@ -62,6 +64,7 @@ interface LancamentoFormProps {
 
 export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps) {
   const [isRecorrente, setIsRecorrente] = useState(false);
+  const [lancarComoPago, setLancarComoPago] = useState(false);
   const createLancamento = useCreateLancamento();
 
   const form = useForm<LancamentoFormData>({
@@ -74,6 +77,8 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
       observacao: '',
       recorrente: false,
       qtd_parcelas: 1,
+      lancar_como_pago: false,
+      data_pagamento: new Date(),
     },
   });
 
@@ -93,6 +98,8 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
         recorrente: isRecorrente,
         frequencia: isRecorrente ? data.frequencia : undefined,
         qtd_parcelas: isRecorrente ? data.qtd_parcelas : undefined,
+        lancar_como_pago: lancarComoPago,
+        data_pagamento: lancarComoPago ? data.data_pagamento : undefined,
       });
 
       toast({
@@ -112,8 +119,11 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
         observacao: '',
         recorrente: false,
         qtd_parcelas: 1,
+        lancar_como_pago: false,
+        data_pagamento: new Date(),
       });
       setIsRecorrente(false);
+      setLancarComoPago(false);
       // Modal stays open for new entries
     } catch (error) {
       toast({
@@ -293,6 +303,71 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Lançar como pago - apenas para despesas e quando não for recorrente */}
+          {!isReceita && !isRecorrente && (
+            <div className="space-y-3 p-3 rounded-lg bg-muted/30">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="lancar_como_pago"
+                  checked={lancarComoPago}
+                  onCheckedChange={(checked) => setLancarComoPago(checked as boolean)}
+                />
+                <Label htmlFor="lancar_como_pago" className="cursor-pointer text-sm">
+                  Lançar como já pago
+                </Label>
+              </div>
+
+              <AnimatePresence>
+                {lancarComoPago && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-2">
+                      <Label>Data do Pagamento</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              'w-full justify-start text-left font-normal input-glass',
+                              !form.watch('data_pagamento') && 'text-muted-foreground'
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {form.watch('data_pagamento')
+                              ? format(form.watch('data_pagamento')!, 'dd/MM/yyyy', { locale: ptBR })
+                              : 'Selecione a data'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={form.watch('data_pagamento')}
+                            onSelect={(date) => date && form.setValue('data_pagamento', date)}
+                            initialFocus
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {/* Aviso para recorrência */}
+          {!isReceita && isRecorrente && (
+            <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
+              <p className="text-xs text-warning">
+                Para lançamentos recorrentes, use a opção "Pagar" após criar para marcar as parcelas como pagas individualmente.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="observacao">Observação</Label>
