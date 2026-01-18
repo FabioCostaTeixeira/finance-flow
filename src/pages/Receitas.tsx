@@ -23,6 +23,7 @@ export default function ReceitasPage() {
     subcategoriaId: undefined,
     status: undefined,
     bancoId: undefined,
+    searchTerm: undefined,
   });
 
   const getParentCategoryId = (categoriaId: string | null): string | null => {
@@ -33,6 +34,13 @@ export default function ReceitasPage() {
 
   const filteredLancamentos = useMemo(() => {
     return lancamentos.filter((lancamento) => {
+      // Filtro por nome (cliente/credor)
+      if (filters.searchTerm) {
+        const searchLower = filters.searchTerm.toLowerCase();
+        if (!lancamento.cliente_credor.toLowerCase().includes(searchLower)) {
+          return false;
+        }
+      }
       if (filters.dataInicio) {
         const lancDate = parseISO(lancamento.data_vencimento);
         if (isBefore(lancDate, startOfDay(filters.dataInicio))) return false;
