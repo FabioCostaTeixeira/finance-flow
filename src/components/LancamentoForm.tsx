@@ -64,8 +64,18 @@ interface LancamentoFormProps {
 
 export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps) {
   const [isRecorrente, setIsRecorrente] = useState(false);
-  const [lancarComoPago, setLancarComoPago] = useState(false);
+  // Para despesas, lançar como pago vem marcado por padrão (exceto recorrentes)
+  const [lancarComoPago, setLancarComoPago] = useState(tipo === 'despesa');
   const createLancamento = useCreateLancamento();
+
+  // Quando mudar para recorrente, desmarcar "lançar como pago"
+  useEffect(() => {
+    if (isRecorrente) {
+      setLancarComoPago(false);
+    } else if (tipo === 'despesa') {
+      setLancarComoPago(true);
+    }
+  }, [isRecorrente, tipo]);
 
   const form = useForm<LancamentoFormData>({
     resolver: zodResolver(lancamentoSchema),
