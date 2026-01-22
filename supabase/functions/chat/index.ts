@@ -159,7 +159,7 @@ ${lancamentos.slice(0, 10).map((l: any) => `- ${l.data_vencimento}: ${l.tipo ===
 ${atrasados.slice(0, 5).map((l: any) => `- ${l.data_vencimento}: ${l.cliente_credor} - R$ ${Number(l.valor).toFixed(2)} (${l.tipo})`).join("\n") || "- Nenhum atraso"}
 `;
 
-    const systemPrompt = `Você é um assistente financeiro com regras estritas para manipulação de datas e capacidade de criar, atualizar, excluir e baixar lançamentos.
+    const systemPrompt = `Você é um assistente financeiro com regras estritas para manipulação de datas e capacidade de criar, atualizar, excluir, baixar lançamentos e realizar transferências entre contas.
 
 REGRA MESTRE DE DATA:
 - A data de referência para **TODAS** as operações é a \`data_base\`.
@@ -173,6 +173,7 @@ SUAS RESPONSABILIDADES:
     - \`atualizar_lancamento\`: Para modificar lançamentos existentes (valor, data, cliente, categoria, etc.)
     - \`excluir_lancamento\`: Para remover lançamentos (use com cuidado!)
     - \`baixar_lancamento\`: Para marcar lançamentos como pagos ou recebidos
+    - \`transferir_entre_contas\`: Para transferir valores entre bancos/contas
 
 COMO CALCULAR DATAS:
 - 'hoje', 'hj': use a \`data_base\` diretamente. (Ex: ${data_base})
@@ -203,6 +204,12 @@ REGRAS PARA ATUALIZAÇÃO E EXCLUSÃO:
 REGRAS PARA BAIXA:
 - Use \`baixar_lancamento\` para marcar como pago ou recebido.
 - Informe o valor sendo pago e a data do pagamento.
+
+REGRAS PARA TRANSFERÊNCIA:
+- Use \`transferir_entre_contas\` para mover dinheiro entre bancos.
+- Necessário: banco de origem, banco de destino, valor e data.
+- A transferência cria automaticamente uma saída no banco de origem e uma entrada no banco de destino.
+- Use os IDs dos bancos fornecidos no contexto.
 
 Se alguma informação obrigatória estiver faltando, você DEVE pedi-la ao usuário.
 
@@ -334,6 +341,36 @@ ${financialContext}`;
               }
             },
             required: ["id", "valor_pago", "data_pagamento"],
+            additionalProperties: false
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "transferir_entre_contas",
+          description: "Realiza uma transferência entre contas bancárias. Cria uma saída no banco de origem e uma entrada no banco de destino.",
+          parameters: {
+            type: "object",
+            properties: {
+              banco_origem_id: {
+                type: "string",
+                description: "ID do banco de origem (UUID)"
+              },
+              banco_destino_id: {
+                type: "string",
+                description: "ID do banco de destino (UUID)"
+              },
+              valor: {
+                type: "number",
+                description: "Valor da transferência em reais"
+              },
+              data: {
+                type: "string",
+                description: "Data da transferência no formato YYYY-MM-DD"
+              }
+            },
+            required: ["banco_origem_id", "banco_destino_id", "valor", "data"],
             additionalProperties: false
           }
         }
@@ -707,6 +744,131 @@ ${financialContext}`;
               content: JSON.stringify({ 
                 success: false, 
                 error: `Erro ao processar baixa: ${e instanceof Error ? e.message : 'Erro desconhecido'}` 
+              })
+            });
+          }
+        } else if (toolCall.function.name === "transferir_entre_contas") {
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            
+            if (!args.banco_origem_id || !args.banco_destino_id || !args.valor || !args.data) {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: false, 
+                  error: "Dados obrigatórios faltando. Necessário: banco_origem_id, banco_destino_id, valor, data" 
+                })
+              });
+              continue;
+            }
+
+            if (args.banco_origem_id === args.banco_destino_id) {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: false, 
+                  error: "O banco de origem deve ser diferente do banco de destino" 
+                })
+              });
+              continue;
+            }
+
+            const normalizedDate = normalizeDateInput(args.data) || data_base;
+
+            // Buscar nomes dos bancos
+            const { data: bancoOrigem } = await supabase
+              .from("bancos")
+              .select("nome")
+              .eq("id", args.banco_origem_id)
+              .single();
+
+            const { data: bancoDestino } = await supabase
+              .from("bancos")
+              .select("nome")
+              .eq("id", args.banco_destino_id)
+              .single();
+
+            if (!bancoOrigem || !bancoDestino) {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: false, 
+                  error: "Banco de origem ou destino não encontrado. Verifique os IDs." 
+                })
+              });
+              continue;
+            }
+
+            // Criar saída no banco de origem
+            const { error: errorSaida } = await supabase
+              .from("lancamentos")
+              .insert({
+                data_vencimento: normalizedDate,
+                cliente_credor: `Transferência para ${bancoDestino.nome}`,
+                valor: args.valor,
+                valor_pago: args.valor,
+                banco_id: args.banco_origem_id,
+                status: "transferencia",
+                tipo: "despesa",
+                data_pagamento: normalizedDate,
+                parcela_atual: 1,
+                total_parcelas: 1,
+              });
+
+            if (errorSaida) {
+              console.error("Transfer outflow error:", errorSaida);
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: false, 
+                  error: `Erro ao criar saída: ${errorSaida.message}` 
+                })
+              });
+              continue;
+            }
+
+            // Criar entrada no banco de destino
+            const { error: errorEntrada } = await supabase
+              .from("lancamentos")
+              .insert({
+                data_vencimento: normalizedDate,
+                cliente_credor: `Transferência de ${bancoOrigem.nome}`,
+                valor: args.valor,
+                valor_pago: args.valor,
+                banco_id: args.banco_destino_id,
+                status: "transferencia",
+                tipo: "receita",
+                data_pagamento: normalizedDate,
+                parcela_atual: 1,
+                total_parcelas: 1,
+              });
+
+            if (errorEntrada) {
+              console.error("Transfer inflow error:", errorEntrada);
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ 
+                  success: false, 
+                  error: `Erro ao criar entrada: ${errorEntrada.message}` 
+                })
+              });
+              continue;
+            }
+
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ 
+                success: true, 
+                message: `Transferência de R$ ${Number(args.valor).toFixed(2)} realizada com sucesso de ${bancoOrigem.nome} para ${bancoDestino.nome}!`
+              })
+            });
+          } catch (e) {
+            console.error("Transfer tool call error:", e);
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ 
+                success: false, 
+                error: `Erro ao processar transferência: ${e instanceof Error ? e.message : 'Erro desconhecido'}` 
               })
             });
           }
