@@ -3,7 +3,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, ArrowRightLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -35,6 +35,7 @@ import { CategoriaCombobox } from './CategoriaCombobox';
 import { SubcategoriaCombobox } from './SubcategoriaCombobox';
 import { BancoCombobox } from './BancoCombobox';
 import { CurrencyInput } from '@/components/CurrencyInput';
+import { TransferenciaModal } from './TransferenciaModal';
 import { useCreateLancamento } from '@/hooks/useLancamentos';
 import { frequenciaLabels, Frequencia } from '@/lib/recurrence';
 import { toast } from '@/hooks/use-toast';
@@ -64,6 +65,7 @@ interface LancamentoFormProps {
 
 export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps) {
   const [isRecorrente, setIsRecorrente] = useState(false);
+  const [transferenciaOpen, setTransferenciaOpen] = useState(false);
   // Para despesas, lançar como pago vem marcado por padrão (exceto recorrentes)
   const [lancarComoPago, setLancarComoPago] = useState(tipo === 'despesa');
   const createLancamento = useCreateLancamento();
@@ -400,6 +402,15 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
               Cancelar
             </Button>
             <Button
+              type="button"
+              variant="secondary"
+              className="flex items-center gap-2"
+              onClick={() => setTransferenciaOpen(true)}
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              Transferência
+            </Button>
+            <Button
               type="submit"
               className={cn(
                 'flex-1',
@@ -413,6 +424,12 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
             </Button>
           </div>
         </form>
+
+        {/* Modal de Transferência */}
+        <TransferenciaModal
+          open={transferenciaOpen}
+          onOpenChange={setTransferenciaOpen}
+        />
       </DialogContent>
     </Dialog>
   );

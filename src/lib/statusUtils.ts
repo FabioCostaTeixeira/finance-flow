@@ -7,7 +7,8 @@ export type StatusLancamento =
   | 'pago' 
   | 'parcial' 
   | 'atrasado' 
-  | 'vencida';
+  | 'vencida'
+  | 'transferencia';
 
 interface LancamentoForStatus {
   status: string;
@@ -87,6 +88,10 @@ export function getStatusConfig(status: StatusLancamento, tipo: 'receita' | 'des
     vencida: {
       label: 'Vencida',
       className: 'bg-destructive/20 text-destructive border-destructive/30',
+    },
+    transferencia: {
+      label: 'Transferência',
+      className: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
     },
   };
 
