@@ -20,6 +20,7 @@ export interface Lancamento {
   total_parcelas: number;
   observacao: string | null;
   data_pagamento: string | null;
+  transferencia_vinculo_id: string | null;
   created_at: string;
   updated_at: string;
 }
