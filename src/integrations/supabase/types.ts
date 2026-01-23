@@ -178,6 +178,7 @@ export type Database = {
           status: Database["public"]["Enums"]["status_lancamento"]
           tipo: Database["public"]["Enums"]["tipo_lancamento"]
           total_parcelas: number | null
+          transferencia_vinculo_id: string | null
           updated_at: string | null
           valor: number
           valor_pago: number | null
@@ -197,6 +198,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["status_lancamento"]
           tipo: Database["public"]["Enums"]["tipo_lancamento"]
           total_parcelas?: number | null
+          transferencia_vinculo_id?: string | null
           updated_at?: string | null
           valor: number
           valor_pago?: number | null
@@ -216,6 +218,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["status_lancamento"]
           tipo?: Database["public"]["Enums"]["tipo_lancamento"]
           total_parcelas?: number | null
+          transferencia_vinculo_id?: string | null
           updated_at?: string | null
           valor?: number
           valor_pago?: number | null

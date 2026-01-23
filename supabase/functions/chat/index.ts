@@ -799,6 +799,9 @@ ${financialContext}`;
               continue;
             }
 
+            // Gerar ID de vínculo para conectar os dois lançamentos
+            const vinculoId = crypto.randomUUID();
+
             // Criar saída no banco de origem
             const { error: errorSaida } = await supabase
               .from("lancamentos")
@@ -813,6 +816,7 @@ ${financialContext}`;
                 data_pagamento: normalizedDate,
                 parcela_atual: 1,
                 total_parcelas: 1,
+                transferencia_vinculo_id: vinculoId,
               });
 
             if (errorSaida) {
@@ -841,6 +845,7 @@ ${financialContext}`;
                 data_pagamento: normalizedDate,
                 parcela_atual: 1,
                 total_parcelas: 1,
+                transferencia_vinculo_id: vinculoId,
               });
 
             if (errorEntrada) {

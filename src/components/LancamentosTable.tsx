@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { MoreHorizontal, Trash2, CheckCircle, DollarSign, AlertTriangle, Edit } from 'lucide-react';
+import { MoreHorizontal, Trash2, CheckCircle, DollarSign, AlertTriangle, Edit, ArrowRightLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,9 +33,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { LancamentoExtendido, useDeleteLancamento } from '@/hooks/useLancamentos';
 import { useDeleteLancamentosEmLote } from '@/hooks/useDeleteLancamentosEmLote';
+import { useDeleteTransferencia } from '@/hooks/useTransferencia';
 import { useCategorias } from '@/hooks/useCategorias';
 import { BaixaModal } from './BaixaModal';
 import { EditLancamentoModal } from './EditLancamentoModal';
+import { EditTransferenciaModal } from './EditTransferenciaModal';
 import { LancamentosFilters, LancamentosFiltersState } from './LancamentosFilters';
 import { formatCurrency } from '@/lib/recurrence';
 import { getComputedStatus, getStatusConfig } from '@/lib/statusUtils';
@@ -62,11 +64,14 @@ export function LancamentosTable({
   const { data: categorias = [] } = useCategorias(tipo);
   const deleteLancamento = useDeleteLancamento();
   const deleteLancamentosEmLote = useDeleteLancamentosEmLote();
+  const deleteTransferencia = useDeleteTransferencia();
   
   const [selectedLancamento, setSelectedLancamento] = useState<LancamentoExtendido | null>(null);
   const [baixaModalOpen, setBaixaModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingLancamento, setEditingLancamento] = useState<LancamentoExtendido | null>(null);
+  const [editTransferenciaModalOpen, setEditTransferenciaModalOpen] = useState(false);
+  const [editingTransferenciaVinculoId, setEditingTransferenciaVinculoId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -93,17 +98,34 @@ export function LancamentosTable({
   };
 
   const handleEdit = (lancamento: LancamentoExtendido) => {
-    setEditingLancamento(lancamento);
-    setEditModalOpen(true);
+    // Se for transferência, abre o modal de edição de transferência
+    const status = lancamento.status as string;
+    if (status === 'transferencia' && lancamento.transferencia_vinculo_id) {
+      setEditingTransferenciaVinculoId(lancamento.transferencia_vinculo_id);
+      setEditTransferenciaModalOpen(true);
+    } else {
+      setEditingLancamento(lancamento);
+      setEditModalOpen(true);
+    }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (lancamento: LancamentoExtendido) => {
     try {
-      await deleteLancamento.mutateAsync(id);
-      toast({
-        title: 'Lançamento excluído',
-        description: 'O lançamento foi excluído com sucesso.',
-      });
+      // Se for transferência, excluir ambos os lançamentos vinculados
+      const status = lancamento.status as string;
+      if (status === 'transferencia' && lancamento.transferencia_vinculo_id) {
+        await deleteTransferencia.mutateAsync(lancamento.transferencia_vinculo_id);
+        toast({
+          title: 'Transferência excluída',
+          description: 'A transferência e seus lançamentos vinculados foram excluídos.',
+        });
+      } else {
+        await deleteLancamento.mutateAsync(lancamento.id);
+        toast({
+          title: 'Lançamento excluído',
+          description: 'O lançamento foi excluído com sucesso.',
+        });
+      }
     } catch (error) {
       toast({
         title: 'Erro ao excluir',
@@ -369,7 +391,7 @@ export function LancamentosTable({
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-destructive focus:text-destructive"
-                              onClick={() => handleDelete(lancamento.id)}
+                              onClick={() => handleDelete(lancamento)}
                               disabled={!isDeletavel}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
@@ -397,6 +419,12 @@ export function LancamentosTable({
         lancamento={editingLancamento}
         open={editModalOpen}
         onOpenChange={setEditModalOpen}
+      />
+
+      <EditTransferenciaModal
+        vinculoId={editingTransferenciaVinculoId}
+        open={editTransferenciaModalOpen}
+        onOpenChange={setEditTransferenciaModalOpen}
       />
 
       {/* Dialog de confirmação de exclusão em lote */}
