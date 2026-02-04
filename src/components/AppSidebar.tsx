@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Brain,
@@ -10,8 +10,11 @@ import {
   Key,
   ChevronLeft,
   ChevronRight,
+  LogOut,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 import logo from '@/assets/logo.jpg';
 
 const menuItems = [
@@ -26,6 +29,17 @@ const menuItems = [
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { signOut, role, userName } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/auth');
+  };
+
+  const allMenuItems = role === 'master' 
+    ? [...menuItems, { path: '/usuarios', label: 'Usuários', icon: Users }]
+    : menuItems;
 
   return (
     <motion.aside
@@ -45,7 +59,12 @@ export function AppSidebar() {
               className="flex items-center gap-3"
             >
               <img src={logo} alt="Mary Personal" className="h-12 w-12 object-cover rounded-full" />
-              <span className="font-semibold text-foreground text-sm">Financeiro MarySysten</span>
+              <div className="flex flex-col">
+                <span className="font-semibold text-foreground text-sm">Financeiro MarySysten</span>
+                {userName && (
+                  <span className="text-xs text-muted-foreground">Bem Vindo {userName}</span>
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -57,7 +76,7 @@ export function AppSidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto scrollbar-thin">
-        {menuItems.map((item) => {
+        {allMenuItems.map((item) => {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;
 
@@ -88,8 +107,16 @@ export function AppSidebar() {
         })}
       </nav>
 
-      {/* Collapse Button */}
-      <div className="p-3 border-t border-sidebar-border">
+      {/* Footer with Logout and Collapse */}
+      <div className="p-3 border-t border-sidebar-border space-y-2">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sidebar-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+        >
+          <LogOut className="w-5 h-5" />
+          {!collapsed && <span>Sair</span>}
+        </button>
+        
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"

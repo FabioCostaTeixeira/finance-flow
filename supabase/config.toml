@@ -5,3 +5,12 @@ verify_jwt = false
 
 [functions.api]
 verify_jwt = false
+
+[functions.create-user]
+verify_jwt = false
+
+[functions.delete-user]
+verify_jwt = false
+
+[functions.setup-master]
+verify_jwt = false
