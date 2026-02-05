@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Landmark, TrendingUp, TrendingDown, Scale, Edit, Trash2, Plus, CheckCircle, Clock, Wallet, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { formatCurrency } from '@/lib/recurrence';
@@ -34,6 +35,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 // Small component to manage bank names
 function GerenciarBancosDialog() {
@@ -125,6 +131,7 @@ function GerenciarBancosDialog() {
 
 
 export default function BancosPage() {
+  const navigate = useNavigate();
   const [date, setDate] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
@@ -313,34 +320,41 @@ export default function BancosPage() {
                 filteredBancos.map((banco, index) => {
                   const saldoAtual = banco.entradas_recebidas - banco.saidas_pagas;
                   return (
-                    <motion.tr
-                      key={banco.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="table-row-hover border-border/30"
-                    >
-                      <TableCell className="font-medium">{banco.nome}</TableCell>
-                      {/* Entradas */}
-                      <TableCell className="text-right text-primary/70 border-l border-border/30">{formatCurrency(banco.total_entradas)}</TableCell>
-                      <TableCell className="text-right text-primary font-semibold">{formatCurrency(banco.entradas_recebidas)}</TableCell>
-                      {/* Saídas */}
-                      <TableCell className="text-right text-destructive/70 border-l border-border/30">{formatCurrency(banco.saidas_a_pagar)}</TableCell>
-                      <TableCell className="text-right text-destructive font-semibold">{formatCurrency(banco.saidas_pagas)}</TableCell>
-                      {/* Saldo */}
-                      <TableCell className={cn(
-                        "text-right border-l border-border/30",
-                        banco.saldo >= 0 ? "text-success/70" : "text-amber-500/70"
-                      )}>
-                        {formatCurrency(banco.saldo)}
-                      </TableCell>
-                      <TableCell className={cn(
-                        "text-right font-bold",
-                        saldoAtual >= 0 ? "text-success" : "text-amber-500"
-                      )}>
-                        {formatCurrency(saldoAtual)}
-                      </TableCell>
-                    </motion.tr>
+                    <Tooltip key={banco.id}>
+                      <TooltipTrigger asChild>
+                        <motion.tr
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="table-row-hover border-border/30 cursor-pointer"
+                          onClick={() => navigate(`/fluxo-caixa?bancoId=${banco.id}`)}
+                        >
+                          <TableCell className="font-medium">{banco.nome}</TableCell>
+                          {/* Entradas */}
+                          <TableCell className="text-right text-primary/70 border-l border-border/30">{formatCurrency(banco.total_entradas)}</TableCell>
+                          <TableCell className="text-right text-primary font-semibold">{formatCurrency(banco.entradas_recebidas)}</TableCell>
+                          {/* Saídas */}
+                          <TableCell className="text-right text-destructive/70 border-l border-border/30">{formatCurrency(banco.saidas_a_pagar)}</TableCell>
+                          <TableCell className="text-right text-destructive font-semibold">{formatCurrency(banco.saidas_pagas)}</TableCell>
+                          {/* Saldo */}
+                          <TableCell className={cn(
+                            "text-right border-l border-border/30",
+                            banco.saldo >= 0 ? "text-success/70" : "text-amber-500/70"
+                          )}>
+                            {formatCurrency(banco.saldo)}
+                          </TableCell>
+                          <TableCell className={cn(
+                            "text-right font-bold",
+                            saldoAtual >= 0 ? "text-success" : "text-amber-500"
+                          )}>
+                            {formatCurrency(saldoAtual)}
+                          </TableCell>
+                        </motion.tr>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Clique para ver o fluxo de caixa deste banco</p>
+                      </TooltipContent>
+                    </Tooltip>
                   );
                 })
             )}

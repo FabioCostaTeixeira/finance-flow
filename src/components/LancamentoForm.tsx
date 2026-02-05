@@ -66,18 +66,20 @@ interface LancamentoFormProps {
 export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps) {
   const [isRecorrente, setIsRecorrente] = useState(false);
   const [transferenciaOpen, setTransferenciaOpen] = useState(false);
-  // Para despesas, lançar como pago vem marcado por padrão (exceto recorrentes)
-  const [lancarComoPago, setLancarComoPago] = useState(tipo === 'despesa');
+  // Por padrão, marcar como quitado (pago/recebido) para lançamentos não-recorrentes
+  const [lancarComoQuitado, setLancarComoQuitado] = useState(true);
   const createLancamento = useCreateLancamento();
 
-  // Quando mudar para recorrente, desmarcar "lançar como pago"
+  const isReceita = tipo === 'receita';
+
+  // Quando mudar para recorrente, desmarcar "lançar como quitado"
   useEffect(() => {
     if (isRecorrente) {
-      setLancarComoPago(false);
-    } else if (tipo === 'despesa') {
-      setLancarComoPago(true);
+      setLancarComoQuitado(false);
+    } else {
+      setLancarComoQuitado(true);
     }
-  }, [isRecorrente, tipo]);
+  }, [isRecorrente]);
 
   const form = useForm<LancamentoFormData>({
     resolver: zodResolver(lancamentoSchema),
@@ -110,8 +112,8 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
         recorrente: isRecorrente,
         frequencia: isRecorrente ? data.frequencia : undefined,
         qtd_parcelas: isRecorrente ? data.qtd_parcelas : undefined,
-        lancar_como_pago: lancarComoPago,
-        data_pagamento: lancarComoPago ? data.data_pagamento : undefined,
+        lancar_como_pago: lancarComoQuitado,
+        data_pagamento: lancarComoQuitado ? data.data_pagamento : undefined,
       });
 
       toast({
@@ -135,7 +137,7 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
         data_pagamento: new Date(),
       });
       setIsRecorrente(false);
-      setLancarComoPago(false);
+      setLancarComoQuitado(true);
       // Modal stays open for new entries
     } catch (error) {
       toast({
@@ -145,8 +147,6 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
       });
     }
   };
-
-  const isReceita = tipo === 'receita';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -316,22 +316,22 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
             )}
           </AnimatePresence>
 
-          {/* Lançar como pago - apenas para despesas e quando não for recorrente */}
-          {!isReceita && !isRecorrente && (
+          {/* Lançar como quitado - para receitas e despesas quando não for recorrente */}
+          {!isRecorrente && (
             <div className="space-y-3 p-3 rounded-lg bg-muted/30">
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  id="lancar_como_pago"
-                  checked={lancarComoPago}
-                  onCheckedChange={(checked) => setLancarComoPago(checked as boolean)}
+                  id="lancar_como_quitado"
+                  checked={lancarComoQuitado}
+                  onCheckedChange={(checked) => setLancarComoQuitado(checked as boolean)}
                 />
-                <Label htmlFor="lancar_como_pago" className="cursor-pointer text-sm">
-                  Lançar como já pago
+                <Label htmlFor="lancar_como_quitado" className="cursor-pointer text-sm">
+                  {isReceita ? 'Lançar como já recebido' : 'Lançar como já pago'}
                 </Label>
               </div>
 
               <AnimatePresence>
-                {lancarComoPago && (
+                {lancarComoQuitado && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
@@ -339,7 +339,7 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
                     className="overflow-hidden"
                   >
                     <div className="space-y-2">
-                      <Label>Data do Pagamento</Label>
+                      <Label>{isReceita ? 'Data do Recebimento' : 'Data do Pagamento'}</Label>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -373,10 +373,10 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
           )}
 
           {/* Aviso para recorrência */}
-          {!isReceita && isRecorrente && (
+          {isRecorrente && (
             <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
               <p className="text-xs text-warning">
-                Para lançamentos recorrentes, use a opção "Pagar" após criar para marcar as parcelas como pagas individualmente.
+                Para lançamentos recorrentes, use a opção "{isReceita ? 'Receber' : 'Pagar'}" após criar para marcar as parcelas individualmente.
               </p>
             </div>
           )}

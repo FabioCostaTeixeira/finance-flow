@@ -12,6 +12,7 @@ import Receitas from "./pages/Receitas";
 import Despesas from "./pages/Despesas";
 import Categorias from "./pages/Categorias";
 import Bancos from "./pages/Bancos";
+import FluxoCaixa from "./pages/FluxoCaixa";
 import ApiKeys from "./pages/ApiKeys";
 import ApiDocumentation from "./pages/ApiDocumentation";
 import Usuarios from "./pages/Usuarios";
@@ -84,6 +85,7 @@ function AppRoutes() {
       <Route path="/despesas" element={<ProtectedLayout><Despesas /></ProtectedLayout>} />
       <Route path="/categorias" element={<ProtectedLayout><Categorias /></ProtectedLayout>} />
       <Route path="/bancos" element={<ProtectedLayout><Bancos /></ProtectedLayout>} />
+      <Route path="/fluxo-caixa" element={<ProtectedLayout><FluxoCaixa /></ProtectedLayout>} />
       <Route path="/api" element={<ProtectedLayout><ApiKeys /></ProtectedLayout>} />
       <Route path="/api/docs" element={<ProtectedLayout><ApiDocumentation /></ProtectedLayout>} />
       <Route 

@@ -113,8 +113,10 @@ export function useCreateLancamento() {
         return data;
       } else {
         // Lançamento único
-        const shouldMarkAsPaid = input.lancar_como_pago && input.tipo === 'despesa';
-        const finalStatus = shouldMarkAsPaid ? 'pago' : baseStatus;
+        // Para receitas: marcar como 'recebido', para despesas: marcar como 'pago'
+        const shouldMarkAsQuitado = input.lancar_como_pago;
+        const quitadoStatus = input.tipo === 'receita' ? 'recebido' : 'pago';
+        const finalStatus = shouldMarkAsQuitado ? quitadoStatus : baseStatus;
 
         const insertData: Record<string, unknown> = {
           data_vencimento: toISODateLocal(input.data_vencimento),
@@ -129,8 +131,8 @@ export function useCreateLancamento() {
           total_parcelas: 1,
         };
 
-        // Se marcado como pago, adicionar valor_pago e data_pagamento
-        if (shouldMarkAsPaid) {
+        // Se marcado como quitado (pago/recebido), adicionar valor_pago e data_pagamento
+        if (shouldMarkAsQuitado) {
           insertData.valor_pago = input.valor;
           insertData.data_pagamento = input.data_pagamento 
             ? toISODateLocal(input.data_pagamento) 
@@ -149,6 +151,7 @@ export function useCreateLancamento() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
+      queryClient.invalidateQueries({ queryKey: ['bancosComSaldos'] });
     },
   });
 }
