@@ -12,6 +12,7 @@ import {
   ChevronRight,
   LogOut,
   Users,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,6 +24,7 @@ const menuItems = [
   { path: '/despesas', label: 'Despesas', icon: TrendingDown },
   { path: '/categorias', label: 'Categorias', icon: Tags },
   { path: '/bancos', label: 'Bancos', icon: Landmark },
+  { path: '/fluxo-caixa', label: 'Fluxo de Caixa', icon: ArrowLeftRight },
   { path: '/api', label: 'API', icon: Key },
 ];
 
