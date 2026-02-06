@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeftRight, TrendingUp, TrendingDown, Scale } from 'lucide-react';
+import { ArrowLeftRight, TrendingUp, TrendingDown } from 'lucide-react';
 import { format, parseISO, startOfMonth, endOfMonth, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
@@ -133,28 +133,36 @@ export default function FluxoCaixaPage() {
 
   const stats = [
     {
-      label: 'Total Entradas',
-      value: formatCurrency(totals.entradas),
-      sub: `A Receber: ${formatCurrency(totals.aReceber)} | Realizado: ${formatCurrency(totals.realizado)}`,
+      label: 'A Receber',
+      value: formatCurrency(totals.aReceber),
       icon: TrendingUp,
-      color: 'text-primary',
-      bg: 'bg-primary/10',
+      color: 'text-blue-400',
+      bg: 'bg-blue-500/10',
+      border: 'border-blue-500/20',
     },
     {
-      label: 'Total Saídas',
-      value: formatCurrency(totals.saidas),
-      sub: `A Pagar: ${formatCurrency(totals.aPagar)} | Pago: ${formatCurrency(totals.pago)}`,
+      label: 'Realizado',
+      value: formatCurrency(totals.realizado),
+      icon: TrendingUp,
+      color: 'text-success',
+      bg: 'bg-success/10',
+      border: 'border-success/20',
+    },
+    {
+      label: 'A Pagar',
+      value: formatCurrency(totals.aPagar),
+      icon: TrendingDown,
+      color: 'text-purple-400',
+      bg: 'bg-purple-500/10',
+      border: 'border-purple-500/20',
+    },
+    {
+      label: 'Pago',
+      value: formatCurrency(totals.pago),
       icon: TrendingDown,
       color: 'text-destructive',
       bg: 'bg-destructive/10',
-    },
-    {
-      label: 'Saldo do Período',
-      value: formatCurrency(totals.saldo),
-      sub: `Projetado: ${formatCurrency((totals.aReceber + totals.realizado) - (totals.aPagar + totals.pago))} | Atual: ${formatCurrency(totals.realizado - totals.pago)}`,
-      icon: Scale,
-      color: totals.saldo >= 0 ? 'text-success' : 'text-warning',
-      bg: totals.saldo >= 0 ? 'bg-success/10' : 'bg-warning/10',
+      border: 'border-destructive/20',
     },
   ];
 
@@ -168,12 +176,28 @@ export default function FluxoCaixaPage() {
     }
   };
 
+  const getValueColorClass = (lancamento: typeof fluxoComSaldo[0]) => {
+    if (lancamento.realizado > 0) return 'text-success'; // verde - realizado
+    if (lancamento.aReceber > 0) return 'text-blue-400'; // azul - a receber
+    if (lancamento.pago > 0) return 'text-destructive'; // vermelho - pago
+    if (lancamento.aPagar > 0) return 'text-purple-400'; // lilás - a pagar
+    return 'text-foreground';
+  };
+
+  const getDisplayValue = (lancamento: typeof fluxoComSaldo[0]) => {
+    if (lancamento.realizado > 0) return lancamento.realizado;
+    if (lancamento.aReceber > 0) return lancamento.aReceber;
+    if (lancamento.pago > 0) return lancamento.pago;
+    if (lancamento.aPagar > 0) return lancamento.aPagar;
+    return Number(lancamento.valor);
+  };
+
   const getStatusLabel = (lancamento: LancamentoExtendido) => {
     const status = lancamento.status as string;
     const statusMap: Record<string, { label: string; className: string }> = {
-      a_receber: { label: 'A Receber', className: 'text-primary bg-primary/10' },
+      a_receber: { label: 'A Receber', className: 'text-blue-400 bg-blue-500/10' },
       recebido: { label: 'Recebido', className: 'text-success bg-success/10' },
-      a_pagar: { label: 'A Pagar', className: 'text-warning bg-warning/10' },
+      a_pagar: { label: 'A Pagar', className: 'text-purple-400 bg-purple-500/10' },
       pago: { label: 'Pago', className: 'text-success bg-success/10' },
       parcial: { label: 'Parcial', className: 'text-warning bg-warning/10' },
       atrasado: { label: 'Atrasado', className: 'text-destructive bg-destructive/10' },
@@ -240,7 +264,7 @@ export default function FluxoCaixaPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-4"
       >
         {stats.map((stat, index) => (
           <motion.div
@@ -248,7 +272,7 @@ export default function FluxoCaixaPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1 + index * 0.05 }}
-            className="glass-card rounded-xl p-4"
+            className={cn('glass-card rounded-xl p-4 border', stat.border)}
           >
             <div className="flex items-center gap-3">
               <div className={`p-2.5 rounded-lg ${stat.bg}`}>
@@ -257,7 +281,6 @@ export default function FluxoCaixaPage() {
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground truncate">{stat.label}</p>
                 <p className={`text-lg font-bold ${stat.color}`}>{stat.value}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{stat.sub}</p>
               </div>
             </div>
           </motion.div>
@@ -278,17 +301,13 @@ export default function FluxoCaixaPage() {
               <TableHead className="text-muted-foreground">Descrição</TableHead>
               <TableHead className="text-muted-foreground">Banco</TableHead>
               <TableHead className="text-muted-foreground">Status</TableHead>
-              <TableHead className="text-muted-foreground text-right text-primary">A Receber</TableHead>
-              <TableHead className="text-muted-foreground text-right text-success">Realizado</TableHead>
-              <TableHead className="text-muted-foreground text-right text-warning">A Pagar</TableHead>
-              <TableHead className="text-muted-foreground text-right text-destructive">Pago</TableHead>
-              <TableHead className="text-muted-foreground text-right">Saldo</TableHead>
+              <TableHead className="text-muted-foreground text-right">Valor</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">
+                <TableCell colSpan={5} className="text-center py-8">
                   <div className="flex items-center justify-center">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
                   </div>
@@ -296,71 +315,32 @@ export default function FluxoCaixaPage() {
               </TableRow>
             ) : fluxoComSaldo.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                   Nenhuma movimentação encontrada para o período.
                 </TableCell>
               </TableRow>
             ) : (
-              <>
-                {fluxoComSaldo.map((lancamento, index) => (
-                  <motion.tr
-                    key={lancamento.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.02 }}
-                    className="table-row-hover border-border/30"
-                  >
-                    <TableCell className="font-medium">
-                      {format(parseISO(lancamento.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}
-                    </TableCell>
-                    <TableCell>{lancamento.cliente_credor}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {lancamento.bancos?.nome || '-'}
-                    </TableCell>
-                    <TableCell>{getStatusLabel(lancamento)}</TableCell>
-                    <TableCell className="text-right text-primary font-medium">
-                      {lancamento.aReceber > 0 ? formatCurrency(lancamento.aReceber) : '-'}
-                    </TableCell>
-                    <TableCell className="text-right text-success font-medium">
-                      {lancamento.realizado > 0 ? formatCurrency(lancamento.realizado) : '-'}
-                    </TableCell>
-                    <TableCell className="text-right text-warning font-medium">
-                      {lancamento.aPagar > 0 ? formatCurrency(lancamento.aPagar) : '-'}
-                    </TableCell>
-                    <TableCell className="text-right text-destructive font-medium">
-                      {lancamento.pago > 0 ? formatCurrency(lancamento.pago) : '-'}
-                    </TableCell>
-                    <TableCell className={cn(
-                      'text-right font-bold',
-                      lancamento.saldoAcumulado >= 0 ? 'text-success' : 'text-warning'
-                    )}>
-                      {formatCurrency(lancamento.saldoAcumulado)}
-                    </TableCell>
-                  </motion.tr>
-                ))}
-                {/* Totals row */}
-                <TableRow className="bg-accent/30 border-t-2 border-border font-bold">
-                  <TableCell colSpan={4} className="text-foreground">Totais</TableCell>
-                  <TableCell className="text-right text-primary">
-                    {formatCurrency(totals.aReceber)}
+              fluxoComSaldo.map((lancamento, index) => (
+                <motion.tr
+                  key={lancamento.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.02 }}
+                  className="table-row-hover border-border/30"
+                >
+                  <TableCell className="font-medium">
+                    {format(parseISO(lancamento.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}
                   </TableCell>
-                  <TableCell className="text-right text-success">
-                    {formatCurrency(totals.realizado)}
+                  <TableCell>{lancamento.cliente_credor}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {lancamento.bancos?.nome || '-'}
                   </TableCell>
-                  <TableCell className="text-right text-warning">
-                    {formatCurrency(totals.aPagar)}
+                  <TableCell>{getStatusLabel(lancamento)}</TableCell>
+                  <TableCell className={cn('text-right font-bold', getValueColorClass(lancamento))}>
+                    {formatCurrency(getDisplayValue(lancamento))}
                   </TableCell>
-                  <TableCell className="text-right text-destructive">
-                    {formatCurrency(totals.pago)}
-                  </TableCell>
-                  <TableCell className={cn(
-                    'text-right',
-                    totals.saldo >= 0 ? 'text-success' : 'text-warning'
-                  )}>
-                    {formatCurrency(totals.saldo)}
-                  </TableCell>
-                </TableRow>
-              </>
+                </motion.tr>
+              ))
             )}
           </TableBody>
         </Table>
