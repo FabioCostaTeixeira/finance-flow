@@ -131,6 +131,8 @@ export default function FluxoCaixaPage() {
     };
   }, [fluxoComSaldo]);
 
+  const saldoAtual = totals.realizado - totals.pago;
+
   const stats = [
     {
       label: 'A Receber',
@@ -285,6 +287,30 @@ export default function FluxoCaixaPage() {
             </div>
           </motion.div>
         ))}
+      </motion.div>
+
+      {/* Saldo Atual Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className={cn(
+          'glass-card rounded-xl p-4 border flex items-center justify-between',
+          saldoAtual >= 0 ? 'border-success/20' : 'border-destructive/20'
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <div className={cn('p-2.5 rounded-lg', saldoAtual >= 0 ? 'bg-success/10' : 'bg-destructive/10')}>
+            <ArrowLeftRight className={cn('w-5 h-5', saldoAtual >= 0 ? 'text-success' : 'text-destructive')} />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Saldo Atual</p>
+            <p className="text-sm text-muted-foreground">Realizado - Pago</p>
+          </div>
+        </div>
+        <p className={cn('text-xl font-bold', saldoAtual >= 0 ? 'text-success' : 'text-destructive')}>
+          {formatCurrency(saldoAtual)}
+        </p>
       </motion.div>
 
       {/* Table */}
