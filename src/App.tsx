@@ -42,7 +42,9 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
       <div className="fixed top-4 right-4 z-50">
         <AlertasNotificacao />
       </div>
-      {children}
+      <div className="flex-1 min-w-0">
+        {children}
+      </div>
     </div>
   );
 }

@@ -110,19 +110,19 @@ export default function DespesasPage() {
   ];
 
   return (
-    <div className="flex-1 p-6 space-y-6 overflow-auto">
+    <div className="flex-1 p-3 md:p-6 space-y-4 md:space-y-6 overflow-auto">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between"
       >
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <TrendingDown className="w-7 h-7 text-destructive" />
+        <div className="pl-10 md:pl-0">
+          <h1 className="text-lg md:text-2xl font-bold text-foreground flex items-center gap-2">
+            <TrendingDown className="w-5 h-5 md:w-7 md:h-7 text-destructive" />
             Despesas
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground mt-1 text-xs md:text-base">
             Gerencie suas saídas financeiras
           </p>
         </div>
@@ -133,7 +133,7 @@ export default function DespesasPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-4"
       >
         {stats.map((stat, index) => (
           <motion.div
@@ -141,15 +141,15 @@ export default function DespesasPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1 + index * 0.05 }}
-            className="glass-card rounded-xl p-4"
+            className="glass-card rounded-xl p-3 md:p-4"
           >
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-lg ${stat.bg}`}>
-                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className={`p-2 md:p-2.5 rounded-lg shrink-0 ${stat.bg}`}>
+                <stat.icon className={`w-4 h-4 md:w-5 md:h-5 ${stat.color}`} />
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-muted-foreground truncate">{stat.label}</p>
-                <p className={`text-lg font-bold ${stat.color}`}>{stat.value}</p>
+                <p className="text-[10px] md:text-xs text-muted-foreground truncate">{stat.label}</p>
+                <p className={`text-sm md:text-lg font-bold ${stat.color} truncate`}>{stat.value}</p>
               </div>
             </div>
           </motion.div>

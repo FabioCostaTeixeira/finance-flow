@@ -136,31 +136,31 @@ export default function InsightsPage() {
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="p-6 border-b border-border/50">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <Brain className="w-7 h-7 text-primary" />
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="p-4 md:p-6 border-b border-border/50">
+        <div className="flex items-center justify-between gap-2">
+          <div className="pl-10 md:pl-0">
+            <h1 className="text-lg md:text-2xl font-bold text-foreground flex items-center gap-2">
+              <Brain className="w-5 h-5 md:w-7 md:h-7 text-primary" />
               Insights por IA
             </h1>
-            <p className="text-muted-foreground mt-1">Pergunte sobre suas finanças e receba insights inteligentes</p>
+            <p className="text-muted-foreground mt-1 text-xs md:text-base">Pergunte sobre suas finanças e receba insights inteligentes</p>
           </div>
-          <Button variant="outline" size="sm" onClick={handleClearHistory} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handleClearHistory} className="gap-2 shrink-0">
             <Trash2 className="w-4 h-4" />
-            Limpar histórico
+            <span className="hidden sm:inline">Limpar histórico</span>
           </Button>
         </div>
       </motion.div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 md:p-6 scrollbar-thin">
         <div className="max-w-3xl mx-auto space-y-4">
           {messages.length === 0 && !messagesLoading && !streamingContent && (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-card rounded-2xl p-8 text-center">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <Sparkles className="w-8 h-8 text-primary" />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-card rounded-2xl p-4 md:p-8 text-center">
+              <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-primary" />
               </div>
-              <h2 className="text-xl font-semibold mb-2">Bem-vindo ao Insights IA</h2>
-              <p className="text-muted-foreground mb-4">Faça perguntas sobre suas finanças, peça análises ou registre novos lançamentos de forma conversacional.</p>
+              <h2 className="text-lg md:text-xl font-semibold mb-2">Bem-vindo ao Insights IA</h2>
+              <p className="text-muted-foreground mb-4 text-sm">Faça perguntas sobre suas finanças, peça análises ou registre novos lançamentos de forma conversacional.</p>
               <div className="flex flex-wrap gap-2 justify-center">
                 {[
                   'Qual minha maior despesa este mês?', 
@@ -205,9 +205,9 @@ export default function InsightsPage() {
         </div>
       </div>
 
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-6 border-t border-border/50">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-3 md:p-6 border-t border-border/50">
         <div className="max-w-3xl mx-auto">
-          <div className="flex gap-3 items-end">
+          <div className="flex gap-2 md:gap-3 items-end">
             <Textarea 
               value={input} 
               onChange={(e) => setInput(e.target.value)} 
@@ -217,16 +217,16 @@ export default function InsightsPage() {
                   handleSend();
                 }
               }} 
-              placeholder="Pergunte sobre suas finanças... (Ctrl+Enter para enviar)" 
-              className="input-glass min-h-[60px] max-h-[200px] resize-none" 
+              placeholder="Pergunte sobre suas finanças..." 
+              className="input-glass min-h-[48px] md:min-h-[60px] max-h-[200px] resize-none text-sm" 
               disabled={isLoading}
               rows={2}
             />
-            <Button onClick={handleSend} disabled={!input.trim() || isLoading} className="px-6 h-[60px]">
+            <Button onClick={handleSend} disabled={!input.trim() || isLoading} className="px-4 md:px-6 h-[48px] md:h-[60px]">
               <Send className="w-4 h-4" />
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 text-center">A IA analisa seus dados e pode criar lançamentos diretamente. Exemplo: "Lançar despesa de R$50 da farmácia"</p>
+          <p className="text-xs text-muted-foreground mt-2 text-center hidden sm:block">A IA analisa seus dados e pode criar lançamentos diretamente. Exemplo: "Lançar despesa de R$50 da farmácia"</p>
         </div>
       </motion.div>
     </div>

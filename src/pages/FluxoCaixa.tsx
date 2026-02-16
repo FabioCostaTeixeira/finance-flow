@@ -219,16 +219,16 @@ export default function FluxoCaixaPage() {
     : null;
 
   return (
-    <div className="flex-1 p-6 space-y-6 overflow-auto">
+    <div className="flex-1 p-3 md:p-6 space-y-4 md:space-y-6 overflow-auto">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row md:items-center justify-between gap-4"
+        className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4"
       >
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <ArrowLeftRight className="w-7 h-7 text-primary" />
+        <div className="pl-10 md:pl-0">
+          <h1 className="text-lg md:text-2xl font-bold text-foreground flex items-center gap-2">
+            <ArrowLeftRight className="w-5 h-5 md:w-7 md:h-7 text-primary" />
             Fluxo de Caixa
             {selectedBancoName && (
               <span className="text-muted-foreground font-normal text-lg">
@@ -266,7 +266,7 @@ export default function FluxoCaixaPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-4"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-4"
       >
         {stats.map((stat, index) => (
           <motion.div
@@ -274,15 +274,15 @@ export default function FluxoCaixaPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1 + index * 0.05 }}
-            className={cn('glass-card rounded-xl p-4 border', stat.border)}
+            className={cn('glass-card rounded-xl p-2.5 md:p-4 border', stat.border)}
           >
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-lg ${stat.bg}`}>
-                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className={`p-1.5 md:p-2.5 rounded-lg shrink-0 ${stat.bg}`}>
+                <stat.icon className={`w-4 h-4 md:w-5 md:h-5 ${stat.color}`} />
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-muted-foreground truncate">{stat.label}</p>
-                <p className={`text-lg font-bold ${stat.color}`}>{stat.value}</p>
+                <p className="text-[10px] md:text-xs text-muted-foreground truncate">{stat.label}</p>
+                <p className={`text-sm md:text-lg font-bold ${stat.color} truncate`}>{stat.value}</p>
               </div>
             </div>
           </motion.div>
@@ -318,9 +318,9 @@ export default function FluxoCaixaPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="glass-card rounded-xl overflow-hidden"
+        className="glass-card rounded-xl overflow-x-auto"
       >
-        <Table>
+        <Table className="text-xs md:text-sm">
           <TableHeader>
             <TableRow className="hover:bg-transparent border-border/50">
               <TableHead className="text-muted-foreground">Data</TableHead>

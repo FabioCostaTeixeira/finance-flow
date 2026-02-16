@@ -212,19 +212,19 @@ export default function BancosPage() {
   ];
 
   return (
-    <div className="flex-1 p-6 space-y-6 overflow-auto">
+    <div className="flex-1 p-3 md:p-6 space-y-4 md:space-y-6 overflow-auto">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row md:items-center justify-between gap-4"
+        className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4"
       >
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Landmark className="w-7 h-7 text-primary" />
+        <div className="pl-10 md:pl-0">
+          <h1 className="text-lg md:text-2xl font-bold text-foreground flex items-center gap-2">
+            <Landmark className="w-5 h-5 md:w-7 md:h-7 text-primary" />
             Bancos e Saldos
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground mt-1 text-xs md:text-base">
             Visualize o fluxo de caixa por banco em um período.
           </p>
         </div>
@@ -260,7 +260,7 @@ export default function BancosPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3"
       >
         {stats.map((stat, index) => (
           <motion.div
@@ -268,15 +268,15 @@ export default function BancosPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1 + index * 0.05 }}
-            className="glass-card rounded-xl p-3"
+            className="glass-card rounded-xl p-2 md:p-3"
           >
-            <div className="flex items-center gap-2">
-              <div className={`p-2 rounded-lg shrink-0 ${stat.bg}`}>
-                <stat.icon className={`w-4 h-4 ${stat.color}`} />
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <div className={`p-1.5 md:p-2 rounded-lg shrink-0 ${stat.bg}`}>
+                <stat.icon className={`w-3.5 h-3.5 md:w-4 md:h-4 ${stat.color}`} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] leading-tight text-muted-foreground truncate">{stat.label}</p>
-                <p className={`text-sm font-bold truncate ${stat.color}`}>{stat.value}</p>
+                <p className="text-[9px] md:text-[10px] leading-tight text-muted-foreground truncate">{stat.label}</p>
+                <p className={`text-[11px] md:text-sm font-bold truncate ${stat.color}`}>{stat.value}</p>
               </div>
             </div>
           </motion.div>
@@ -288,9 +288,9 @@ export default function BancosPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="glass-card rounded-xl overflow-hidden"
+        className="glass-card rounded-xl overflow-x-auto"
       >
-        <Table>
+        <Table className="text-xs md:text-sm">
           <TableHeader>
             <TableRow className="hover:bg-transparent border-border/50">
               <TableHead className="text-muted-foreground" rowSpan={2}>Banco</TableHead>

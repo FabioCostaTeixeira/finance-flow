@@ -270,11 +270,11 @@ export function LancamentosTable({
         </motion.div>
       )}
 
-      <div className="glass-card rounded-xl overflow-hidden">
-        <Table>
+      <div className="glass-card rounded-xl overflow-x-auto">
+        <Table className="text-xs md:text-sm">
           <TableHeader>
             <TableRow className="hover:bg-transparent border-border/50">
-              <TableHead className="w-12">
+              <TableHead className="w-8 md:w-12">
                 <Checkbox
                   checked={allDeletaveisSelected}
                   onCheckedChange={handleSelectAll}
@@ -282,16 +282,16 @@ export function LancamentosTable({
                   aria-label="Selecionar todos"
                 />
               </TableHead>
-              <TableHead className="text-muted-foreground">Data</TableHead>
-              <TableHead className="text-muted-foreground">
+              <TableHead className="text-muted-foreground whitespace-nowrap">Data</TableHead>
+              <TableHead className="text-muted-foreground whitespace-nowrap">
                 {isReceita ? 'Cliente' : 'Credor'}
               </TableHead>
-              <TableHead className="text-muted-foreground">Valor</TableHead>
-              <TableHead className="text-muted-foreground">Banco</TableHead>
-              <TableHead className="text-muted-foreground">Categoria</TableHead>
-              <TableHead className="text-muted-foreground">Status</TableHead>
-              <TableHead className="text-muted-foreground">Parcela</TableHead>
-              <TableHead className="text-muted-foreground text-right">Ações</TableHead>
+              <TableHead className="text-muted-foreground whitespace-nowrap">Valor</TableHead>
+              <TableHead className="text-muted-foreground whitespace-nowrap hidden sm:table-cell">Banco</TableHead>
+              <TableHead className="text-muted-foreground whitespace-nowrap hidden md:table-cell">Categoria</TableHead>
+              <TableHead className="text-muted-foreground whitespace-nowrap">Status</TableHead>
+              <TableHead className="text-muted-foreground whitespace-nowrap hidden lg:table-cell">Parcela</TableHead>
+              <TableHead className="text-muted-foreground text-right whitespace-nowrap">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -327,24 +327,24 @@ export function LancamentosTable({
                         aria-label={`Selecionar ${lancamento.cliente_credor}`}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">
-                      {format(parseISO(lancamento.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}
+                    <TableCell className="font-medium whitespace-nowrap">
+                      {format(parseISO(lancamento.data_vencimento), 'dd/MM', { locale: ptBR })}
                     </TableCell>
-                    <TableCell>{lancamento.cliente_credor}</TableCell>
+                    <TableCell className="max-w-[120px] md:max-w-none truncate">{lancamento.cliente_credor}</TableCell>
                     <TableCell className={cn(
-                      'font-semibold',
+                      'font-semibold whitespace-nowrap',
                       isReceita ? 'text-primary' : 'text-destructive'
                     )}>
                       {formatCurrency(Number(lancamento.valor))}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground hidden sm:table-cell">
                       {lancamento.bancos?.nome || '-'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground hidden md:table-cell">
                       {getCategoryDisplay(lancamento)}
                     </TableCell>
                     <TableCell>{getStatusBadge(lancamento)}</TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground hidden lg:table-cell">
                       {lancamento.total_parcelas > 1
                         ? `${lancamento.parcela_atual}/${lancamento.total_parcelas}`
                         : '-'}
