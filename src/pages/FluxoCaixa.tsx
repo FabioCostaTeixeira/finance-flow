@@ -59,7 +59,7 @@ export default function FluxoCaixaPage() {
       .sort((a, b) => {
         const dateA = parseISO(a.data_vencimento);
         const dateB = parseISO(b.data_vencimento);
-        return dateA.getTime() - dateB.getTime();
+        return dateB.getTime() - dateA.getTime();
       });
   }, [lancamentos, date, selectedBancoId]);
 
@@ -289,28 +289,78 @@ export default function FluxoCaixaPage() {
         ))}
       </motion.div>
 
-      {/* Saldo Atual Card */}
+      {/* Saldo Cards - Mobile: split, Desktop: single */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
-        className={cn(
-          'glass-card rounded-xl p-4 border flex items-center justify-between',
-          saldoAtual >= 0 ? 'border-success/20' : 'border-destructive/20'
-        )}
+        className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4"
       >
-        <div className="flex items-center gap-3">
-          <div className={cn('p-2.5 rounded-lg', saldoAtual >= 0 ? 'bg-success/10' : 'bg-destructive/10')}>
-            <ArrowLeftRight className={cn('w-5 h-5', saldoAtual >= 0 ? 'text-success' : 'text-destructive')} />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Saldo Atual</p>
-            <p className="text-sm text-muted-foreground">Realizado - Pago</p>
+        {/* Saldo Projetado */}
+        {(() => {
+          const saldoProjetado = (totals.aReceber + totals.realizado) - (totals.aPagar + totals.pago);
+          const projetadoPositivo = saldoProjetado >= 0;
+          return (
+            <div className={cn(
+              'glass-card rounded-xl p-2.5 md:p-4 border',
+              projetadoPositivo ? 'border-blue-500/20' : 'border-destructive/20'
+            )}>
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className={cn('p-1.5 md:p-2.5 rounded-lg shrink-0', projetadoPositivo ? 'bg-blue-500/10' : 'bg-destructive/10')}>
+                  <TrendingUp className={cn('w-4 h-4 md:w-5 md:h-5', projetadoPositivo ? 'text-blue-400' : 'text-destructive')} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] md:text-xs text-muted-foreground truncate">Saldo Projetado</p>
+                  <p className={cn('text-sm md:text-lg font-bold truncate', projetadoPositivo ? 'text-blue-400' : 'text-destructive')}>
+                    {formatCurrency(saldoProjetado)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Saldo Realizado */}
+        <div className={cn(
+          'glass-card rounded-xl p-2.5 md:p-4 border',
+          saldoAtual >= 0 ? 'border-success/20' : 'border-destructive/20'
+        )}>
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className={cn('p-1.5 md:p-2.5 rounded-lg shrink-0', saldoAtual >= 0 ? 'bg-success/10' : 'bg-destructive/10')}>
+              <ArrowLeftRight className={cn('w-4 h-4 md:w-5 md:h-5', saldoAtual >= 0 ? 'text-success' : 'text-destructive')} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] md:text-xs text-muted-foreground truncate">Saldo Realizado</p>
+              <p className={cn('text-sm md:text-lg font-bold truncate', saldoAtual >= 0 ? 'text-success' : 'text-destructive')}>
+                {formatCurrency(saldoAtual)}
+              </p>
+            </div>
           </div>
         </div>
-        <p className={cn('text-xl font-bold', saldoAtual >= 0 ? 'text-success' : 'text-destructive')}>
-          {formatCurrency(saldoAtual)}
-        </p>
+
+        {/* Saldo Geral - visível apenas em desktop como 3ª coluna */}
+        {(() => {
+          const saldoGeral = totals.saldo;
+          const geralPositivo = saldoGeral >= 0;
+          return (
+            <div className={cn(
+              'glass-card rounded-xl p-2.5 md:p-4 border col-span-2 md:col-span-1',
+              geralPositivo ? 'border-primary/20' : 'border-destructive/20'
+            )}>
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className={cn('p-1.5 md:p-2.5 rounded-lg shrink-0', geralPositivo ? 'bg-primary/10' : 'bg-destructive/10')}>
+                  <ArrowLeftRight className={cn('w-4 h-4 md:w-5 md:h-5', geralPositivo ? 'text-primary' : 'text-destructive')} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] md:text-xs text-muted-foreground truncate">Saldo Geral</p>
+                  <p className={cn('text-sm md:text-lg font-bold truncate', geralPositivo ? 'text-primary' : 'text-destructive')}>
+                    {formatCurrency(saldoGeral)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </motion.div>
 
       {/* Table */}
