@@ -60,7 +60,7 @@ export function useLancamentos(tipo?: 'receita' | 'despesa') {
           categorias ( id, nome, categoria_pai_id ),
           bancos ( id, nome )
         `)
-        .order('data_vencimento', { ascending: true });
+        .order('data_vencimento', { ascending: false });
 
       if (tipo) {
         query = query.eq('tipo', tipo);
