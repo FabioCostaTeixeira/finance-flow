@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, UserPlus, Trash2, Shield } from 'lucide-react';
+import { UserPermissionsManager } from '@/components/UserPermissionsManager';
 import { z } from 'zod';
 import {
   AlertDialog,
@@ -364,6 +365,8 @@ export default function Usuarios() {
             )}
           </CardContent>
         </Card>
+        {/* Permissions Manager */}
+        <UserPermissionsManager />
       </div>
     </main>
   );
