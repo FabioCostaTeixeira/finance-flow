@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useMyPermissions, hasModuleAccess, ROUTE_TO_MODULE } from '@/hooks/useUserPermissions';
 import logo from '@/assets/logo.jpg';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
@@ -36,15 +37,22 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, role, userName } = useAuth();
+  const { data: permissions } = useMyPermissions();
 
   const handleLogout = async () => {
     await signOut();
     navigate('/auth');
   };
 
-  const allMenuItems = role === 'master'
+  const baseItems = role === 'master'
     ? [...menuItems, { path: '/usuarios', label: 'Usuários', icon: Users }]
     : menuItems;
+
+  const allMenuItems = baseItems.filter(item => {
+    const moduleKey = ROUTE_TO_MODULE[item.path];
+    if (!moduleKey) return true;
+    return hasModuleAccess(permissions || [], moduleKey, role);
+  });
 
   return (
     <div className="flex flex-col h-full">
@@ -180,10 +188,17 @@ export function AppSidebar() {
 function DesktopNav({ collapsed }: { collapsed: boolean }) {
   const location = useLocation();
   const { role } = useAuth();
+  const { data: permissions } = useMyPermissions();
 
-  const allMenuItems = role === 'master'
+  const baseItems = role === 'master'
     ? [...menuItems, { path: '/usuarios', label: 'Usuários', icon: Users }]
     : menuItems;
+
+  const allMenuItems = baseItems.filter(item => {
+    const moduleKey = ROUTE_TO_MODULE[item.path];
+    if (!moduleKey) return true;
+    return hasModuleAccess(permissions || [], moduleKey, role);
+  });
 
   return (
     <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto scrollbar-thin">

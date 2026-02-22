@@ -2,10 +2,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AlertasNotificacao } from "@/components/AlertasNotificacao";
+import { useMyPermissions, hasModuleAccess, ROUTE_TO_MODULE } from "@/hooks/useUserPermissions";
+import type { ModuleKey } from "@/hooks/useUserPermissions";
 import Auth from "./pages/Auth";
 import Insights from "./pages/Insights";
 import Receitas from "./pages/Receitas";
@@ -67,6 +69,25 @@ function MasterRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function PermissionRoute({ moduleKey, children }: { moduleKey: ModuleKey; children: React.ReactNode }) {
+  const { role, loading } = useAuth();
+  const { data: permissions, isLoading } = useMyPermissions();
+
+  if (loading || isLoading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!hasModuleAccess(permissions || [], moduleKey, role)) {
+    return <Navigate to="/insights" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth();
 
@@ -82,14 +103,14 @@ function AppRoutes() {
     <Routes>
       <Route path="/auth" element={user ? <Navigate to="/insights" replace /> : <Auth />} />
       <Route path="/" element={<Navigate to={user ? "/insights" : "/auth"} replace />} />
-      <Route path="/insights" element={<ProtectedLayout><Insights /></ProtectedLayout>} />
-      <Route path="/receitas" element={<ProtectedLayout><Receitas /></ProtectedLayout>} />
-      <Route path="/despesas" element={<ProtectedLayout><Despesas /></ProtectedLayout>} />
-      <Route path="/categorias" element={<ProtectedLayout><Categorias /></ProtectedLayout>} />
-      <Route path="/bancos" element={<ProtectedLayout><Bancos /></ProtectedLayout>} />
-      <Route path="/fluxo-caixa" element={<ProtectedLayout><FluxoCaixa /></ProtectedLayout>} />
-      <Route path="/api" element={<ProtectedLayout><ApiKeys /></ProtectedLayout>} />
-      <Route path="/api/docs" element={<ProtectedLayout><ApiDocumentation /></ProtectedLayout>} />
+      <Route path="/insights" element={<ProtectedLayout><PermissionRoute moduleKey="insights"><Insights /></PermissionRoute></ProtectedLayout>} />
+      <Route path="/receitas" element={<ProtectedLayout><PermissionRoute moduleKey="receitas"><Receitas /></PermissionRoute></ProtectedLayout>} />
+      <Route path="/despesas" element={<ProtectedLayout><PermissionRoute moduleKey="despesas"><Despesas /></PermissionRoute></ProtectedLayout>} />
+      <Route path="/categorias" element={<ProtectedLayout><PermissionRoute moduleKey="categorias"><Categorias /></PermissionRoute></ProtectedLayout>} />
+      <Route path="/bancos" element={<ProtectedLayout><PermissionRoute moduleKey="bancos"><Bancos /></PermissionRoute></ProtectedLayout>} />
+      <Route path="/fluxo-caixa" element={<ProtectedLayout><PermissionRoute moduleKey="fluxo-caixa"><FluxoCaixa /></PermissionRoute></ProtectedLayout>} />
+      <Route path="/api" element={<ProtectedLayout><PermissionRoute moduleKey="api"><ApiKeys /></PermissionRoute></ProtectedLayout>} />
+      <Route path="/api/docs" element={<ProtectedLayout><PermissionRoute moduleKey="api-docs"><ApiDocumentation /></PermissionRoute></ProtectedLayout>} />
       <Route 
         path="/usuarios" 
         element={
