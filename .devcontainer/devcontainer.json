@@ -1,0 +1,28 @@
+{
+  "name": "Finance Flow (Node 20)",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+
+  "features": {
+    // Opcional: se quiser a última versão estável do Node dentro da imagem 20
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  },
+
+  // Opcional: comandos que rodam depois que o container é criado
+  "postCreateCommand": "npm install",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss"
+        // adicione outras extensões que você usa
+      ]
+    }
+  },
+
+  // Porta do Vite (geralmente 5173)
+  "forwardPorts": [5173]
+}
