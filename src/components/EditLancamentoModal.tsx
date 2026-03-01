@@ -26,7 +26,7 @@ import { CategoriaCombobox } from './CategoriaCombobox';
 import { SubcategoriaCombobox } from './SubcategoriaCombobox';
 import { BancoCombobox } from './BancoCombobox';
 import { CurrencyInput } from '@/components/CurrencyInput';
-import { useUpdateLancamento } from '@/hooks/useUpdateLancamento';
+import { useUpdateLancamento, useUpdateRecurringLancamentos } from '@/hooks/useUpdateLancamento';
 import { LancamentoExtendido } from '@/hooks/useLancamentos';
 import { useCategorias } from '@/hooks/useCategorias';
 import { toast } from '@/hooks/use-toast';
@@ -51,6 +51,7 @@ interface EditLancamentoModalProps {
 
 export function EditLancamentoModal({ lancamento, open, onOpenChange }: EditLancamentoModalProps) {
   const updateLancamento = useUpdateLancamento();
+  const updateRecurring = useUpdateRecurringLancamentos();
   const { data: categorias = [] } = useCategorias(lancamento?.tipo);
 
   const form = useForm<EditFormData>({
@@ -98,21 +99,39 @@ export function EditLancamentoModal({ lancamento, open, onOpenChange }: EditLanc
 
     try {
       const finalCategoriaId = data.subcategoria_id || data.categoria_id || null;
+      const editScope = (lancamento as any).__editScope;
 
-      await updateLancamento.mutateAsync({
-        id: lancamento.id,
-        data_vencimento: data.data_vencimento,
-        cliente_credor: data.cliente_credor,
-        valor: data.valor,
-        banco_id: data.banco_id || null,
-        categoria_id: finalCategoriaId,
-        observacao: data.observacao || null,
-      });
+      if (editScope === 'all' && lancamento.recorrencia_id) {
+        // Update all open lancamentos with the same recorrencia_id
+        await updateRecurring.mutateAsync({
+          recorrencia_id: lancamento.recorrencia_id,
+          cliente_credor: data.cliente_credor,
+          valor: data.valor,
+          banco_id: data.banco_id || null,
+          categoria_id: finalCategoriaId,
+          observacao: data.observacao || null,
+        });
 
-      toast({
-        title: 'Lançamento atualizado',
-        description: 'As alterações foram salvas com sucesso.',
-      });
+        toast({
+          title: 'Lançamentos atualizados',
+          description: 'Todos os lançamentos em aberto da série foram atualizados.',
+        });
+      } else {
+        await updateLancamento.mutateAsync({
+          id: lancamento.id,
+          data_vencimento: data.data_vencimento,
+          cliente_credor: data.cliente_credor,
+          valor: data.valor,
+          banco_id: data.banco_id || null,
+          categoria_id: finalCategoriaId,
+          observacao: data.observacao || null,
+        });
+
+        toast({
+          title: 'Lançamento atualizado',
+          description: 'As alterações foram salvas com sucesso.',
+        });
+      }
 
       onOpenChange(false);
     } catch (error) {
@@ -271,9 +290,9 @@ export function EditLancamentoModal({ lancamento, open, onOpenChange }: EditLanc
                   ? 'bg-primary hover:bg-primary/90'
                   : 'bg-destructive hover:bg-destructive/90'
               )}
-              disabled={updateLancamento.isPending}
+              disabled={updateLancamento.isPending || updateRecurring.isPending}
             >
-              {updateLancamento.isPending ? 'Salvando...' : 'Salvar Alterações'}
+              {(updateLancamento.isPending || updateRecurring.isPending) ? 'Salvando...' : 'Salvar Alterações'}
             </Button>
           </div>
         </form>

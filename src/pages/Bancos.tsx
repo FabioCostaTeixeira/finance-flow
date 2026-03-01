@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Landmark, TrendingUp, TrendingDown, Scale, Edit, Trash2, Plus, CheckCircle, Clock, Wallet, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { KpiCard } from '@/components/KpiCard';
 import { formatCurrency } from '@/lib/recurrence';
 import { useBancosComSaldos, useBancos, useCreateBanco, useUpdateBanco, useDeleteBanco } from '@/hooks/useBancos';
 import { DateRange } from 'react-day-picker';
@@ -166,50 +167,8 @@ export default function BancosPage() {
     });
   }, [filteredBancos]);
 
-  const stats = [
-    {
-      label: 'Entradas - Projetado',
-      value: formatCurrency(totals.entradasProjetado),
-      icon: TrendingUp,
-      color: 'text-primary/70',
-      bg: 'bg-primary/10',
-    },
-    {
-      label: 'Entradas - Recebido',
-      value: formatCurrency(totals.entradasRecebido),
-      icon: CheckCircle,
-      color: 'text-primary',
-      bg: 'bg-primary/10',
-    },
-    {
-      label: 'Saídas - A Pagar',
-      value: formatCurrency(totals.saidasAPagar),
-      icon: Clock,
-      color: 'text-destructive/70',
-      bg: 'bg-destructive/10',
-    },
-    {
-      label: 'Saídas - Pago',
-      value: formatCurrency(totals.saidasPago),
-      icon: ArrowDownCircle,
-      color: 'text-destructive',
-      bg: 'bg-destructive/10',
-    },
-    {
-      label: 'Saldo - Projetado',
-      value: formatCurrency(totals.saldoProjetado),
-      icon: Scale,
-      color: totals.saldoProjetado >= 0 ? 'text-success/70' : 'text-amber-500/70',
-      bg: totals.saldoProjetado >= 0 ? 'bg-success/10' : 'bg-amber-500/10',
-    },
-    {
-      label: 'Saldo - Atual',
-      value: formatCurrency(totals.saldoAtual),
-      icon: Wallet,
-      color: totals.saldoAtual >= 0 ? 'text-success' : 'text-amber-500',
-      bg: totals.saldoAtual >= 0 ? 'bg-success/10' : 'bg-amber-500/10',
-    },
-  ];
+  const saldoRealizado = totals.entradasRecebido - totals.saidasPago;
+  const saldoFuturo = (totals.entradasProjetado - totals.entradasRecebido) - (totals.saidasAPagar - totals.saidasPago) + saldoRealizado;
 
   return (
     <div className="flex-1 p-3 md:p-6 space-y-4 md:space-y-6 overflow-auto">
@@ -255,33 +214,29 @@ export default function BancosPage() {
         </div>
       </motion.div>
 
-      {/* Stats Cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3"
-      >
-        {stats.map((stat, index) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.1 + index * 0.05 }}
-            className="glass-card rounded-xl p-2 md:p-3"
-          >
-            <div className="flex items-center gap-1.5 md:gap-2">
-              <div className={`p-1.5 md:p-2 rounded-lg shrink-0 ${stat.bg}`}>
-                <stat.icon className={`w-3.5 h-3.5 md:w-4 md:h-4 ${stat.color}`} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[9px] md:text-[10px] leading-tight text-muted-foreground truncate">{stat.label}</p>
-                <p className={`text-[11px] md:text-sm font-bold truncate ${stat.color}`}>{stat.value}</p>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+        <KpiCard
+          title="Saldo Realizado"
+          badgeLabel="Realizado"
+          mainValue={saldoRealizado}
+          stats={[
+            { label: 'Recebidos', value: totals.entradasRecebido, colorClass: 'text-success', barColorClass: 'bg-success' },
+            { label: 'Pagos', value: totals.saidasPago, colorClass: 'text-destructive', barColorClass: 'bg-destructive' },
+          ]}
+          delay={0.1}
+        />
+        <KpiCard
+          title="Saldo Futuro"
+          badgeLabel="Projetado"
+          mainValue={saldoFuturo}
+          stats={[
+            { label: 'A Receber', value: totals.entradasProjetado - totals.entradasRecebido, colorClass: 'text-blue-400', barColorClass: 'bg-blue-500' },
+            { label: 'A Pagar', value: totals.saidasAPagar - totals.saidasPago, colorClass: 'text-purple-400', barColorClass: 'bg-purple-500' },
+          ]}
+          delay={0.15}
+        />
+      </div>
 
       {/* Table */}
       <motion.div

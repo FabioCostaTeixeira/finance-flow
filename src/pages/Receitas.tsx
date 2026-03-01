@@ -1,13 +1,13 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, CheckCircle, Clock } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 import { parseISO, isAfter, isBefore, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { LancamentosTable } from '@/components/LancamentosTable';
 import { LancamentoForm } from '@/components/LancamentoForm';
 import { FloatingActionButton } from '@/components/FloatingActionButton';
+import { KpiCard } from '@/components/KpiCard';
 import { useLancamentos } from '@/hooks/useLancamentos';
 import { useCategorias } from '@/hooks/useCategorias';
-import { formatCurrency } from '@/lib/recurrence';
 import { LancamentosFiltersState } from '@/components/LancamentosFilters';
 import { getComputedStatus } from '@/lib/statusUtils';
 
@@ -85,30 +85,6 @@ export default function ReceitasPage() {
     .filter((l) => ['a_receber', 'parcial'].includes(l.status))
     .reduce((acc, l) => acc + Number(l.valor) - Number(l.valor_pago || 0), 0);
 
-  const stats = [
-    {
-      label: 'Total de Receitas (Filtrado)',
-      value: formatCurrency(totalReceitas),
-      icon: TrendingUp,
-      color: 'text-primary',
-      bg: 'bg-primary/10',
-    },
-    {
-      label: 'Recebido (Filtrado)',
-      value: formatCurrency(totalRecebido),
-      icon: CheckCircle,
-      color: 'text-success',
-      bg: 'bg-success/10',
-    },
-    {
-      label: 'A Receber (Filtrado)',
-      value: formatCurrency(totalAReceber),
-      icon: Clock,
-      color: 'text-warning',
-      bg: 'bg-warning/10',
-    },
-  ];
-
   return (
     <div className="flex-1 p-3 md:p-6 space-y-4 md:space-y-6 overflow-auto">
       {/* Header */}
@@ -128,33 +104,19 @@ export default function ReceitasPage() {
         </div>
       </motion.div>
 
-      {/* Stats Cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-4"
-      >
-        {stats.map((stat, index) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.1 + index * 0.05 }}
-            className="glass-card rounded-xl p-3 md:p-4"
-          >
-            <div className="flex items-center gap-2 md:gap-3">
-              <div className={`p-2 md:p-2.5 rounded-lg shrink-0 ${stat.bg}`}>
-                <stat.icon className={`w-4 h-4 md:w-5 md:h-5 ${stat.color}`} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] md:text-xs text-muted-foreground truncate">{stat.label}</p>
-                <p className={`text-sm md:text-lg font-bold ${stat.color} truncate`}>{stat.value}</p>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
+      {/* KPI Card */}
+      <div className="max-w-md">
+        <KpiCard
+          title="Total de Receitas"
+          badgeLabel="Filtrado"
+          mainValue={totalReceitas}
+          stats={[
+            { label: 'A Receber', value: totalAReceber, colorClass: 'text-blue-400', barColorClass: 'bg-blue-500' },
+            { label: 'Recebido', value: totalRecebido, colorClass: 'text-success', barColorClass: 'bg-success' },
+          ]}
+          delay={0.1}
+        />
+      </div>
 
       {/* Table */}
       <motion.div
