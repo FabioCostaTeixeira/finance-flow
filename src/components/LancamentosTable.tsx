@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { MoreHorizontal, Trash2, CheckCircle, DollarSign, AlertTriangle, Edit, ArrowRightLeft } from 'lucide-react';
+import { RecurringEditDialog } from './RecurringEditDialog';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -74,6 +75,8 @@ export function LancamentosTable({
   const [editingTransferenciaVinculoId, setEditingTransferenciaVinculoId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [recurringDialogOpen, setRecurringDialogOpen] = useState(false);
+  const [pendingRecurringLancamento, setPendingRecurringLancamento] = useState<LancamentoExtendido | null>(null);
 
   const isReceita = tipo === 'receita';
 
@@ -103,10 +106,32 @@ export function LancamentosTable({
     if (status === 'transferencia' && lancamento.transferencia_vinculo_id) {
       setEditingTransferenciaVinculoId(lancamento.transferencia_vinculo_id);
       setEditTransferenciaModalOpen(true);
+    } else if (lancamento.recorrencia_id) {
+      // Lançamento recorrente: perguntar escopo
+      setPendingRecurringLancamento(lancamento);
+      setRecurringDialogOpen(true);
     } else {
       setEditingLancamento(lancamento);
       setEditModalOpen(true);
     }
+  };
+
+  const handleRecurringEditSingle = () => {
+    if (pendingRecurringLancamento) {
+      setEditingLancamento(pendingRecurringLancamento);
+      setEditModalOpen(true);
+    }
+    setRecurringDialogOpen(false);
+    setPendingRecurringLancamento(null);
+  };
+
+  const handleRecurringEditAll = () => {
+    if (pendingRecurringLancamento) {
+      setEditingLancamento({ ...pendingRecurringLancamento, __editScope: 'all' } as any);
+      setEditModalOpen(true);
+    }
+    setRecurringDialogOpen(false);
+    setPendingRecurringLancamento(null);
   };
 
   const handleDelete = async (lancamento: LancamentoExtendido) => {
@@ -425,6 +450,13 @@ export function LancamentosTable({
         vinculoId={editingTransferenciaVinculoId}
         open={editTransferenciaModalOpen}
         onOpenChange={setEditTransferenciaModalOpen}
+      />
+
+      <RecurringEditDialog
+        open={recurringDialogOpen}
+        onOpenChange={setRecurringDialogOpen}
+        onEditSingle={handleRecurringEditSingle}
+        onEditAll={handleRecurringEditAll}
       />
 
       {/* Dialog de confirmação de exclusão em lote */}

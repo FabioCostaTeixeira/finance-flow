@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeftRight, TrendingUp, TrendingDown } from 'lucide-react';
+import { KpiCard } from '@/components/KpiCard';
 import { format, parseISO, startOfMonth, endOfMonth, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
@@ -131,42 +132,9 @@ export default function FluxoCaixaPage() {
     };
   }, [fluxoComSaldo]);
 
-  const saldoAtual = totals.realizado - totals.pago;
+  const saldoRealizado = totals.realizado - totals.pago;
+  const saldoFuturo = (totals.aReceber + totals.realizado) - (totals.aPagar + totals.pago);
 
-  const stats = [
-    {
-      label: 'A Receber',
-      value: formatCurrency(totals.aReceber),
-      icon: TrendingUp,
-      color: 'text-blue-400',
-      bg: 'bg-blue-500/10',
-      border: 'border-blue-500/20',
-    },
-    {
-      label: 'Realizado',
-      value: formatCurrency(totals.realizado),
-      icon: TrendingUp,
-      color: 'text-success',
-      bg: 'bg-success/10',
-      border: 'border-success/20',
-    },
-    {
-      label: 'A Pagar',
-      value: formatCurrency(totals.aPagar),
-      icon: TrendingDown,
-      color: 'text-purple-400',
-      bg: 'bg-purple-500/10',
-      border: 'border-purple-500/20',
-    },
-    {
-      label: 'Pago',
-      value: formatCurrency(totals.pago),
-      icon: TrendingDown,
-      color: 'text-destructive',
-      bg: 'bg-destructive/10',
-      border: 'border-destructive/20',
-    },
-  ];
 
   const handleBancoChange = (value: string) => {
     const newBancoId = value === 'all' ? undefined : value;
@@ -179,10 +147,10 @@ export default function FluxoCaixaPage() {
   };
 
   const getValueColorClass = (lancamento: typeof fluxoComSaldo[0]) => {
-    if (lancamento.realizado > 0) return 'text-success'; // verde - realizado
-    if (lancamento.aReceber > 0) return 'text-blue-400'; // azul - a receber
-    if (lancamento.pago > 0) return 'text-destructive'; // vermelho - pago
-    if (lancamento.aPagar > 0) return 'text-purple-400'; // lilás - a pagar
+    if (lancamento.realizado > 0) return 'text-success';
+    if (lancamento.aReceber > 0) return 'text-blue-400';
+    if (lancamento.pago > 0) return 'text-destructive';
+    if (lancamento.aPagar > 0) return 'text-purple-400';
     return 'text-foreground';
   };
 
@@ -214,8 +182,8 @@ export default function FluxoCaixaPage() {
     );
   };
 
-  const selectedBancoName = selectedBancoId 
-    ? bancos.find(b => b.id === selectedBancoId)?.nome 
+  const selectedBancoName = selectedBancoId
+    ? bancos.find(b => b.id === selectedBancoId)?.nome
     : null;
 
   return (
@@ -261,107 +229,29 @@ export default function FluxoCaixaPage() {
         </div>
       </motion.div>
 
-      {/* Stats Cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-4"
-      >
-        {stats.map((stat, index) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.1 + index * 0.05 }}
-            className={cn('glass-card rounded-xl p-2.5 md:p-4 border', stat.border)}
-          >
-            <div className="flex items-center gap-2 md:gap-3">
-              <div className={`p-1.5 md:p-2.5 rounded-lg shrink-0 ${stat.bg}`}>
-                <stat.icon className={`w-4 h-4 md:w-5 md:h-5 ${stat.color}`} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] md:text-xs text-muted-foreground truncate">{stat.label}</p>
-                <p className={`text-sm md:text-lg font-bold ${stat.color} truncate`}>{stat.value}</p>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
-
-      {/* Saldo Cards - Mobile: split, Desktop: single */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-        className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4"
-      >
-        {/* Saldo Projetado */}
-        {(() => {
-          const saldoProjetado = (totals.aReceber + totals.realizado) - (totals.aPagar + totals.pago);
-          const projetadoPositivo = saldoProjetado >= 0;
-          return (
-            <div className={cn(
-              'glass-card rounded-xl p-2.5 md:p-4 border',
-              projetadoPositivo ? 'border-blue-500/20' : 'border-destructive/20'
-            )}>
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className={cn('p-1.5 md:p-2.5 rounded-lg shrink-0', projetadoPositivo ? 'bg-blue-500/10' : 'bg-destructive/10')}>
-                  <TrendingUp className={cn('w-4 h-4 md:w-5 md:h-5', projetadoPositivo ? 'text-blue-400' : 'text-destructive')} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] md:text-xs text-muted-foreground truncate">Saldo Projetado</p>
-                  <p className={cn('text-sm md:text-lg font-bold truncate', projetadoPositivo ? 'text-blue-400' : 'text-destructive')}>
-                    {formatCurrency(saldoProjetado)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* Saldo Realizado */}
-        <div className={cn(
-          'glass-card rounded-xl p-2.5 md:p-4 border',
-          saldoAtual >= 0 ? 'border-success/20' : 'border-destructive/20'
-        )}>
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className={cn('p-1.5 md:p-2.5 rounded-lg shrink-0', saldoAtual >= 0 ? 'bg-success/10' : 'bg-destructive/10')}>
-              <ArrowLeftRight className={cn('w-4 h-4 md:w-5 md:h-5', saldoAtual >= 0 ? 'text-success' : 'text-destructive')} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] md:text-xs text-muted-foreground truncate">Saldo Realizado</p>
-              <p className={cn('text-sm md:text-lg font-bold truncate', saldoAtual >= 0 ? 'text-success' : 'text-destructive')}>
-                {formatCurrency(saldoAtual)}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Saldo Geral - visível apenas em desktop como 3ª coluna */}
-        {(() => {
-          const saldoGeral = totals.saldo;
-          const geralPositivo = saldoGeral >= 0;
-          return (
-            <div className={cn(
-              'glass-card rounded-xl p-2.5 md:p-4 border col-span-2 md:col-span-1',
-              geralPositivo ? 'border-primary/20' : 'border-destructive/20'
-            )}>
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className={cn('p-1.5 md:p-2.5 rounded-lg shrink-0', geralPositivo ? 'bg-primary/10' : 'bg-destructive/10')}>
-                  <ArrowLeftRight className={cn('w-4 h-4 md:w-5 md:h-5', geralPositivo ? 'text-primary' : 'text-destructive')} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] md:text-xs text-muted-foreground truncate">Saldo Geral</p>
-                  <p className={cn('text-sm md:text-lg font-bold truncate', geralPositivo ? 'text-primary' : 'text-destructive')}>
-                    {formatCurrency(saldoGeral)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-      </motion.div>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+        <KpiCard
+          title="Saldo Realizado"
+          badgeLabel="Realizado"
+          mainValue={saldoRealizado}
+          stats={[
+            { label: 'Recebidos', value: totals.realizado, colorClass: 'text-success', barColorClass: 'bg-success' },
+            { label: 'Pagos', value: totals.pago, colorClass: 'text-destructive', barColorClass: 'bg-destructive' },
+          ]}
+          delay={0.1}
+        />
+        <KpiCard
+          title="Saldo Futuro"
+          badgeLabel="Projetado"
+          mainValue={saldoFuturo}
+          stats={[
+            { label: 'A Receber', value: totals.aReceber, colorClass: 'text-blue-400', barColorClass: 'bg-blue-500' },
+            { label: 'A Pagar', value: totals.aPagar, colorClass: 'text-purple-400', barColorClass: 'bg-purple-500' },
+          ]}
+          delay={0.15}
+        />
+      </div>
 
       {/* Table */}
       <motion.div

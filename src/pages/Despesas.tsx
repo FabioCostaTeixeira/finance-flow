@@ -1,13 +1,13 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingDown, CheckCircle, Clock } from 'lucide-react';
+import { TrendingDown } from 'lucide-react';
 import { parseISO, isAfter, isBefore, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { LancamentosTable } from '@/components/LancamentosTable';
 import { LancamentoForm } from '@/components/LancamentoForm';
 import { FloatingActionButton } from '@/components/FloatingActionButton';
+import { KpiCard } from '@/components/KpiCard';
 import { useLancamentos } from '@/hooks/useLancamentos';
 import { useCategorias } from '@/hooks/useCategorias';
-import { formatCurrency } from '@/lib/recurrence';
 import { LancamentosFiltersState } from '@/components/LancamentosFilters';
 import { getComputedStatus } from '@/lib/statusUtils';
 
@@ -85,30 +85,6 @@ export default function DespesasPage() {
     .filter((l) => ['a_pagar', 'parcial'].includes(l.status))
     .reduce((acc, l) => acc + Number(l.valor) - Number(l.valor_pago || 0), 0);
 
-  const stats = [
-    {
-      label: 'Total de Despesas (Filtrado)',
-      value: formatCurrency(totalDespesas),
-      icon: TrendingDown,
-      color: 'text-destructive',
-      bg: 'bg-destructive/10',
-    },
-    {
-      label: 'Pago (Filtrado)',
-      value: formatCurrency(totalPago),
-      icon: CheckCircle,
-      color: 'text-success',
-      bg: 'bg-success/10',
-    },
-    {
-      label: 'A Pagar (Filtrado)',
-      value: formatCurrency(totalAPagar),
-      icon: Clock,
-      color: 'text-warning',
-      bg: 'bg-warning/10',
-    },
-  ];
-
   return (
     <div className="flex-1 p-3 md:p-6 space-y-4 md:space-y-6 overflow-auto">
       {/* Header */}
@@ -128,33 +104,19 @@ export default function DespesasPage() {
         </div>
       </motion.div>
 
-      {/* Stats Cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-4"
-      >
-        {stats.map((stat, index) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.1 + index * 0.05 }}
-            className="glass-card rounded-xl p-3 md:p-4"
-          >
-            <div className="flex items-center gap-2 md:gap-3">
-              <div className={`p-2 md:p-2.5 rounded-lg shrink-0 ${stat.bg}`}>
-                <stat.icon className={`w-4 h-4 md:w-5 md:h-5 ${stat.color}`} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] md:text-xs text-muted-foreground truncate">{stat.label}</p>
-                <p className={`text-sm md:text-lg font-bold ${stat.color} truncate`}>{stat.value}</p>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
+      {/* KPI Card */}
+      <div className="max-w-md">
+        <KpiCard
+          title="Total de Despesas"
+          badgeLabel="Filtrado"
+          mainValue={totalDespesas}
+          stats={[
+            { label: 'A Pagar', value: totalAPagar, colorClass: 'text-purple-400', barColorClass: 'bg-purple-500' },
+            { label: 'Pago', value: totalPago, colorClass: 'text-destructive', barColorClass: 'bg-destructive' },
+          ]}
+          delay={0.1}
+        />
+      </div>
 
       {/* Table */}
       <motion.div
