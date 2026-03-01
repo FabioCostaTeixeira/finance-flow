@@ -56,6 +56,7 @@ export function useUpdateLancamento() {
 
 export interface UpdateRecurringInput {
   recorrencia_id: string;
+  data_vencimento?: Date;
   cliente_credor?: string;
   valor?: number;
   banco_id?: string | null;
@@ -70,6 +71,9 @@ export function useUpdateRecurringLancamentos() {
     mutationFn: async (input: UpdateRecurringInput) => {
       const updateData: Record<string, unknown> = {};
       
+      if (input.data_vencimento !== undefined) {
+        updateData.data_vencimento = toISODateLocal(input.data_vencimento);
+      }
       if (input.cliente_credor !== undefined) updateData.cliente_credor = input.cliente_credor;
       if (input.valor !== undefined) updateData.valor = input.valor;
       if (input.banco_id !== undefined) updateData.banco_id = input.banco_id;

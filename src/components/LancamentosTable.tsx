@@ -5,6 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { MoreHorizontal, Trash2, CheckCircle, DollarSign, AlertTriangle, Edit, ArrowRightLeft } from 'lucide-react';
 import { RecurringEditDialog } from './RecurringEditDialog';
+import { RecurringDeleteDialog } from './RecurringDeleteDialog';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -32,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { LancamentoExtendido, useDeleteLancamento } from '@/hooks/useLancamentos';
+import { LancamentoExtendido, useDeleteLancamento, useDeleteRecurringLancamentos } from '@/hooks/useLancamentos';
 import { useDeleteLancamentosEmLote } from '@/hooks/useDeleteLancamentosEmLote';
 import { useDeleteTransferencia } from '@/hooks/useTransferencia';
 import { useCategorias } from '@/hooks/useCategorias';
@@ -64,6 +65,7 @@ export function LancamentosTable({
   
   const { data: categorias = [] } = useCategorias(tipo);
   const deleteLancamento = useDeleteLancamento();
+  const deleteRecurringLancamentos = useDeleteRecurringLancamentos();
   const deleteLancamentosEmLote = useDeleteLancamentosEmLote();
   const deleteTransferencia = useDeleteTransferencia();
   
@@ -71,12 +73,15 @@ export function LancamentosTable({
   const [baixaModalOpen, setBaixaModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingLancamento, setEditingLancamento] = useState<LancamentoExtendido | null>(null);
+  const [editingScope, setEditingScope] = useState<'single' | 'all'>('single');
   const [editTransferenciaModalOpen, setEditTransferenciaModalOpen] = useState(false);
   const [editingTransferenciaVinculoId, setEditingTransferenciaVinculoId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [recurringDialogOpen, setRecurringDialogOpen] = useState(false);
   const [pendingRecurringLancamento, setPendingRecurringLancamento] = useState<LancamentoExtendido | null>(null);
+  const [recurringDeleteDialogOpen, setRecurringDeleteDialogOpen] = useState(false);
+  const [pendingRecurringDeleteLancamento, setPendingRecurringDeleteLancamento] = useState<LancamentoExtendido | null>(null);
 
   const isReceita = tipo === 'receita';
 
@@ -111,6 +116,7 @@ export function LancamentosTable({
       setPendingRecurringLancamento(lancamento);
       setRecurringDialogOpen(true);
     } else {
+      setEditingScope('single');
       setEditingLancamento(lancamento);
       setEditModalOpen(true);
     }
@@ -118,6 +124,7 @@ export function LancamentosTable({
 
   const handleRecurringEditSingle = () => {
     if (pendingRecurringLancamento) {
+      setEditingScope('single');
       setEditingLancamento(pendingRecurringLancamento);
       setEditModalOpen(true);
     }
@@ -127,7 +134,8 @@ export function LancamentosTable({
 
   const handleRecurringEditAll = () => {
     if (pendingRecurringLancamento) {
-      setEditingLancamento({ ...pendingRecurringLancamento, __editScope: 'all' } as any);
+      setEditingScope('all');
+      setEditingLancamento(pendingRecurringLancamento);
       setEditModalOpen(true);
     }
     setRecurringDialogOpen(false);
@@ -144,6 +152,9 @@ export function LancamentosTable({
           title: 'Transferência excluída',
           description: 'A transferência e seus lançamentos vinculados foram excluídos.',
         });
+      } else if (lancamento.recorrencia_id) {
+        setPendingRecurringDeleteLancamento(lancamento);
+        setRecurringDeleteDialogOpen(true);
       } else {
         await deleteLancamento.mutateAsync(lancamento.id);
         toast({
@@ -157,6 +168,50 @@ export function LancamentosTable({
         description: 'Não foi possível excluir o lançamento.',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleRecurringDeleteSingle = async () => {
+    if (!pendingRecurringDeleteLancamento) return;
+
+    try {
+      await deleteLancamento.mutateAsync(pendingRecurringDeleteLancamento.id);
+      toast({
+        title: 'Lançamento excluído',
+        description: 'O lançamento foi excluído com sucesso.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Erro ao excluir',
+        description: 'Não foi possível excluir o lançamento.',
+        variant: 'destructive',
+      });
+    } finally {
+      setRecurringDeleteDialogOpen(false);
+      setPendingRecurringDeleteLancamento(null);
+    }
+  };
+
+  const handleRecurringDeleteAll = async () => {
+    if (!pendingRecurringDeleteLancamento?.recorrencia_id) return;
+
+    try {
+      const data = await deleteRecurringLancamentos.mutateAsync(
+        pendingRecurringDeleteLancamento.recorrencia_id
+      );
+      toast({
+        title: 'Série excluída',
+        description: `${data?.length ?? 0} lançamento(s) da série foram excluídos.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Erro ao excluir série',
+        description: 'Não foi possível excluir os lançamentos da série.',
+        variant: 'destructive',
+      });
+    } finally {
+      setRecurringDeleteDialogOpen(false);
+      setPendingRecurringDeleteLancamento(null);
     }
   };
 
@@ -442,6 +497,7 @@ export function LancamentosTable({
 
       <EditLancamentoModal
         lancamento={editingLancamento}
+        editScope={editingScope}
         open={editModalOpen}
         onOpenChange={setEditModalOpen}
       />
@@ -457,6 +513,13 @@ export function LancamentosTable({
         onOpenChange={setRecurringDialogOpen}
         onEditSingle={handleRecurringEditSingle}
         onEditAll={handleRecurringEditAll}
+      />
+
+      <RecurringDeleteDialog
+        open={recurringDeleteDialogOpen}
+        onOpenChange={setRecurringDeleteDialogOpen}
+        onDeleteSingle={handleRecurringDeleteSingle}
+        onDeleteAll={handleRecurringDeleteAll}
       />
 
       {/* Dialog de confirmação de exclusão em lote */}

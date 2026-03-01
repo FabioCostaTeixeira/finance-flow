@@ -45,11 +45,17 @@ type EditFormData = z.infer<typeof editSchema>;
 
 interface EditLancamentoModalProps {
   lancamento: LancamentoExtendido | null;
+  editScope?: 'single' | 'all';
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function EditLancamentoModal({ lancamento, open, onOpenChange }: EditLancamentoModalProps) {
+export function EditLancamentoModal({
+  lancamento,
+  editScope = 'single',
+  open,
+  onOpenChange,
+}: EditLancamentoModalProps) {
   const updateLancamento = useUpdateLancamento();
   const updateRecurring = useUpdateRecurringLancamentos();
   const { data: categorias = [] } = useCategorias(lancamento?.tipo);
@@ -99,12 +105,12 @@ export function EditLancamentoModal({ lancamento, open, onOpenChange }: EditLanc
 
     try {
       const finalCategoriaId = data.subcategoria_id || data.categoria_id || null;
-      const editScope = (lancamento as any).__editScope;
 
       if (editScope === 'all' && lancamento.recorrencia_id) {
         // Update all open lancamentos with the same recorrencia_id
         await updateRecurring.mutateAsync({
           recorrencia_id: lancamento.recorrencia_id,
+          data_vencimento: data.data_vencimento,
           cliente_credor: data.cliente_credor,
           valor: data.valor,
           banco_id: data.banco_id || null,

@@ -226,3 +226,23 @@ export function useDeleteLancamento() {
     },
   });
 }
+
+export function useDeleteRecurringLancamentos() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (recorrenciaId: string) => {
+      const { data, error } = await supabase
+        .from('lancamentos')
+        .delete()
+        .eq('recorrencia_id', recorrenciaId)
+        .select('id');
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
+    },
+  });
+}
