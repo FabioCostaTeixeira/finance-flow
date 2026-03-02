@@ -42,26 +42,19 @@ export default function FluxoCaixaPage() {
   const { data: bancos = [] } = useBancos();
 
   const filteredLancamentos = useMemo(() => {
+    // Função auxiliar: usa data_pagamento se existir, senão data_vencimento
+    const getDataEfetiva = (l: LancamentoExtendido) =>
+      parseISO(l.data_pagamento || l.data_vencimento);
+
     return lancamentos
       .filter((lancamento) => {
-        if (date?.from) {
-          const lancDate = parseISO(lancamento.data_vencimento);
-          if (isBefore(lancDate, startOfDay(date.from))) return false;
-        }
-        if (date?.to) {
-          const lancDate = parseISO(lancamento.data_vencimento);
-          if (isAfter(lancDate, endOfDay(date.to))) return false;
-        }
-        if (selectedBancoId && lancamento.banco_id !== selectedBancoId) {
-          return false;
-        }
+        const lancDate = getDataEfetiva(lancamento);
+        if (date?.from && isBefore(lancDate, startOfDay(date.from))) return false;
+        if (date?.to && isAfter(lancDate, endOfDay(date.to))) return false;
+        if (selectedBancoId && lancamento.banco_id !== selectedBancoId) return false;
         return true;
       })
-      .sort((a, b) => {
-        const dateA = parseISO(a.data_vencimento);
-        const dateB = parseISO(b.data_vencimento);
-        return dateB.getTime() - dateA.getTime();
-      });
+      .sort((a, b) => getDataEfetiva(b).getTime() - getDataEfetiva(a).getTime());
   }, [lancamentos, date, selectedBancoId]);
 
   // Calcular fluxo de caixa com saldo acumulado e colunas separadas
@@ -295,7 +288,7 @@ export default function FluxoCaixaPage() {
                   className="table-row-hover border-border/30"
                 >
                   <TableCell className="font-medium">
-                    {format(parseISO(lancamento.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}
+                    {format(parseISO(lancamento.data_pagamento || lancamento.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}
                   </TableCell>
                   <TableCell>{lancamento.cliente_credor}</TableCell>
                   <TableCell className="text-muted-foreground">
