@@ -425,9 +425,11 @@ export function LancamentosTable({
                     </TableCell>
                     <TableCell>{getStatusBadge(lancamento)}</TableCell>
                     <TableCell className="text-muted-foreground hidden lg:table-cell">
-                      {lancamento.total_parcelas > 1
-                        ? `${lancamento.parcela_atual}/${lancamento.total_parcelas}`
-                        : '-'}
+                      {lancamento.total_parcelas === 0
+                        ? `${lancamento.parcela_atual}/∞`
+                        : lancamento.total_parcelas > 1
+                          ? `${lancamento.parcela_atual}/${lancamento.total_parcelas}`
+                          : '-'}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">

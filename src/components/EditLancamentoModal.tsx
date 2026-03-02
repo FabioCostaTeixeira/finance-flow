@@ -107,9 +107,9 @@ export function EditLancamentoModal({
       const finalCategoriaId = data.subcategoria_id || data.categoria_id || null;
 
       if (editScope === 'all' && lancamento.recorrencia_id) {
-        // Update all open lancamentos with the same recorrencia_id
         await updateRecurring.mutateAsync({
           recorrencia_id: lancamento.recorrencia_id,
+          lancamento_id: lancamento.id,
           data_vencimento: data.data_vencimento,
           cliente_credor: data.cliente_credor,
           valor: data.valor,
