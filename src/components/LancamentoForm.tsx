@@ -50,7 +50,7 @@ const lancamentoSchema = z.object({
   observacao: z.string().optional(),
   recorrente: z.boolean().default(false),
   frequencia: z.enum(['semanal', 'mensal', 'trimestral', 'semestral']).optional(),
-  qtd_parcelas: z.number().min(1).max(120).optional(),
+  qtd_parcelas: z.number().min(0).max(120).optional(),
   lancar_como_pago: z.boolean().default(false),
   data_pagamento: z.date().optional(),
 });
@@ -65,6 +65,7 @@ interface LancamentoFormProps {
 
 export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps) {
   const [isRecorrente, setIsRecorrente] = useState(false);
+  const [isInfinito, setIsInfinito] = useState(false);
   const [transferenciaOpen, setTransferenciaOpen] = useState(false);
   // Por padrão, marcar como quitado (pago/recebido) para lançamentos não-recorrentes
   const [lancarComoQuitado, setLancarComoQuitado] = useState(true);
@@ -111,7 +112,7 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
         tipo,
         recorrente: isRecorrente,
         frequencia: isRecorrente ? data.frequencia : undefined,
-        qtd_parcelas: isRecorrente ? data.qtd_parcelas : undefined,
+        qtd_parcelas: isRecorrente ? (isInfinito ? 0 : data.qtd_parcelas) : undefined,
         lancar_como_pago: lancarComoQuitado,
         data_pagamento: lancarComoQuitado ? data.data_pagamento : undefined,
       });
@@ -119,7 +120,9 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
       toast({
         title: 'Lançamento criado',
         description: isRecorrente
-          ? `${data.qtd_parcelas} parcelas criadas com sucesso.`
+          ? isInfinito
+            ? '12 parcelas iniciais criadas (recorrência infinita).'
+            : `${data.qtd_parcelas} parcelas criadas com sucesso.`
           : 'Lançamento criado com sucesso.',
       });
 
@@ -137,6 +140,7 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
         data_pagamento: new Date(),
       });
       setIsRecorrente(false);
+      setIsInfinito(false);
       setLancarComoQuitado(true);
       // Modal stays open for new entries
     } catch (error) {
@@ -303,14 +307,31 @@ export function LancamentoForm({ tipo, open, onOpenChange }: LancamentoFormProps
 
                 <div className="space-y-2">
                   <Label htmlFor="qtd_parcelas">Parcelas</Label>
-                  <Input
-                    id="qtd_parcelas"
-                    type="number"
-                    min={1}
-                    max={120}
-                    className="input-glass"
-                    {...form.register('qtd_parcelas', { valueAsNumber: true })}
-                  />
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="infinito"
+                        checked={isInfinito}
+                        onCheckedChange={(checked) => {
+                          setIsInfinito(checked as boolean);
+                          if (checked) form.setValue('qtd_parcelas', 0);
+                        }}
+                      />
+                      <Label htmlFor="infinito" className="cursor-pointer text-xs">
+                        Infinita
+                      </Label>
+                    </div>
+                    {!isInfinito && (
+                      <Input
+                        id="qtd_parcelas"
+                        type="number"
+                        min={1}
+                        max={120}
+                        className="input-glass"
+                        {...form.register('qtd_parcelas', { valueAsNumber: true })}
+                      />
+                    )}
+                  </div>
                 </div>
               </motion.div>
             )}

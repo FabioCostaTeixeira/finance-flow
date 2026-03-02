@@ -1,0 +1,1 @@
+ALTER TABLE public.lancamentos ADD COLUMN frequencia text NULL;

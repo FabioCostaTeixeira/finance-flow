@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { format, addDays, addMonths, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { calcularRecorrencia, gerarRecorrenciaId, Frequencia } from '@/lib/recurrence';
 import { toISODateLocal } from '@/lib/date';
@@ -81,13 +81,16 @@ export function useCreateLancamento() {
     mutationFn: async (input: CreateLancamentoInput) => {
       const baseStatus: 'a_receber' | 'a_pagar' = input.tipo === 'receita' ? 'a_receber' : 'a_pagar';
 
-      if (input.recorrente && input.frequencia && input.qtd_parcelas) {
+      if (input.recorrente && input.frequencia) {
         // Gera lançamentos recorrentes
+        // Se qtd_parcelas não informado ou 0, é infinito → gera 12 parcelas com total_parcelas=0
+        const isInfinite = !input.qtd_parcelas || input.qtd_parcelas === 0;
+        const qtdParaGerar = isInfinite ? 12 : input.qtd_parcelas;
         const recorrenciaId = gerarRecorrenciaId();
         const parcelas = calcularRecorrencia(
           input.data_vencimento,
           input.frequencia,
-          input.qtd_parcelas
+          qtdParaGerar
         );
 
         const lancamentos = parcelas.map((parcela) => ({
@@ -101,7 +104,8 @@ export function useCreateLancamento() {
           observacao: input.observacao || null,
           recorrencia_id: recorrenciaId,
           parcela_atual: parcela.parcela_atual,
-          total_parcelas: parcela.total_parcelas,
+          total_parcelas: isInfinite ? 0 : parcela.total_parcelas,
+          frequencia: input.frequencia,
         }));
 
         const { data, error } = await supabase
@@ -156,6 +160,17 @@ export function useCreateLancamento() {
   });
 }
 
+function proximaData(dataStr: string, frequencia: string): Date {
+  const data = parseISO(dataStr);
+  switch (frequencia) {
+    case 'semanal': return addDays(data, 7);
+    case 'mensal': return addMonths(data, 1);
+    case 'trimestral': return addMonths(data, 3);
+    case 'semestral': return addMonths(data, 6);
+    default: return addMonths(data, 1);
+  }
+}
+
 export function useBaixarLancamento() {
   const queryClient = useQueryClient();
 
@@ -201,6 +216,44 @@ export function useBaixarLancamento() {
         .single();
 
       if (error) throw error;
+
+      // Recorrência infinita: se total_parcelas === 0 e status ficou quitado, cria nova parcela
+      if (
+        lancamento.total_parcelas === 0 &&
+        lancamento.recorrencia_id &&
+        (novoStatus === 'recebido' || novoStatus === 'pago')
+      ) {
+        // Busca a última parcela da série
+        const { data: ultimaParcela } = await supabase
+          .from('lancamentos')
+          .select('*')
+          .eq('recorrencia_id', lancamento.recorrencia_id)
+          .order('data_vencimento', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (ultimaParcela) {
+          const freq = (lancamento as any).frequencia || 'mensal';
+          const novaData = proximaData(ultimaParcela.data_vencimento, freq);
+          const baseStatus = lancamento.tipo === 'receita' ? 'a_receber' : 'a_pagar';
+
+          await supabase.from('lancamentos').insert({
+            data_vencimento: toISODateLocal(novaData),
+            cliente_credor: lancamento.cliente_credor,
+            valor: lancamento.valor,
+            banco_id: lancamento.banco_id,
+            status: baseStatus,
+            tipo: lancamento.tipo,
+            categoria_id: lancamento.categoria_id,
+            observacao: lancamento.observacao,
+            recorrencia_id: lancamento.recorrencia_id,
+            parcela_atual: (ultimaParcela.parcela_atual || 0) + 1,
+            total_parcelas: 0,
+            frequencia: freq,
+          } as any);
+        }
+      }
+
       return data;
     },
     onSuccess: () => {

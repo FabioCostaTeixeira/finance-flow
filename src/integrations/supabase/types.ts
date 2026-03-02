@@ -171,6 +171,7 @@ export type Database = {
           created_at: string | null
           data_pagamento: string | null
           data_vencimento: string
+          frequencia: string | null
           id: string
           observacao: string | null
           parcela_atual: number | null
@@ -191,6 +192,7 @@ export type Database = {
           created_at?: string | null
           data_pagamento?: string | null
           data_vencimento: string
+          frequencia?: string | null
           id?: string
           observacao?: string | null
           parcela_atual?: number | null
@@ -211,6 +213,7 @@ export type Database = {
           created_at?: string | null
           data_pagamento?: string | null
           data_vencimento?: string
+          frequencia?: string | null
           id?: string
           observacao?: string | null
           parcela_atual?: number | null
