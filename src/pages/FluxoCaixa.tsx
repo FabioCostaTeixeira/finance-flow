@@ -11,6 +11,9 @@ import { useLancamentos, LancamentoExtendido } from '@/hooks/useLancamentos';
 import { useBancos } from '@/hooks/useBancos';
 import { formatCurrency } from '@/lib/recurrence';
 import { cn } from '@/lib/utils';
+import { FluxoCaixaFAB } from '@/components/FluxoCaixaFAB';
+import { LancamentoForm } from '@/components/LancamentoForm';
+import { TransferenciaModal } from '@/components/TransferenciaModal';
 import {
   Table,
   TableBody,
