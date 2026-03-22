@@ -310,6 +310,29 @@ export default function FluxoCaixaPage() {
           </TableBody>
         </Table>
       </motion.div>
+
+      <FluxoCaixaFAB
+        onReceita={() => setReceitaFormOpen(true)}
+        onDespesa={() => setDespesaFormOpen(true)}
+        onTransferencia={() => setTransferenciaOpen(true)}
+      />
+
+      <LancamentoForm
+        open={receitaFormOpen}
+        onOpenChange={setReceitaFormOpen}
+        tipo="receita"
+      />
+
+      <LancamentoForm
+        open={despesaFormOpen}
+        onOpenChange={setDespesaFormOpen}
+        tipo="despesa"
+      />
+
+      <TransferenciaModal
+        open={transferenciaOpen}
+        onOpenChange={setTransferenciaOpen}
+      />
     </div>
   );
 }
