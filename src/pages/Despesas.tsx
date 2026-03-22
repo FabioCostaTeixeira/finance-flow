@@ -19,10 +19,10 @@ export default function DespesasPage() {
   const [filters, setFilters] = useState<LancamentosFiltersState>({
     dataInicio: startOfMonth(new Date()),
     dataFim: endOfMonth(new Date()),
-    categoriaId: undefined,
-    subcategoriaId: undefined,
-    status: undefined,
-    bancoId: undefined,
+    categoriaIds: [],
+    subcategoriaIds: [],
+    statusList: [],
+    bancoIds: [],
     searchTerm: undefined,
   });
 
@@ -34,7 +34,6 @@ export default function DespesasPage() {
 
   const filteredLancamentos = useMemo(() => {
     return lancamentos.filter((lancamento) => {
-      // Filtro por nome (cliente/credor)
       if (filters.searchTerm) {
         const searchLower = filters.searchTerm.toLowerCase();
         if (!lancamento.cliente_credor.toLowerCase().includes(searchLower)) {
@@ -49,17 +48,17 @@ export default function DespesasPage() {
         const lancDate = parseISO(lancamento.data_vencimento);
         if (isAfter(lancDate, endOfDay(filters.dataFim))) return false;
       }
-      if (filters.categoriaId) {
+      if (filters.categoriaIds.length > 0) {
         const lancCatId = lancamento.categoria_id;
         const lancParentId = getParentCategoryId(lancCatId);
-        if (lancCatId !== filters.categoriaId && lancParentId !== filters.categoriaId) {
+        if (!lancCatId || (!filters.categoriaIds.includes(lancCatId) && (!lancParentId || !filters.categoriaIds.includes(lancParentId)))) {
           return false;
         }
       }
-      if (filters.subcategoriaId) {
-        if (lancamento.categoria_id !== filters.subcategoriaId) return false;
+      if (filters.subcategoriaIds.length > 0) {
+        if (!lancamento.categoria_id || !filters.subcategoriaIds.includes(lancamento.categoria_id)) return false;
       }
-      if (filters.status) {
+      if (filters.statusList.length > 0) {
         const computedStatus = getComputedStatus({
           status: lancamento.status,
           tipo: lancamento.tipo,
@@ -67,16 +66,15 @@ export default function DespesasPage() {
           valor: lancamento.valor,
           valor_pago: lancamento.valor_pago,
         });
-        if (computedStatus !== filters.status) return false;
+        if (!filters.statusList.includes(computedStatus)) return false;
       }
-      if (filters.bancoId) {
-        if (lancamento.banco_id !== filters.bancoId) return false;
+      if (filters.bancoIds.length > 0) {
+        if (!lancamento.banco_id || !filters.bancoIds.includes(lancamento.banco_id)) return false;
       }
       return true;
     });
   }, [lancamentos, filters, categorias]);
 
-  // Calcular totais usando os dados filtrados
   const totalDespesas = filteredLancamentos.reduce((acc, l) => acc + Number(l.valor), 0);
   const totalPago = filteredLancamentos
     .filter((l) => l.status === 'pago')
@@ -87,7 +85,6 @@ export default function DespesasPage() {
 
   return (
     <div className="flex-1 p-3 md:p-6 space-y-4 md:space-y-6 overflow-auto">
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -104,7 +101,6 @@ export default function DespesasPage() {
         </div>
       </motion.div>
 
-      {/* KPI Card */}
       <div className="max-w-md">
         <KpiCard
           title="Total de Despesas"
@@ -118,7 +114,6 @@ export default function DespesasPage() {
         />
       </div>
 
-      {/* Table */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -133,10 +128,7 @@ export default function DespesasPage() {
         />
       </motion.div>
 
-      {/* FAB */}
       <FloatingActionButton onClick={() => setFormOpen(true)} variant="despesa" />
-
-      {/* Form Modal */}
       <LancamentoForm tipo="despesa" open={formOpen} onOpenChange={setFormOpen} />
     </div>
   );

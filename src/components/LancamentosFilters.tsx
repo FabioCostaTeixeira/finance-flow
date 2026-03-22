@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, Filter, X, Search } from 'lucide-react';
+import { CalendarIcon, Filter, X, Search, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,14 +11,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useCategorias } from '@/hooks/useCategorias';
 import { useBancos } from '@/hooks/useBancos';
 import { statusLabels } from '@/lib/recurrence';
@@ -26,10 +28,10 @@ import { statusLabels } from '@/lib/recurrence';
 export interface LancamentosFiltersState {
   dataInicio: Date | undefined;
   dataFim: Date | undefined;
-  categoriaId: string | undefined;
-  subcategoriaId: string | undefined;
-  status: string | undefined;
-  bancoId: string | undefined;
+  categoriaIds: string[];
+  subcategoriaIds: string[];
+  statusList: string[];
+  bancoIds: string[];
   searchTerm: string | undefined;
 }
 
@@ -39,21 +41,95 @@ interface LancamentosFiltersProps {
   onFiltersChange: (filters: LancamentosFiltersState) => void;
 }
 
+interface MultiSelectFilterProps {
+  label: string;
+  placeholder: string;
+  selectedValues: string[];
+  options: { value: string; label: string }[];
+  onChange: (values: string[]) => void;
+  disabled?: boolean;
+}
+
+function MultiSelectFilter({ label, placeholder, selectedValues, options, onChange, disabled }: MultiSelectFilterProps) {
+  const [open, setOpen] = useState(false);
+
+  const toggleValue = (value: string) => {
+    if (selectedValues.includes(value)) {
+      onChange(selectedValues.filter((v) => v !== value));
+    } else {
+      onChange([...selectedValues, value]);
+    }
+  };
+
+  const displayText = selectedValues.length === 0
+    ? placeholder
+    : selectedValues.length === 1
+      ? options.find((o) => o.value === selectedValues[0])?.label || placeholder
+      : `${selectedValues.length} selecionados`;
+
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            role="combobox"
+            aria-expanded={open}
+            disabled={disabled}
+            className={cn(
+              'w-full justify-between text-left font-normal h-9',
+              selectedValues.length === 0 && 'text-muted-foreground'
+            )}
+          >
+            <span className="truncate">{displayText}</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[200px] p-0" align="start">
+          <Command>
+            <CommandInput placeholder={`Buscar ${label.toLowerCase()}...`} />
+            <CommandList>
+              <CommandEmpty>Nenhum resultado.</CommandEmpty>
+              <CommandGroup>
+                {options.map((option) => {
+                  const isSelected = selectedValues.includes(option.value);
+                  return (
+                    <CommandItem
+                      key={option.value}
+                      value={option.label}
+                      onSelect={() => toggleValue(option.value)}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        className="mr-2 pointer-events-none"
+                      />
+                      {option.label}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
 export function LancamentosFilters({ tipo, filters, onFiltersChange }: LancamentosFiltersProps) {
   const [showFilters, setShowFilters] = useState(false);
   const { data: categorias = [] } = useCategorias(tipo);
   const { data: bancos = [] } = useBancos();
 
-  // Get parent categories (no parent)
   const parentCategorias = useMemo(() => {
     return categorias.filter((c) => !c.categoria_pai_id);
   }, [categorias]);
 
-  // Get subcategories of selected parent
   const subcategorias = useMemo(() => {
-    if (!filters.categoriaId) return [];
-    return categorias.filter((c) => c.categoria_pai_id === filters.categoriaId);
-  }, [categorias, filters.categoriaId]);
+    if (filters.categoriaIds.length === 0) return [];
+    return categorias.filter((c) => c.categoria_pai_id && filters.categoriaIds.includes(c.categoria_pai_id));
+  }, [categorias, filters.categoriaIds]);
 
   const statusOptions = tipo === 'receita'
     ? ['a_receber', 'recebido', 'parcial', 'vencida']
@@ -62,10 +138,10 @@ export function LancamentosFilters({ tipo, filters, onFiltersChange }: Lancament
   const activeFiltersCount = [
     filters.dataInicio,
     filters.dataFim,
-    filters.categoriaId,
-    filters.subcategoriaId,
-    filters.status,
-    filters.bancoId,
+    filters.categoriaIds.length > 0,
+    filters.subcategoriaIds.length > 0,
+    filters.statusList.length > 0,
+    filters.bancoIds.length > 0,
     filters.searchTerm,
   ].filter(Boolean).length;
 
@@ -73,26 +149,17 @@ export function LancamentosFilters({ tipo, filters, onFiltersChange }: Lancament
     onFiltersChange({
       dataInicio: undefined,
       dataFim: undefined,
-      categoriaId: undefined,
-      subcategoriaId: undefined,
-      status: undefined,
-      bancoId: undefined,
+      categoriaIds: [],
+      subcategoriaIds: [],
+      statusList: [],
+      bancoIds: [],
       searchTerm: undefined,
-    });
-  };
-
-  const handleCategoriaChange = (value: string) => {
-    onFiltersChange({
-      ...filters,
-      categoriaId: value === 'all' ? undefined : value,
-      subcategoriaId: undefined, // Reset subcategory when category changes
     });
   };
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Campo de busca por nome */}
         <div className="relative flex-1 min-w-[200px] max-w-[300px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -199,95 +266,48 @@ export function LancamentosFilters({ tipo, filters, onFiltersChange }: Lancament
           </div>
 
           {/* Categoria */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Categoria</label>
-            <Select
-              value={filters.categoriaId || 'all'}
-              onValueChange={handleCategoriaChange}
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Todas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {parentCategorias.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <MultiSelectFilter
+            label="Categoria"
+            placeholder="Todas"
+            selectedValues={filters.categoriaIds}
+            options={parentCategorias.map((cat) => ({ value: cat.id, label: cat.nome }))}
+            onChange={(values) => onFiltersChange({
+              ...filters,
+              categoriaIds: values,
+              subcategoriaIds: [],
+            })}
+          />
 
           {/* Subcategoria */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Subcategoria</label>
-            <Select
-              value={filters.subcategoriaId || 'all'}
-              onValueChange={(value) =>
-                onFiltersChange({ ...filters, subcategoriaId: value === 'all' ? undefined : value })
-              }
-              disabled={!filters.categoriaId || subcategorias.length === 0}
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Todas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {subcategorias.map((sub) => (
-                  <SelectItem key={sub.id} value={sub.id}>
-                    {sub.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <MultiSelectFilter
+            label="Subcategoria"
+            placeholder="Todas"
+            selectedValues={filters.subcategoriaIds}
+            options={subcategorias.map((sub) => ({ value: sub.id, label: sub.nome }))}
+            onChange={(values) => onFiltersChange({ ...filters, subcategoriaIds: values })}
+            disabled={filters.categoriaIds.length === 0 || subcategorias.length === 0}
+          />
 
           {/* Status */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Status</label>
-            <Select
-              value={filters.status || 'all'}
-              onValueChange={(value) =>
-                onFiltersChange({ ...filters, status: value === 'all' ? undefined : value })
-              }
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {statusOptions.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {statusLabels[status as keyof typeof statusLabels]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <MultiSelectFilter
+            label="Status"
+            placeholder="Todos"
+            selectedValues={filters.statusList}
+            options={statusOptions.map((s) => ({
+              value: s,
+              label: statusLabels[s as keyof typeof statusLabels],
+            }))}
+            onChange={(values) => onFiltersChange({ ...filters, statusList: values })}
+          />
 
           {/* Banco */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Banco</label>
-            <Select
-              value={filters.bancoId || 'all'}
-              onValueChange={(value) =>
-                onFiltersChange({ ...filters, bancoId: value === 'all' ? undefined : value })
-              }
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {bancos.map((banco) => (
-                  <SelectItem key={banco.id} value={banco.id}>
-                    {banco.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <MultiSelectFilter
+            label="Banco"
+            placeholder="Todos"
+            selectedValues={filters.bancoIds}
+            options={bancos.map((b) => ({ value: b.id, label: b.nome }))}
+            onChange={(values) => onFiltersChange({ ...filters, bancoIds: values })}
+          />
         </div>
       )}
     </div>
