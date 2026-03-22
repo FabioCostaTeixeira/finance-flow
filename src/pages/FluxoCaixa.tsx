@@ -11,6 +11,9 @@ import { useLancamentos, LancamentoExtendido } from '@/hooks/useLancamentos';
 import { useBancos } from '@/hooks/useBancos';
 import { formatCurrency } from '@/lib/recurrence';
 import { cn } from '@/lib/utils';
+import { FluxoCaixaFAB } from '@/components/FluxoCaixaFAB';
+import { LancamentoForm } from '@/components/LancamentoForm';
+import { TransferenciaModal } from '@/components/TransferenciaModal';
 import {
   Table,
   TableBody,
@@ -37,6 +40,9 @@ export default function FluxoCaixaPage() {
     to: endOfMonth(new Date()),
   });
   const [selectedBancoId, setSelectedBancoId] = useState<string | undefined>(bancoIdFromUrl || undefined);
+  const [receitaFormOpen, setReceitaFormOpen] = useState(false);
+  const [despesaFormOpen, setDespesaFormOpen] = useState(false);
+  const [transferenciaOpen, setTransferenciaOpen] = useState(false);
 
   const { data: lancamentos = [], isLoading } = useLancamentos();
   const { data: bancos = [] } = useBancos();
@@ -304,6 +310,29 @@ export default function FluxoCaixaPage() {
           </TableBody>
         </Table>
       </motion.div>
+
+      <FluxoCaixaFAB
+        onReceita={() => setReceitaFormOpen(true)}
+        onDespesa={() => setDespesaFormOpen(true)}
+        onTransferencia={() => setTransferenciaOpen(true)}
+      />
+
+      <LancamentoForm
+        open={receitaFormOpen}
+        onOpenChange={setReceitaFormOpen}
+        tipo="receita"
+      />
+
+      <LancamentoForm
+        open={despesaFormOpen}
+        onOpenChange={setDespesaFormOpen}
+        tipo="despesa"
+      />
+
+      <TransferenciaModal
+        open={transferenciaOpen}
+        onOpenChange={setTransferenciaOpen}
+      />
     </div>
   );
 }
