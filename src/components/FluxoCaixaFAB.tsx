@@ -19,18 +19,7 @@ export function FluxoCaixaFAB({ onReceita, onDespesa, onTransferencia }: FluxoCa
   ];
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col-reverse items-end gap-3">
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setOpen(!open)}
-        className="fab-button"
-      >
-        <motion.div animate={{ rotate: open ? 45 : 0 }} transition={{ duration: 0.2 }}>
-          <Plus className="w-6 h-6 text-foreground" />
-        </motion.div>
-      </motion.button>
-
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
       <AnimatePresence>
         {open && actions.map((action, i) => (
           <motion.div
@@ -58,6 +47,20 @@ export function FluxoCaixaFAB({ onReceita, onDespesa, onTransferencia }: FluxoCa
           </motion.div>
         ))}
       </AnimatePresence>
+
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setOpen(!open)}
+        className={cn(
+          'w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-colors',
+          open ? 'bg-destructive' : 'bg-primary'
+        )}
+      >
+        <motion.div animate={{ rotate: open ? 90 : 0 }} transition={{ duration: 0.2 }}>
+          {open ? <X className="w-6 h-6 text-destructive-foreground" /> : <Plus className="w-6 h-6 text-primary-foreground" />}
+        </motion.div>
+      </motion.button>
     </div>
   );
 }
