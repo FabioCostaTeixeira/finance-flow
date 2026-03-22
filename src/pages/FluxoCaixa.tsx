@@ -40,6 +40,9 @@ export default function FluxoCaixaPage() {
     to: endOfMonth(new Date()),
   });
   const [selectedBancoId, setSelectedBancoId] = useState<string | undefined>(bancoIdFromUrl || undefined);
+  const [receitaFormOpen, setReceitaFormOpen] = useState(false);
+  const [despesaFormOpen, setDespesaFormOpen] = useState(false);
+  const [transferenciaOpen, setTransferenciaOpen] = useState(false);
 
   const { data: lancamentos = [], isLoading } = useLancamentos();
   const { data: bancos = [] } = useBancos();
