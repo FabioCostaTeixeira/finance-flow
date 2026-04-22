@@ -10,6 +10,8 @@ export const ALL_MODULES = [
   { key: 'fluxo-caixa', label: 'Fluxo de Caixa', parent: null },
   { key: 'api', label: 'API', parent: null },
   { key: 'api-docs', label: 'Documentação API', parent: 'api' },
+  { key: 'telegram', label: 'Bot Telegram', parent: null },
+  { key: 'ai-settings', label: 'Configurações de IA', parent: null },
   { key: 'usuarios', label: 'Usuários', parent: null },
 ] as const;
 
@@ -25,6 +27,8 @@ export const ROUTE_TO_MODULE: Record<string, ModuleKey> = {
   '/fluxo-caixa': 'fluxo-caixa',
   '/api': 'api',
   '/api/docs': 'api-docs',
+  '/telegram': 'telegram',
+  '/ai-settings': 'ai-settings',
   '/usuarios': 'usuarios',
 };
 
