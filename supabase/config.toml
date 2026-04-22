@@ -14,3 +14,12 @@ verify_jwt = false
 
 [functions.setup-master]
 verify_jwt = false
+
+[functions.ai-router]
+verify_jwt = false
+
+[functions.telegram-poll]
+verify_jwt = false
+
+[functions.telegram-pair]
+verify_jwt = true
