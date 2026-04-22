@@ -18,6 +18,8 @@ import FluxoCaixa from "./pages/FluxoCaixa";
 import ApiKeys from "./pages/ApiKeys";
 import ApiDocumentation from "./pages/ApiDocumentation";
 import Usuarios from "./pages/Usuarios";
+import AISettings from "./pages/AISettings";
+import TelegramBot from "./pages/TelegramBot";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -111,6 +113,8 @@ function AppRoutes() {
       <Route path="/fluxo-caixa" element={<ProtectedLayout><PermissionRoute moduleKey="fluxo-caixa"><FluxoCaixa /></PermissionRoute></ProtectedLayout>} />
       <Route path="/api" element={<ProtectedLayout><PermissionRoute moduleKey="api"><ApiKeys /></PermissionRoute></ProtectedLayout>} />
       <Route path="/api/docs" element={<ProtectedLayout><PermissionRoute moduleKey="api-docs"><ApiDocumentation /></PermissionRoute></ProtectedLayout>} />
+      <Route path="/telegram" element={<ProtectedLayout><PermissionRoute moduleKey="telegram"><TelegramBot /></PermissionRoute></ProtectedLayout>} />
+      <Route path="/ai-settings" element={<ProtectedLayout><MasterRoute><AISettings /></MasterRoute></ProtectedLayout>} />
       <Route 
         path="/usuarios" 
         element={
