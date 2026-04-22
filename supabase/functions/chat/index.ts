@@ -405,16 +405,16 @@ ${financialContext}`;
       }
     ];
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(aiCfg.endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${aiCfg.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: aiCfg.model,
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: aiCfg.systemOverride || systemPrompt },
           ...messages,
         ],
         tools,
