@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_settings: {
+        Row: {
+          api_key: string | null
+          enabled: boolean
+          id: number
+          model: string
+          provider: string
+          system_prompt_override: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          api_key?: string | null
+          enabled?: boolean
+          id: number
+          model?: string
+          provider?: string
+          system_prompt_override?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          api_key?: string | null
+          enabled?: boolean
+          id?: number
+          model?: string
+          provider?: string
+          system_prompt_override?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       api_access_logs: {
         Row: {
           api_key_id: string
@@ -243,6 +276,45 @@ export type Database = {
           },
         ]
       }
+      messaging_channels: {
+        Row: {
+          channel_type: string
+          channel_user_id: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          pairing_expires_at: string | null
+          pairing_token: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel_type: string
+          channel_user_id?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          pairing_expires_at?: string | null
+          pairing_token?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel_type?: string
+          channel_user_id?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          pairing_expires_at?: string | null
+          pairing_token?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -267,6 +339,57 @@ export type Database = {
           nome?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      telegram_bot_state: {
+        Row: {
+          id: number
+          update_offset: number
+          updated_at: string
+        }
+        Insert: {
+          id: number
+          update_offset?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          update_offset?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      telegram_messages: {
+        Row: {
+          chat_id: number
+          created_at: string
+          processed: boolean
+          processed_at: string | null
+          raw_update: Json
+          response_text: string | null
+          text: string | null
+          update_id: number
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          processed?: boolean
+          processed_at?: string | null
+          raw_update: Json
+          response_text?: string | null
+          text?: string | null
+          update_id: number
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          processed?: boolean
+          processed_at?: string | null
+          raw_update?: Json
+          response_text?: string | null
+          text?: string | null
+          update_id?: number
         }
         Relationships: []
       }
