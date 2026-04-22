@@ -8,6 +8,33 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Resolve provider/model/key dinamicamente a partir de ai_settings.
+// Para o chat com tool-calling, só providers OpenAI-compatible são suportados (lovable, openai, google).
+// Se o usuário escolher Anthropic, caímos de volta para Lovable (Anthropic exige tradução de tools).
+async function getAIConfig(supabase: any, fallbackKey: string) {
+  try {
+    const { data } = await supabase.from("ai_settings").select("*").eq("id", 1).single();
+    if (!data || data.enabled === false) {
+      return { endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions", apiKey: fallbackKey, model: "google/gemini-3-flash-preview", systemOverride: null };
+    }
+    const provider = data.provider || "lovable";
+    const model = data.model || "google/gemini-3-flash-preview";
+    const systemOverride = data.system_prompt_override || null;
+
+    if (provider === "openai" && data.api_key) {
+      return { endpoint: "https://api.openai.com/v1/chat/completions", apiKey: data.api_key, model, systemOverride };
+    }
+    if (provider === "google" && data.api_key) {
+      return { endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", apiKey: data.api_key, model, systemOverride };
+    }
+    // anthropic ou lovable -> usar Lovable AI (Anthropic não suporta tools nesse formato simples)
+    return { endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions", apiKey: fallbackKey, model: provider === "lovable" ? model : "google/gemini-3-flash-preview", systemOverride };
+  } catch (e) {
+    console.error("getAIConfig error, falling back to Lovable:", e);
+    return { endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions", apiKey: fallbackKey, model: "google/gemini-3-flash-preview", systemOverride: null };
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -23,6 +50,7 @@ serve(async (req) => {
 
     // Fetch financial data from database
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+    const aiCfg = await getAIConfig(supabase, LOVABLE_API_KEY);
 
     const [lancamentosRes, categoriasRes, bancosRes] = await Promise.all([
       supabase.from("lancamentos").select("*, categorias(nome, categoria_pai_id)").order("data_vencimento", { ascending: false }).limit(500),
@@ -377,16 +405,16 @@ ${financialContext}`;
       }
     ];
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(aiCfg.endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${aiCfg.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: aiCfg.model,
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: aiCfg.systemOverride || systemPrompt },
           ...messages,
         ],
         tools,
@@ -892,14 +920,14 @@ ${financialContext}`;
         }))
       ];
 
-      const finalResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const finalResponse = await fetch(aiCfg.endpoint, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${aiCfg.apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: aiCfg.model,
           messages: followUpMessages,
           stream: true,
         }),
@@ -920,16 +948,16 @@ ${financialContext}`;
     }
 
     // Se não houver tool calls, fazer streaming normal
-    const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const streamResponse = await fetch(aiCfg.endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${aiCfg.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: aiCfg.model,
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: aiCfg.systemOverride || systemPrompt },
           ...messages,
         ],
         stream: true,
