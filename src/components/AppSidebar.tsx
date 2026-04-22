@@ -48,7 +48,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   };
 
   const baseItems = role === 'master'
-    ? [...menuItems, { path: '/usuarios', label: 'Usuários', icon: Users }]
+    ? [...menuItems, { path: '/ai-settings', label: 'Config. de IA', icon: Settings }, { path: '/usuarios', label: 'Usuários', icon: Users }]
     : menuItems;
 
   const allMenuItems = baseItems.filter(item => {
@@ -194,7 +194,7 @@ function DesktopNav({ collapsed }: { collapsed: boolean }) {
   const { data: permissions } = useMyPermissions();
 
   const baseItems = role === 'master'
-    ? [...menuItems, { path: '/usuarios', label: 'Usuários', icon: Users }]
+    ? [...menuItems, { path: '/ai-settings', label: 'Config. de IA', icon: Settings }, { path: '/usuarios', label: 'Usuários', icon: Users }]
     : menuItems;
 
   const allMenuItems = baseItems.filter(item => {
