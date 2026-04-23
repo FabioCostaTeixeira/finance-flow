@@ -29,8 +29,8 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: auth } } });
-    const token = auth.replace('Bearer ', '');
-    const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
+    const accessToken = auth.replace('Bearer ', '');
+    const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(accessToken);
     if (claimsErr || !claimsData?.claims?.sub) {
       return new Response(JSON.stringify({ error: 'invalid token' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
       .eq('channel_type', 'telegram')
       .eq('status', 'pending');
 
-    const token = generateToken();
+    const pairingToken = generateToken();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 min
 
     const { data, error } = await admin
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
       .insert({
         user_id: userId,
         channel_type: 'telegram',
-        pairing_token: token,
+          pairing_token: pairingToken,
         pairing_expires_at: expiresAt.toISOString(),
         status: 'pending',
       })
@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
 
     if (error) throw error;
 
-    return new Response(JSON.stringify({ token, expires_at: expiresAt.toISOString(), id: data.id }), {
+    return new Response(JSON.stringify({ token: pairingToken, expires_at: expiresAt.toISOString(), id: data.id }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
