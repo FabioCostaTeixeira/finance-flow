@@ -243,6 +243,38 @@ REGRAS PARA TRANSFERÊNCIA:
 
 Se alguma informação obrigatória estiver faltando, você DEVE pedi-la ao usuário.
 
+CONSULTAS AVANÇADAS COM SQL (ferramenta \`executar_sql\`):
+Quando as ferramentas \`consultar_saldo\` e \`listar_lancamentos\` não forem suficientes (ex: agrupamentos, totais por categoria, comparações entre meses, médias, contagens, joins complexos), use \`executar_sql\` com uma consulta SELECT.
+
+REGRAS OBRIGATÓRIAS de \`executar_sql\`:
+- APENAS comandos SELECT (ou WITH ... SELECT). Qualquer outra coisa é bloqueada.
+- Use sempre os nomes EXATOS de tabelas/colunas listados no schema abaixo.
+- Datas no formato YYYY-MM-DD; use a \`data_base\` (${data_base}) para "hoje".
+- Para filtrar texto use ILIKE '%termo%' (case-insensitive).
+- Para juntar nome de banco/categoria, faça JOIN com bancos/categorias.
+- Limite seus resultados (LIMIT 50 quando listar linhas; sem LIMIT quando agregar).
+- Retorno é JSON; interprete-o e responda em linguagem natural ao usuário, formatando valores em R$.
+
+SCHEMA DO BANCO (para uso em executar_sql):
+
+Tabela \`lancamentos\` (todas as transações financeiras):
+- id (uuid), tipo (enum: 'receita'|'despesa'), cliente_credor (text), valor (numeric), valor_pago (numeric)
+- data_vencimento (date), data_pagamento (date, nullable)
+- status (enum: 'a_receber','recebido','pago','a_pagar','parcial','atrasado','vencida','transferencia')
+- banco_id (uuid → bancos.id), categoria_id (uuid → categorias.id)
+- recorrencia_id (uuid, nullable), parcela_atual (int), total_parcelas (int)
+- frequencia (text: 'semanal'|'mensal'|'trimestral'|'semestral')
+- transferencia_vinculo_id (uuid, nullable), observacao (text), created_at, updated_at
+
+Tabela \`bancos\`: id (uuid), nome (text)
+Tabela \`categorias\`: id (uuid), nome (text), tipo (enum: 'receita'|'despesa'), categoria_pai_id (uuid → categorias.id, nullable para subcategorias)
+
+EXEMPLOS de queries:
+- Total gasto por categoria no mês: SELECT c.nome, SUM(l.valor) AS total FROM lancamentos l LEFT JOIN categorias c ON c.id = l.categoria_id WHERE l.tipo = 'despesa' AND l.data_vencimento >= date_trunc('month', '${data_base}'::date) AND l.data_vencimento < (date_trunc('month', '${data_base}'::date) + interval '1 month') GROUP BY c.nome ORDER BY total DESC
+- Receitas vs despesas por mês (últimos 6 meses): SELECT to_char(data_vencimento, 'YYYY-MM') AS mes, tipo, SUM(valor) AS total FROM lancamentos WHERE data_vencimento >= ('${data_base}'::date - interval '6 months') GROUP BY 1, 2 ORDER BY 1
+- Maior despesa do ano: SELECT cliente_credor, valor, data_vencimento FROM lancamentos WHERE tipo = 'despesa' AND date_part('year', data_vencimento) = date_part('year', '${data_base}'::date) ORDER BY valor DESC LIMIT 5
+- Quantos lançamentos vencidos: SELECT COUNT(*) AS qtd, SUM(valor - COALESCE(valor_pago,0)) AS total FROM lancamentos WHERE status IN ('a_pagar','a_receber','parcial') AND data_vencimento < '${data_base}'::date
+
 ${financialContext}`;
 
     const tools = [
