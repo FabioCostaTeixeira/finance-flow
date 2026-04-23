@@ -243,6 +243,38 @@ REGRAS PARA TRANSFERÊNCIA:
 
 Se alguma informação obrigatória estiver faltando, você DEVE pedi-la ao usuário.
 
+CONSULTAS AVANÇADAS COM SQL (ferramenta \`executar_sql\`):
+Quando as ferramentas \`consultar_saldo\` e \`listar_lancamentos\` não forem suficientes (ex: agrupamentos, totais por categoria, comparações entre meses, médias, contagens, joins complexos), use \`executar_sql\` com uma consulta SELECT.
+
+REGRAS OBRIGATÓRIAS de \`executar_sql\`:
+- APENAS comandos SELECT (ou WITH ... SELECT). Qualquer outra coisa é bloqueada.
+- Use sempre os nomes EXATOS de tabelas/colunas listados no schema abaixo.
+- Datas no formato YYYY-MM-DD; use a \`data_base\` (${data_base}) para "hoje".
+- Para filtrar texto use ILIKE '%termo%' (case-insensitive).
+- Para juntar nome de banco/categoria, faça JOIN com bancos/categorias.
+- Limite seus resultados (LIMIT 50 quando listar linhas; sem LIMIT quando agregar).
+- Retorno é JSON; interprete-o e responda em linguagem natural ao usuário, formatando valores em R$.
+
+SCHEMA DO BANCO (para uso em executar_sql):
+
+Tabela \`lancamentos\` (todas as transações financeiras):
+- id (uuid), tipo (enum: 'receita'|'despesa'), cliente_credor (text), valor (numeric), valor_pago (numeric)
+- data_vencimento (date), data_pagamento (date, nullable)
+- status (enum: 'a_receber','recebido','pago','a_pagar','parcial','atrasado','vencida','transferencia')
+- banco_id (uuid → bancos.id), categoria_id (uuid → categorias.id)
+- recorrencia_id (uuid, nullable), parcela_atual (int), total_parcelas (int)
+- frequencia (text: 'semanal'|'mensal'|'trimestral'|'semestral')
+- transferencia_vinculo_id (uuid, nullable), observacao (text), created_at, updated_at
+
+Tabela \`bancos\`: id (uuid), nome (text)
+Tabela \`categorias\`: id (uuid), nome (text), tipo (enum: 'receita'|'despesa'), categoria_pai_id (uuid → categorias.id, nullable para subcategorias)
+
+EXEMPLOS de queries:
+- Total gasto por categoria no mês: SELECT c.nome, SUM(l.valor) AS total FROM lancamentos l LEFT JOIN categorias c ON c.id = l.categoria_id WHERE l.tipo = 'despesa' AND l.data_vencimento >= date_trunc('month', '${data_base}'::date) AND l.data_vencimento < (date_trunc('month', '${data_base}'::date) + interval '1 month') GROUP BY c.nome ORDER BY total DESC
+- Receitas vs despesas por mês (últimos 6 meses): SELECT to_char(data_vencimento, 'YYYY-MM') AS mes, tipo, SUM(valor) AS total FROM lancamentos WHERE data_vencimento >= ('${data_base}'::date - interval '6 months') GROUP BY 1, 2 ORDER BY 1
+- Maior despesa do ano: SELECT cliente_credor, valor, data_vencimento FROM lancamentos WHERE tipo = 'despesa' AND date_part('year', data_vencimento) = date_part('year', '${data_base}'::date) ORDER BY valor DESC LIMIT 5
+- Quantos lançamentos vencidos: SELECT COUNT(*) AS qtd, SUM(valor - COALESCE(valor_pago,0)) AS total FROM lancamentos WHERE status IN ('a_pagar','a_receber','parcial') AND data_vencimento < '${data_base}'::date
+
 ${financialContext}`;
 
     const tools = [
@@ -426,6 +458,24 @@ ${financialContext}`;
               data_fim: { type: "string", description: "Data final YYYY-MM-DD" },
               limite: { type: "number", description: "Máximo de resultados (default 20, max 50)" }
             },
+            additionalProperties: false
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "executar_sql",
+          description: "Executa uma consulta SQL SELECT no banco para responder perguntas analíticas/agregadas que as outras tools não cobrem (totais por categoria, comparativos entre meses, médias, contagens, etc). Apenas SELECT é permitido. Use o schema fornecido no system prompt. Retorna até 200 linhas em JSON.",
+          parameters: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string",
+                description: "Query SQL começando com SELECT (ou WITH). Use os nomes exatos das tabelas/colunas do schema. Sem ponto-e-vírgula no final."
+              }
+            },
+            required: ["query"],
             additionalProperties: false
           }
         }
@@ -988,6 +1038,48 @@ ${financialContext}`;
             toolResults.push({
               tool_call_id: toolCall.id,
               content: JSON.stringify({ success: false, error: e instanceof Error ? e.message : "Erro ao listar lançamentos" }),
+            });
+          }
+        } else if (toolCall.function.name === "executar_sql") {
+          try {
+            const args = JSON.parse(toolCall.function.arguments || "{}");
+            if (!args.query || typeof args.query !== "string") {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ success: false, error: "Parâmetro 'query' é obrigatório" }),
+              });
+              continue;
+            }
+            // Validação extra no edge function (defesa em profundidade)
+            const lower = args.query.trim().toLowerCase();
+            if (!lower.startsWith("select") && !lower.startsWith("with")) {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ success: false, error: "Apenas consultas SELECT são permitidas" }),
+              });
+              continue;
+            }
+            const { data: sqlResult, error: sqlErr } = await supabase.rpc("execute_readonly_query", {
+              query_text: args.query,
+            });
+            if (sqlErr) {
+              console.error("SQL execution error:", sqlErr);
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ success: false, error: sqlErr.message }),
+              });
+            } else {
+              const rows = Array.isArray(sqlResult) ? sqlResult : [];
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ success: true, count: rows.length, data: rows }),
+              });
+            }
+          } catch (e) {
+            console.error("executar_sql tool call error:", e);
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ success: false, error: e instanceof Error ? e.message : "Erro ao executar SQL" }),
             });
           }
         }

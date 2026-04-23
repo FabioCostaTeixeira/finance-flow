@@ -465,6 +465,7 @@ export type Database = {
       }
     }
     Functions: {
+      execute_readonly_query: { Args: { query_text: string }; Returns: Json }
       get_bancos_com_saldos: {
         Args: { data_fim?: string; data_inicio?: string }
         Returns: {
