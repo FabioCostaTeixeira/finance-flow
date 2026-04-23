@@ -197,6 +197,8 @@ SUAS RESPONSABILIDADES:
 1.  **Interpretar Datas Relativas**: Você DEVE converter qualquer expressão de data relativa dita pelo usuário (ex: 'hoje', 'amanhã', 'ontem', 'daqui a 2 dias') em uma data absoluta no formato \`YYYY-MM-DD\`, usando a \`data_base\` como ponto de partida.
 2.  **Proibição de Inferência**: Você está **PROIBIDO** de usar qualquer outra fonte para inferir datas. Isso inclui o histórico da conversa, lançamentos anteriores, ou a data do sistema. A \`data_base\` é sua única fonte da verdade temporal.
 3.  **Usar Ferramentas Apropriadas**:
+    - \`consultar_saldo\`: Para responder QUALQUER pergunta sobre saldo, total em conta, extrato resumido por banco. SEMPRE use esta ferramenta quando o usuário perguntar "qual meu saldo", "quanto tenho no Itaú", etc. NUNCA responda saldos sem chamá-la.
+    - \`listar_lancamentos\`: Para mostrar/buscar lançamentos com filtros (tipo, status, banco, categoria, cliente, período). SEMPRE use ao invés de inventar respostas.
     - \`criar_lancamento\`: Para criar novos lançamentos financeiros
     - \`atualizar_lancamento\`: Para modificar lançamentos existentes (valor, data, cliente, categoria, etc.)
     - \`excluir_lancamento\`: Para remover lançamentos (use com cuidado!)
@@ -381,24 +383,49 @@ ${financialContext}`;
           parameters: {
             type: "object",
             properties: {
-              banco_origem_id: {
-                type: "string",
-                description: "ID do banco de origem (UUID)"
-              },
-              banco_destino_id: {
-                type: "string",
-                description: "ID do banco de destino (UUID)"
-              },
-              valor: {
-                type: "number",
-                description: "Valor da transferência em reais"
-              },
-              data: {
-                type: "string",
-                description: "Data da transferência no formato YYYY-MM-DD"
-              }
+              banco_origem_id: { type: "string", description: "ID do banco de origem (UUID)" },
+              banco_destino_id: { type: "string", description: "ID do banco de destino (UUID)" },
+              valor: { type: "number", description: "Valor da transferência em reais" },
+              data: { type: "string", description: "Data da transferência no formato YYYY-MM-DD" }
             },
             required: ["banco_origem_id", "banco_destino_id", "valor", "data"],
+            additionalProperties: false
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "consultar_saldo",
+          description: "Consulta o saldo, totais de entradas/saídas, valores recebidos/pagos e a receber/pagar de um ou todos os bancos. Use SEMPRE que o usuário perguntar sobre saldo, extrato resumido ou totais por banco.",
+          parameters: {
+            type: "object",
+            properties: {
+              banco_nome: { type: "string", description: "Nome (ou parte) do banco para filtrar (ex: 'Itaú'). Omita para retornar todos os bancos." },
+              data_inicio: { type: "string", description: "Data inicial YYYY-MM-DD (opcional)" },
+              data_fim: { type: "string", description: "Data final YYYY-MM-DD (opcional)" }
+            },
+            additionalProperties: false
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "listar_lancamentos",
+          description: "Lista lançamentos aplicando filtros (tipo, status, banco, categoria, cliente/credor, período). Use sempre que o usuário pedir para ver/listar/buscar lançamentos, contas a pagar/receber, gastos, receitas, etc.",
+          parameters: {
+            type: "object",
+            properties: {
+              tipo: { type: "string", enum: ["receita", "despesa"], description: "Filtra por tipo" },
+              status: { type: "string", description: "Status: a_receber, recebido, a_pagar, pago, parcial, atrasado, vencida, transferencia" },
+              banco_nome: { type: "string", description: "Nome (ou parte) do banco" },
+              categoria_nome: { type: "string", description: "Nome (ou parte) da categoria" },
+              cliente_credor: { type: "string", description: "Nome (ou parte) do cliente ou credor" },
+              data_inicio: { type: "string", description: "Data inicial YYYY-MM-DD" },
+              data_fim: { type: "string", description: "Data final YYYY-MM-DD" },
+              limite: { type: "number", description: "Máximo de resultados (default 20, max 50)" }
+            },
             additionalProperties: false
           }
         }
@@ -903,6 +930,64 @@ ${financialContext}`;
                 success: false, 
                 error: `Erro ao processar transferência: ${e instanceof Error ? e.message : 'Erro desconhecido'}` 
               })
+            });
+          }
+        } else if (toolCall.function.name === "consultar_saldo") {
+          try {
+            const args = JSON.parse(toolCall.function.arguments || "{}");
+            const { data: saldos, error: saldosErr } = await supabase.rpc("get_bancos_com_saldos", {
+              data_inicio: args.data_inicio || null,
+              data_fim: args.data_fim || null,
+            });
+            if (saldosErr) throw saldosErr;
+            let resultado = saldos || [];
+            if (args.banco_nome) {
+              const q = String(args.banco_nome).toLowerCase();
+              resultado = resultado.filter((b: any) => (b.banco_nome || "").toLowerCase().includes(q));
+            }
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ success: true, data: resultado, count: resultado.length }),
+            });
+          } catch (e) {
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ success: false, error: e instanceof Error ? e.message : "Erro ao consultar saldo" }),
+            });
+          }
+        } else if (toolCall.function.name === "listar_lancamentos") {
+          try {
+            const args = JSON.parse(toolCall.function.arguments || "{}");
+            let q = supabase
+              .from("lancamentos")
+              .select("id, tipo, cliente_credor, valor, valor_pago, data_vencimento, data_pagamento, status, observacao, bancos(nome), categorias(nome)")
+              .order("data_vencimento", { ascending: false })
+              .limit(Math.min(Number(args.limite) || 20, 50));
+            if (args.tipo) q = q.eq("tipo", args.tipo);
+            if (args.status) q = q.eq("status", args.status);
+            if (args.cliente_credor) q = q.ilike("cliente_credor", `%${args.cliente_credor}%`);
+            if (args.data_inicio) q = q.gte("data_vencimento", args.data_inicio);
+            if (args.data_fim) q = q.lte("data_vencimento", args.data_fim);
+            if (args.banco_nome) {
+              const banco = bancos.find((b: any) => (b.nome || "").toLowerCase().includes(String(args.banco_nome).toLowerCase()));
+              if (banco) q = q.eq("banco_id", banco.id);
+            }
+            if (args.categoria_nome) {
+              const cat = categorias.find((c: any) => (c.nome || "").toLowerCase().includes(String(args.categoria_nome).toLowerCase()));
+              if (cat) q = q.eq("categoria_id", cat.id);
+            }
+            const { data: rows, error: listErr } = await q;
+            if (listErr) throw listErr;
+            const totalValor = (rows || []).reduce((acc: number, l: any) => acc + Number(l.valor || 0), 0);
+            const totalPago = (rows || []).reduce((acc: number, l: any) => acc + Number(l.valor_pago || 0), 0);
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ success: true, count: rows?.length || 0, total_valor: totalValor, total_pago: totalPago, data: rows }),
+            });
+          } catch (e) {
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ success: false, error: e instanceof Error ? e.message : "Erro ao listar lançamentos" }),
             });
           }
         }
