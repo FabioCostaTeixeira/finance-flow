@@ -461,6 +461,24 @@ ${financialContext}`;
             additionalProperties: false
           }
         }
+      },
+      {
+        type: "function",
+        function: {
+          name: "executar_sql",
+          description: "Executa uma consulta SQL SELECT no banco para responder perguntas analíticas/agregadas que as outras tools não cobrem (totais por categoria, comparativos entre meses, médias, contagens, etc). Apenas SELECT é permitido. Use o schema fornecido no system prompt. Retorna até 200 linhas em JSON.",
+          parameters: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string",
+                description: "Query SQL começando com SELECT (ou WITH). Use os nomes exatos das tabelas/colunas do schema. Sem ponto-e-vírgula no final."
+              }
+            },
+            required: ["query"],
+            additionalProperties: false
+          }
+        }
       }
     ];
 
