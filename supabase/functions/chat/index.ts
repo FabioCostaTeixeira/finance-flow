@@ -381,24 +381,49 @@ ${financialContext}`;
           parameters: {
             type: "object",
             properties: {
-              banco_origem_id: {
-                type: "string",
-                description: "ID do banco de origem (UUID)"
-              },
-              banco_destino_id: {
-                type: "string",
-                description: "ID do banco de destino (UUID)"
-              },
-              valor: {
-                type: "number",
-                description: "Valor da transferência em reais"
-              },
-              data: {
-                type: "string",
-                description: "Data da transferência no formato YYYY-MM-DD"
-              }
+              banco_origem_id: { type: "string", description: "ID do banco de origem (UUID)" },
+              banco_destino_id: { type: "string", description: "ID do banco de destino (UUID)" },
+              valor: { type: "number", description: "Valor da transferência em reais" },
+              data: { type: "string", description: "Data da transferência no formato YYYY-MM-DD" }
             },
             required: ["banco_origem_id", "banco_destino_id", "valor", "data"],
+            additionalProperties: false
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "consultar_saldo",
+          description: "Consulta o saldo, totais de entradas/saídas, valores recebidos/pagos e a receber/pagar de um ou todos os bancos. Use SEMPRE que o usuário perguntar sobre saldo, extrato resumido ou totais por banco.",
+          parameters: {
+            type: "object",
+            properties: {
+              banco_nome: { type: "string", description: "Nome (ou parte) do banco para filtrar (ex: 'Itaú'). Omita para retornar todos os bancos." },
+              data_inicio: { type: "string", description: "Data inicial YYYY-MM-DD (opcional)" },
+              data_fim: { type: "string", description: "Data final YYYY-MM-DD (opcional)" }
+            },
+            additionalProperties: false
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "listar_lancamentos",
+          description: "Lista lançamentos aplicando filtros (tipo, status, banco, categoria, cliente/credor, período). Use sempre que o usuário pedir para ver/listar/buscar lançamentos, contas a pagar/receber, gastos, receitas, etc.",
+          parameters: {
+            type: "object",
+            properties: {
+              tipo: { type: "string", enum: ["receita", "despesa"], description: "Filtra por tipo" },
+              status: { type: "string", description: "Status: a_receber, recebido, a_pagar, pago, parcial, atrasado, vencida, transferencia" },
+              banco_nome: { type: "string", description: "Nome (ou parte) do banco" },
+              categoria_nome: { type: "string", description: "Nome (ou parte) da categoria" },
+              cliente_credor: { type: "string", description: "Nome (ou parte) do cliente ou credor" },
+              data_inicio: { type: "string", description: "Data inicial YYYY-MM-DD" },
+              data_fim: { type: "string", description: "Data final YYYY-MM-DD" },
+              limite: { type: "number", description: "Máximo de resultados (default 20, max 50)" }
+            },
             additionalProperties: false
           }
         }
