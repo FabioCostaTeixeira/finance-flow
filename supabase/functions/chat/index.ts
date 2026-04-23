@@ -930,6 +930,64 @@ ${financialContext}`;
               })
             });
           }
+        } else if (toolCall.function.name === "consultar_saldo") {
+          try {
+            const args = JSON.parse(toolCall.function.arguments || "{}");
+            const { data: saldos, error: saldosErr } = await supabase.rpc("get_bancos_com_saldos", {
+              data_inicio: args.data_inicio || null,
+              data_fim: args.data_fim || null,
+            });
+            if (saldosErr) throw saldosErr;
+            let resultado = saldos || [];
+            if (args.banco_nome) {
+              const q = String(args.banco_nome).toLowerCase();
+              resultado = resultado.filter((b: any) => (b.banco_nome || "").toLowerCase().includes(q));
+            }
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ success: true, data: resultado, count: resultado.length }),
+            });
+          } catch (e) {
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ success: false, error: e instanceof Error ? e.message : "Erro ao consultar saldo" }),
+            });
+          }
+        } else if (toolCall.function.name === "listar_lancamentos") {
+          try {
+            const args = JSON.parse(toolCall.function.arguments || "{}");
+            let q = supabase
+              .from("lancamentos")
+              .select("id, tipo, cliente_credor, valor, valor_pago, data_vencimento, data_pagamento, status, observacao, bancos(nome), categorias(nome)")
+              .order("data_vencimento", { ascending: false })
+              .limit(Math.min(Number(args.limite) || 20, 50));
+            if (args.tipo) q = q.eq("tipo", args.tipo);
+            if (args.status) q = q.eq("status", args.status);
+            if (args.cliente_credor) q = q.ilike("cliente_credor", `%${args.cliente_credor}%`);
+            if (args.data_inicio) q = q.gte("data_vencimento", args.data_inicio);
+            if (args.data_fim) q = q.lte("data_vencimento", args.data_fim);
+            if (args.banco_nome) {
+              const banco = bancos.find((b: any) => (b.nome || "").toLowerCase().includes(String(args.banco_nome).toLowerCase()));
+              if (banco) q = q.eq("banco_id", banco.id);
+            }
+            if (args.categoria_nome) {
+              const cat = categorias.find((c: any) => (c.nome || "").toLowerCase().includes(String(args.categoria_nome).toLowerCase()));
+              if (cat) q = q.eq("categoria_id", cat.id);
+            }
+            const { data: rows, error: listErr } = await q;
+            if (listErr) throw listErr;
+            const totalValor = (rows || []).reduce((acc: number, l: any) => acc + Number(l.valor || 0), 0);
+            const totalPago = (rows || []).reduce((acc: number, l: any) => acc + Number(l.valor_pago || 0), 0);
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ success: true, count: rows?.length || 0, total_valor: totalValor, total_pago: totalPago, data: rows }),
+            });
+          } catch (e) {
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ success: false, error: e instanceof Error ? e.message : "Erro ao listar lançamentos" }),
+            });
+          }
         }
       }
 
