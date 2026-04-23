@@ -1040,6 +1040,48 @@ ${financialContext}`;
               content: JSON.stringify({ success: false, error: e instanceof Error ? e.message : "Erro ao listar lançamentos" }),
             });
           }
+        } else if (toolCall.function.name === "executar_sql") {
+          try {
+            const args = JSON.parse(toolCall.function.arguments || "{}");
+            if (!args.query || typeof args.query !== "string") {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ success: false, error: "Parâmetro 'query' é obrigatório" }),
+              });
+              continue;
+            }
+            // Validação extra no edge function (defesa em profundidade)
+            const lower = args.query.trim().toLowerCase();
+            if (!lower.startsWith("select") && !lower.startsWith("with")) {
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ success: false, error: "Apenas consultas SELECT são permitidas" }),
+              });
+              continue;
+            }
+            const { data: sqlResult, error: sqlErr } = await supabase.rpc("execute_readonly_query", {
+              query_text: args.query,
+            });
+            if (sqlErr) {
+              console.error("SQL execution error:", sqlErr);
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ success: false, error: sqlErr.message }),
+              });
+            } else {
+              const rows = Array.isArray(sqlResult) ? sqlResult : [];
+              toolResults.push({
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ success: true, count: rows.length, data: rows }),
+              });
+            }
+          } catch (e) {
+            console.error("executar_sql tool call error:", e);
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ success: false, error: e instanceof Error ? e.message : "Erro ao executar SQL" }),
+            });
+          }
         }
       }
 
