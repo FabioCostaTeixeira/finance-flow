@@ -184,6 +184,77 @@ const TOOLS: Tool[] = [
       },
     },
   },
+  {
+    name: "consultar_lancamentos_bi",
+    description:
+      "Consulta a view desnormalizada lancamentos_bi (ideal para análises e BI). Retorna dados planos com categoria, categoria_pai e banco já resolvidos.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tipo: { type: "string", enum: ["receita", "despesa"] },
+        status: { type: "string" },
+        data_inicio: { type: "string", description: "YYYY-MM-DD" },
+        data_fim: { type: "string", description: "YYYY-MM-DD" },
+        limite: { type: "number", description: "Máximo de registros (default 100)" },
+      },
+    },
+  },
+  {
+    name: "relatorio_fluxo_caixa",
+    description:
+      "Relatório de fluxo de caixa mensal: receita e despesa projetada vs realizada, saldo do mês. Últimos N meses.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        meses: { type: "number", description: "Quantidade de meses anteriores (default 12, max 24)" },
+      },
+    },
+  },
+  {
+    name: "relatorio_por_categoria",
+    description:
+      "Análise de lançamentos agrupados por categoria: quantidade, valor total, valor pago, taxa de realização, ticket médio.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tipo: { type: "string", enum: ["receita", "despesa"], description: "Filtra por tipo" },
+        meses: { type: "number", description: "Quantidade de meses (default 12)" },
+      },
+    },
+  },
+  {
+    name: "relatorio_inadimplencia",
+    description:
+      "Taxa de inadimplência por categoria: total de lançamentos, realizados, pendentes, atrasados, valor em atraso.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        meses: { type: "number", description: "Quantidade de meses analisados (default 12)" },
+      },
+    },
+  },
+  {
+    name: "relatorio_kpi",
+    description:
+      "KPIs do mês atual: receita projetada, despesa projetada, saldo projetado, pendências abertas.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "top_clientes_credores",
+    description:
+      "Top 20 clientes ou credores por valor total: quantidade, valor total, valor recebido/pago, taxa de realização, ticket médio.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tipo: { type: "string", enum: ["receita", "despesa"], description: "Filtra por tipo (default: ambos)" },
+        meses: { type: "number", description: "Quantidade de meses (default 12)" },
+        limite: { type: "number", description: "Número de resultados (default 20)" },
+      },
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -388,6 +459,155 @@ async function handleListarCategorias(args: Record<string, unknown>): Promise<To
   return textResult({ success: true, count: data?.length ?? 0, data });
 }
 
+async function handleConsultarLancamentosBi(args: Record<string, unknown>): Promise<ToolResult> {
+  let q = supabase
+    .from("lancamentos_bi")
+    .select("*")
+    .order("data_vencimento", { ascending: false })
+    .limit(Math.min(Number(args.limite) || 100, 500));
+  if (args.tipo) q = q.eq("tipo", args.tipo as string);
+  if (args.status) q = q.eq("status", args.status as string);
+  if (args.data_inicio) q = q.gte("data_vencimento", args.data_inicio as string);
+  if (args.data_fim) q = q.lte("data_vencimento", args.data_fim as string);
+  const { data, error } = await q;
+  if (error) return errorResult(error.message);
+  return textResult({ success: true, count: data?.length ?? 0, data });
+}
+
+async function handleRelatorioFluxoCaixa(args: Record<string, unknown>): Promise<ToolResult> {
+  const meses = Math.min(Number(args.meses) || 12, 24);
+  const { data, error } = await supabase.rpc("execute_readonly_query", {
+    query_text: `
+      SELECT
+        DATE_TRUNC('month', data_vencimento)::DATE AS mes,
+        SUM(CASE WHEN tipo='receita' THEN valor ELSE 0 END) AS receita_projetada,
+        SUM(CASE WHEN tipo='despesa' THEN valor ELSE 0 END) AS despesa_projetada,
+        SUM(CASE WHEN tipo='receita' THEN valor ELSE -valor END) AS saldo_projetado,
+        SUM(CASE WHEN tipo='receita' AND status IN ('recebido','parcial') THEN valor_pago ELSE 0 END) AS receita_realizada,
+        SUM(CASE WHEN tipo='despesa' AND status IN ('pago','parcial') THEN valor_pago ELSE 0 END) AS despesa_realizada
+      FROM lancamentos
+      WHERE data_vencimento >= CURRENT_DATE - INTERVAL '${meses} months'
+      GROUP BY DATE_TRUNC('month', data_vencimento)
+      ORDER BY mes DESC
+    `,
+  });
+  if (error) return errorResult(error.message);
+  return textResult({ success: true, periodo_meses: meses, count: (data as unknown[])?.length ?? 0, data });
+}
+
+async function handleRelatorioPorCategoria(args: Record<string, unknown>): Promise<ToolResult> {
+  const meses = Math.min(Number(args.meses) || 12, 24);
+  const tipoFilter = args.tipo ? `AND l.tipo = '${args.tipo}'` : "";
+  const { data, error } = await supabase.rpc("execute_readonly_query", {
+    query_text: `
+      SELECT
+        c.nome AS categoria,
+        cp.nome AS categoria_pai,
+        l.tipo,
+        COUNT(*) AS quantidade,
+        SUM(l.valor) AS valor_total,
+        SUM(l.valor_pago) AS valor_pago,
+        ROUND(100.0 * SUM(l.valor_pago) / NULLIF(SUM(l.valor), 0), 2) AS taxa_realizacao_pct,
+        ROUND(AVG(l.valor), 2) AS ticket_medio
+      FROM lancamentos l
+      JOIN categorias c ON l.categoria_id = c.id
+      LEFT JOIN categorias cp ON c.categoria_pai_id = cp.id
+      WHERE l.data_vencimento >= CURRENT_DATE - INTERVAL '${meses} months'
+      ${tipoFilter}
+      GROUP BY c.id, c.nome, cp.nome, l.tipo
+      ORDER BY valor_total DESC
+    `,
+  });
+  if (error) return errorResult(error.message);
+  return textResult({ success: true, periodo_meses: meses, count: (data as unknown[])?.length ?? 0, data });
+}
+
+async function handleRelatorioInadimplencia(args: Record<string, unknown>): Promise<ToolResult> {
+  const meses = Math.min(Number(args.meses) || 12, 24);
+  const { data, error } = await supabase.rpc("execute_readonly_query", {
+    query_text: `
+      SELECT
+        c.nome AS categoria,
+        l.tipo,
+        COUNT(*) AS total_lancamentos,
+        COUNT(CASE WHEN l.status IN ('recebido','pago') THEN 1 END) AS realizados,
+        COUNT(CASE WHEN l.status IN ('a_receber','a_pagar') THEN 1 END) AS pendentes,
+        COUNT(CASE WHEN l.status = 'atrasado' THEN 1 END) AS atrasados,
+        ROUND(100.0 * COUNT(CASE WHEN l.status = 'atrasado' THEN 1 END) / NULLIF(COUNT(*), 0), 2) AS taxa_atraso_pct,
+        SUM(CASE WHEN l.status = 'atrasado' THEN l.valor - l.valor_pago ELSE 0 END) AS valor_em_atraso
+      FROM lancamentos l
+      JOIN categorias c ON l.categoria_id = c.id
+      WHERE l.data_vencimento >= CURRENT_DATE - INTERVAL '${meses} months'
+      GROUP BY c.id, c.nome, l.tipo
+      HAVING COUNT(CASE WHEN l.status = 'atrasado' THEN 1 END) > 0
+      ORDER BY taxa_atraso_pct DESC
+    `,
+  });
+  if (error) return errorResult(error.message);
+  return textResult({ success: true, periodo_meses: meses, data });
+}
+
+async function handleRelatorioKpi(): Promise<ToolResult> {
+  const { data, error } = await supabase.rpc("execute_readonly_query", {
+    query_text: `
+      SELECT 'Receita Projetada (Mês)' AS kpi,
+             SUM(CASE WHEN tipo='receita' THEN valor ELSE 0 END)::TEXT AS valor, 'BRL' AS moeda
+      FROM lancamentos
+      WHERE EXTRACT(MONTH FROM data_vencimento) = EXTRACT(MONTH FROM CURRENT_DATE)
+        AND EXTRACT(YEAR FROM data_vencimento) = EXTRACT(YEAR FROM CURRENT_DATE)
+      UNION ALL
+      SELECT 'Despesa Projetada (Mês)',
+             SUM(CASE WHEN tipo='despesa' THEN valor ELSE 0 END)::TEXT, 'BRL'
+      FROM lancamentos
+      WHERE EXTRACT(MONTH FROM data_vencimento) = EXTRACT(MONTH FROM CURRENT_DATE)
+        AND EXTRACT(YEAR FROM data_vencimento) = EXTRACT(YEAR FROM CURRENT_DATE)
+      UNION ALL
+      SELECT 'Saldo Projetado (Mês)',
+             SUM(CASE WHEN tipo='receita' THEN valor ELSE -valor END)::TEXT, 'BRL'
+      FROM lancamentos
+      WHERE EXTRACT(MONTH FROM data_vencimento) = EXTRACT(MONTH FROM CURRENT_DATE)
+        AND EXTRACT(YEAR FROM data_vencimento) = EXTRACT(YEAR FROM CURRENT_DATE)
+      UNION ALL
+      SELECT 'Pendências Abertas', COUNT(*)::TEXT, 'UN'
+      FROM lancamentos
+      WHERE status IN ('a_receber', 'a_pagar', 'atrasado')
+      UNION ALL
+      SELECT 'Valor Total em Atraso',
+             SUM(valor - COALESCE(valor_pago, 0))::TEXT, 'BRL'
+      FROM lancamentos
+      WHERE status = 'atrasado'
+    `,
+  });
+  if (error) return errorResult(error.message);
+  return textResult({ success: true, data });
+}
+
+async function handleTopClientesCredores(args: Record<string, unknown>): Promise<ToolResult> {
+  const meses = Math.min(Number(args.meses) || 12, 24);
+  const limite = Math.min(Number(args.limite) || 20, 50);
+  const tipoFilter = args.tipo ? `AND tipo = '${args.tipo}'` : "";
+  const { data, error } = await supabase.rpc("execute_readonly_query", {
+    query_text: `
+      SELECT
+        cliente_credor,
+        tipo,
+        COUNT(*) AS quantidade,
+        SUM(valor) AS valor_total,
+        SUM(valor_pago) AS valor_realizado,
+        ROUND(100.0 * SUM(valor_pago) / NULLIF(SUM(valor), 0), 2) AS taxa_realizacao_pct,
+        ROUND(AVG(valor), 2) AS ticket_medio
+      FROM lancamentos
+      WHERE data_vencimento >= CURRENT_DATE - INTERVAL '${meses} months'
+      ${tipoFilter}
+      GROUP BY cliente_credor, tipo
+      ORDER BY valor_total DESC
+      LIMIT ${limite}
+    `,
+  });
+  if (error) return errorResult(error.message);
+  return textResult({ success: true, periodo_meses: meses, count: (data as unknown[])?.length ?? 0, data });
+}
+
 // ---------------------------------------------------------------------------
 // MCP Server setup
 // ---------------------------------------------------------------------------
@@ -411,8 +631,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "transferir_entre_contas": return handleTransferirEntreContas(a);
     case "consultar_saldo":         return handleConsultarSaldo(a);
     case "executar_sql":            return handleExecutarSQL(a);
-    case "listar_bancos":           return handleListarBancos();
-    case "listar_categorias":       return handleListarCategorias(a);
+    case "listar_bancos":               return handleListarBancos();
+    case "listar_categorias":           return handleListarCategorias(a);
+    case "consultar_lancamentos_bi":    return handleConsultarLancamentosBi(a);
+    case "relatorio_fluxo_caixa":       return handleRelatorioFluxoCaixa(a);
+    case "relatorio_por_categoria":     return handleRelatorioPorCategoria(a);
+    case "relatorio_inadimplencia":     return handleRelatorioInadimplencia(a);
+    case "relatorio_kpi":               return handleRelatorioKpi();
+    case "top_clientes_credores":       return handleTopClientesCredores(a);
     default:
       return errorResult(`Tool desconhecida: ${name}`);
   }
