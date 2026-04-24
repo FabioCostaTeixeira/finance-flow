@@ -76,7 +76,7 @@ export function useClearChatHistory() {
       const { error } = await supabase
         .from('chat_messages')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Deletes all
+        .not('id', 'is', null); // RLS automatically scopes to current user
 
       if (error) throw error;
     },
