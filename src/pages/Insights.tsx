@@ -3,13 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Brain, Send, Trash2, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useChatMessages, useAddChatMessage, useClearChatHistory } from '@/hooks/useChatMessages';
-import { useQueryClient } from '@tanstack/react-query';
+import { useChatMessages, useAddChatMessage, useClearChatHistory, useStreamChat } from '@/hooks/useChatMessages';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
-
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
@@ -22,72 +18,13 @@ export default function InsightsPage() {
   const { data: messages = [], isLoading: messagesLoading } = useChatMessages();
   const addMessage = useAddChatMessage();
   const clearHistory = useClearChatHistory();
-  const queryClient = useQueryClient();
+  const { streamChat, invalidateAfterChat } = useStreamChat();
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, streamingContent]);
-
-  const streamChat = async (chatMessages: Msg[]) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-    const resp = await fetch(CHAT_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ messages: chatMessages }),
-    });
-
-    if (!resp.ok) {
-      const errorData = await resp.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Erro ao processar mensagem');
-    }
-
-    if (!resp.body) throw new Error('No response body');
-
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let textBuffer = '';
-    let fullContent = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      textBuffer += decoder.decode(value, { stream: true });
-
-      let newlineIndex: number;
-      while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-        let line = textBuffer.slice(0, newlineIndex);
-        textBuffer = textBuffer.slice(newlineIndex + 1);
-
-        if (line.endsWith('\r')) line = line.slice(0, -1);
-        if (line.startsWith(':') || line.trim() === '') continue;
-        if (!line.startsWith('data: ')) continue;
-
-        const jsonStr = line.slice(6).trim();
-        if (jsonStr === '[DONE]') break;
-
-        try {
-          const parsed = JSON.parse(jsonStr);
-          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-          if (content) {
-            fullContent += content;
-            setStreamingContent(fullContent);
-          }
-        } catch {
-          textBuffer = line + '\n' + textBuffer;
-          break;
-        }
-      }
-    }
-
-    return fullContent;
-  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -105,13 +42,10 @@ export default function InsightsPage() {
         { role: 'user' as const, content: userMessage },
       ];
 
-      const aiResponse = await streamChat(chatHistory);
+      const aiResponse = await streamChat(chatHistory, setStreamingContent);
       await addMessage.mutateAsync({ role: 'assistant', content: aiResponse });
       setStreamingContent('');
-      
-      // Invalidar queries caso a IA tenha criado novos lançamentos
-      queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
-      queryClient.invalidateQueries({ queryKey: ['bancosComSaldos'] });
+      invalidateAfterChat();
     } catch (error) {
       toast({
         title: 'Erro',
