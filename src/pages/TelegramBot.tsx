@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Send, Copy, RefreshCw, Trash2, CheckCircle2, Clock, XCircle, MessageCircle, ExternalLink } from 'lucide-react';
+import { Send, Copy, RefreshCw, Trash2, CheckCircle2, Clock, XCircle, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useMyChannels, useGenerateTelegramPairing, useDeleteChannel, useRevokeChannel } from '@/hooks/useTelegram';
 import { toast } from '@/hooks/use-toast';
+import { TelegramInfoCard } from '@/components/TelegramInfoCard';
 
 export default function TelegramBotPage() {
   const { data: channels = [], isLoading } = useMyChannels();
@@ -164,24 +165,8 @@ export default function TelegramBotPage() {
           </Card>
         )}
 
-        <Alert />
+        <TelegramInfoCard />
       </div>
     </div>
-  );
-}
-
-function Alert() {
-  return (
-    <Card className="glass-card bg-muted/20">
-      <CardContent className="pt-4">
-        <div className="flex gap-2 items-start">
-          <ExternalLink className="w-4 h-4 mt-1 shrink-0 text-muted-foreground" />
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p><strong>Como o admin cria o bot:</strong> abra @BotFather no Telegram, envie <code>/newbot</code>, escolha nome e username. Cole o token retornado nas configurações de Connector do Lovable.</p>
-            <p>Após o pareamento, o bot processa mensagens a cada ~1 minuto (long polling). Suporte a imagens, áudios e cupons fiscais será adicionado em próxima entrega.</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
