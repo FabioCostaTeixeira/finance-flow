@@ -11,6 +11,7 @@ import { useLancamentos, LancamentoExtendido } from '@/hooks/useLancamentos';
 import { useBancos } from '@/hooks/useBancos';
 import { formatCurrency } from '@/lib/recurrence';
 import { cn } from '@/lib/utils';
+import { getStatusConfig, StatusLancamento } from '@/lib/statusUtils';
 import { FluxoCaixaFAB } from '@/components/FluxoCaixaFAB';
 import { LancamentoForm } from '@/components/LancamentoForm';
 import { TransferenciaModal } from '@/components/TransferenciaModal';
@@ -162,18 +163,7 @@ export default function FluxoCaixaPage() {
   };
 
   const getStatusLabel = (lancamento: LancamentoExtendido) => {
-    const status = lancamento.status as string;
-    const statusMap: Record<string, { label: string; className: string }> = {
-      a_receber: { label: 'A Receber', className: 'text-blue-400 bg-blue-500/10' },
-      recebido: { label: 'Recebido', className: 'text-success bg-success/10' },
-      a_pagar: { label: 'A Pagar', className: 'text-purple-400 bg-purple-500/10' },
-      pago: { label: 'Pago', className: 'text-success bg-success/10' },
-      parcial: { label: 'Parcial', className: 'text-warning bg-warning/10' },
-      atrasado: { label: 'Atrasado', className: 'text-destructive bg-destructive/10' },
-      vencida: { label: 'Vencida', className: 'text-destructive bg-destructive/10' },
-      transferencia: { label: 'Transferência', className: 'text-muted-foreground bg-muted' },
-    };
-    const config = statusMap[status] || { label: status, className: '' };
+    const config = getStatusConfig(lancamento.status as StatusLancamento, lancamento.tipo);
     return (
       <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', config.className)}>
         {config.label}
