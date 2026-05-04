@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { calcularRecorrencia, gerarRecorrenciaId, Frequencia } from '@/lib/recurrence';
 import { toISODateLocal } from '@/lib/date';
 import { Banco } from './useBancos';
+import { StatusLancamento } from '@/lib/statusUtils';
 
 export interface Lancamento {
   id: string;
@@ -12,7 +13,7 @@ export interface Lancamento {
   valor: number;
   valor_pago: number;
   banco_id: string | null;
-  status: 'a_receber' | 'recebido' | 'pago' | 'a_pagar' | 'parcial';
+  status: StatusLancamento;
   tipo: 'receita' | 'despesa';
   categoria_id: string | null;
   recorrencia_id: string | null;
@@ -21,6 +22,7 @@ export interface Lancamento {
   observacao: string | null;
   data_pagamento: string | null;
   transferencia_vinculo_id: string | null;
+  frequencia: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -233,7 +235,7 @@ export function useBaixarLancamento() {
           .single();
 
         if (ultimaParcela) {
-          const freq = (lancamento as any).frequencia || 'mensal';
+          const freq = lancamento.frequencia || 'mensal';
           const novaData = proximaData(ultimaParcela.data_vencimento, freq);
           const baseStatus = lancamento.tipo === 'receita' ? 'a_receber' : 'a_pagar';
 

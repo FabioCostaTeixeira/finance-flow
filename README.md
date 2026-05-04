@@ -71,3 +71,7 @@ VITE_SUPABASE_ANON_KEY=...
 - `public/` arquivos estaticos
 - `supabase/` funcoes e migracoes
 - `vercel.json` regra de rewrite para SPA
+
+## Observacao sobre MCP
+
+O diretorio `mcp/` fica separado do fluxo principal do app web. Ele contem um servidor MCP experimental/auxiliar e nao faz parte da execucao normal do Finance Flow no navegador.
