@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfiles, useUserRoles, useCreateUsuario, useDeleteUsuario } from '@/hooks/useUsuarios';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -32,19 +31,6 @@ const createUserSchema = z.object({
   role: z.enum(['admin', 'user']),
 });
 
-type Profile = {
-  id: string;
-  user_id: string;
-  email: string;
-  nome: string | null;
-  created_at: string;
-};
-
-type UserRole = {
-  user_id: string;
-  role: 'master' | 'admin' | 'user';
-};
-
 export default function Usuarios() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -55,106 +41,13 @@ export default function Usuarios() {
 
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
-  // Fetch all profiles
-  const { data: profiles, isLoading: loadingProfiles } = useQuery({
-    queryKey: ['profiles'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data as Profile[];
-    },
-  });
+  const { data: profiles, isLoading: loadingProfiles } = useProfiles();
+  const { data: roles } = useUserRoles();
+  const createUserMutation = useCreateUsuario();
+  const deleteUserMutation = useDeleteUsuario();
 
-  // Fetch all roles
-  const { data: roles } = useQuery({
-    queryKey: ['user_roles'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
-      
-      if (error) throw error;
-      return data as UserRole[];
-    },
-  });
-
-  // Get role for a user
-  const getUserRole = (userId: string) => {
-    return roles?.find(r => r.user_id === userId)?.role || 'user';
-  };
-
-  // Create user mutation
-  const createUserMutation = useMutation({
-    mutationFn: async (userData: { email: string; password: string; nome: string; role: 'admin' | 'user' }) => {
-      // Call the edge function to create user
-      const { data, error } = await supabase.functions.invoke('create-user', {
-        body: userData,
-      });
-
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-
-      return data;
-    },
-    onSuccess: () => {
-      toast({
-        title: 'Sucesso!',
-        description: 'Usuário criado com sucesso',
-      });
-      queryClient.invalidateQueries({ queryKey: ['profiles'] });
-      queryClient.invalidateQueries({ queryKey: ['user_roles'] });
-      setEmail('');
-      setPassword('');
-      setNome('');
-      setRole('user');
-    },
-    onError: (error: Error) => {
-      let message = 'Erro ao criar usuário';
-      if (error.message.includes('already registered')) {
-        message = 'Este email já está cadastrado';
-      }
-      toast({
-        title: 'Erro',
-        description: message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Delete user mutation
-  const deleteUserMutation = useMutation({
-    mutationFn: async (userId: string) => {
-      const { data, error } = await supabase.functions.invoke('delete-user', {
-        body: { userId },
-      });
-
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-
-      return data;
-    },
-    onSuccess: () => {
-      toast({
-        title: 'Sucesso!',
-        description: 'Usuário removido com sucesso',
-      });
-      queryClient.invalidateQueries({ queryKey: ['profiles'] });
-      queryClient.invalidateQueries({ queryKey: ['user_roles'] });
-    },
-    onError: () => {
-      toast({
-        title: 'Erro',
-        description: 'Erro ao remover usuário',
-        variant: 'destructive',
-      });
-    },
-  });
+  const getUserRole = (userId: string) => roles?.find(r => r.user_id === userId)?.role || 'user';
 
   const validateForm = () => {
     try {
@@ -176,12 +69,31 @@ export default function Usuarios() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-    
+
     setIsCreating(true);
     try {
       await createUserMutation.mutateAsync({ email, password, nome, role });
+      toast({ title: 'Sucesso!', description: 'Usuário criado com sucesso' });
+      setEmail('');
+      setPassword('');
+      setNome('');
+      setRole('user');
+    } catch (error) {
+      const message = error instanceof Error && error.message.includes('already registered')
+        ? 'Este email já está cadastrado'
+        : 'Erro ao criar usuário';
+      toast({ title: 'Erro', description: message, variant: 'destructive' });
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      await deleteUserMutation.mutateAsync(userId);
+      toast({ title: 'Sucesso!', description: 'Usuário removido com sucesso' });
+    } catch {
+      toast({ title: 'Erro', description: 'Erro ao remover usuário', variant: 'destructive' });
     }
   };
 
@@ -347,7 +259,7 @@ export default function Usuarios() {
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                   <AlertDialogAction
-                                    onClick={() => deleteUserMutation.mutate(profile.user_id)}
+                                    onClick={() => handleDeleteUser(profile.user_id)}
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                   >
                                     Remover
