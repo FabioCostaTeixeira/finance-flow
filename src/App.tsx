@@ -20,7 +20,6 @@ import ApiDocumentation from "./pages/ApiDocumentation";
 import Usuarios from "./pages/Usuarios";
 import AISettings from "./pages/AISettings";
 import TelegramBot from "./pages/TelegramBot";
-import ExportCredentials from "./pages/ExportCredentials";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -116,7 +115,6 @@ function AppRoutes() {
       <Route path="/api/docs" element={<ProtectedLayout><PermissionRoute moduleKey="api-docs"><ApiDocumentation /></PermissionRoute></ProtectedLayout>} />
       <Route path="/telegram" element={<ProtectedLayout><PermissionRoute moduleKey="telegram"><TelegramBot /></PermissionRoute></ProtectedLayout>} />
       <Route path="/ai-settings" element={<ProtectedLayout><MasterRoute><AISettings /></MasterRoute></ProtectedLayout>} />
-      <Route path="/export-credentials" element={<ExportCredentials />} />
       <Route 
         path="/usuarios" 
         element={
