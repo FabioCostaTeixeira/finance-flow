@@ -23,6 +23,3 @@ verify_jwt = false
 
 [functions.telegram-pair]
 verify_jwt = false
-
-[functions.temp-export-credentials]
-verify_jwt = false
