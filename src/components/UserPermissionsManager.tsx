@@ -1,47 +1,18 @@
 import { useAllPermissions, useTogglePermission, ALL_MODULES, hasModuleAccess } from '@/hooks/useUserPermissions';
+import { useProfiles, useUserRoles } from '@/hooks/useUsuarios';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, ShieldCheck } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-
-type Profile = {
-  id: string;
-  user_id: string;
-  email: string;
-  nome: string | null;
-};
-
-type UserRole = {
-  user_id: string;
-  role: 'master' | 'admin' | 'user';
-};
 
 export function UserPermissionsManager() {
   const { user: currentUser } = useAuth();
   const { data: permissions, isLoading: loadingPerms } = useAllPermissions();
   const togglePermission = useTogglePermission();
-
-  const { data: profiles } = useQuery({
-    queryKey: ['profiles'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as Profile[];
-    },
-  });
-
-  const { data: roles } = useQuery({
-    queryKey: ['user_roles'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('user_roles').select('user_id, role');
-      if (error) throw error;
-      return data as UserRole[];
-    },
-  });
+  const { data: profiles } = useProfiles();
+  const { data: roles } = useUserRoles();
 
   const getUserRole = (userId: string) => roles?.find(r => r.user_id === userId)?.role || 'user';
 
