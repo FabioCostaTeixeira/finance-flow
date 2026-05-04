@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 const ApiDocumentation = () => {
-  const apiBaseUrl = `https://frvklcrendlgovdnzlwr.supabase.co/functions/v1/api`;
+  const apiBaseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api`;
 
   const copy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);

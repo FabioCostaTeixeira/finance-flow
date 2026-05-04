@@ -8,26 +8,36 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function getAIConfig(supabase: any, fallbackKey: string) {
+async function getAIConfig(supabase: any, fallbackKey: string | null) {
   try {
     const { data } = await supabase.from("ai_settings").select("*").eq("id", 1).single();
     if (!data || data.enabled === false) {
+      if (!fallbackKey) throw new Error("AI is disabled and no fallback key configured");
       return { endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions", apiKey: fallbackKey, model: "google/gemini-3-flash-preview", systemOverride: null };
     }
-    const provider = data.provider || "lovable";
-    const model = data.model || "google/gemini-3-flash-preview";
+    const provider = data.provider || "groq";
+    const model = data.model || "llama-3.3-70b-versatile";
     const systemOverride = data.system_prompt_override || null;
 
+    if (provider === "groq" && data.api_key) {
+      return { endpoint: "https://api.groq.com/openai/v1/chat/completions", apiKey: data.api_key, model, systemOverride };
+    }
     if (provider === "openai" && data.api_key) {
       return { endpoint: "https://api.openai.com/v1/chat/completions", apiKey: data.api_key, model, systemOverride };
     }
     if (provider === "google" && data.api_key) {
       return { endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", apiKey: data.api_key, model, systemOverride };
     }
-    return { endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions", apiKey: fallbackKey, model: provider === "lovable" ? model : "google/gemini-3-flash-preview", systemOverride };
+    if (provider === "lovable" && fallbackKey) {
+      return { endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions", apiKey: fallbackKey, model, systemOverride };
+    }
+    if (data.api_key) {
+      return { endpoint: "https://api.groq.com/openai/v1/chat/completions", apiKey: data.api_key, model, systemOverride };
+    }
+    throw new Error(`API key not configured for provider: ${provider}`);
   } catch (e) {
-    console.error("getAIConfig error, falling back to Lovable:", e);
-    return { endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions", apiKey: fallbackKey, model: "google/gemini-3-flash-preview", systemOverride: null };
+    console.error("getAIConfig error:", e);
+    throw e;
   }
 }
 
@@ -293,11 +303,9 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || null;
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     // Validate user JWT
     const token = req.headers.get("Authorization")?.replace("Bearer ", "") ?? "";
@@ -561,17 +569,30 @@ ${categorias.filter((c: any) => c.categoria_pai_id).map((c: any) => {
     // Last user message used for date blindage in criar_lancamento
     const lastUserMessage = [...messages].reverse().find((m: any) => m?.role === "user")?.content as string || "";
 
-    const callLLM = (msgs: any[], withTools: boolean, stream: boolean) =>
-      fetch(aiCfg.endpoint, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${aiCfg.apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: aiCfg.model,
-          messages: msgs,
-          ...(withTools ? { tools } : {}),
-          stream,
-        }),
-      });
+    const callLLM = async (msgs: any[], withTools: boolean, stream: boolean) => {
+      const MAX_RETRIES = 3;
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        const resp = await fetch(aiCfg.endpoint, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${aiCfg.apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: aiCfg.model,
+            messages: msgs,
+            ...(withTools ? { tools } : {}),
+            stream,
+          }),
+        });
+        if (resp.status === 429 && attempt < MAX_RETRIES) {
+          const delay = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+          console.log(`Rate limited (429), retry ${attempt + 1}/${MAX_RETRIES} after ${delay}ms`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        return resp;
+      }
+      // Should not reach here, but just in case
+      return new Response("Rate limit exceeded after retries", { status: 429 });
+    };
 
     const errorResponse = (status: number, message: string) =>
       new Response(JSON.stringify({ error: message }), {

@@ -1,4 +1,4 @@
-project_id = "frvklcrendlgovdnzlwr"
+project_id = "ngjoyxtmrfmnepwwontd"
 
 [functions.chat]
 verify_jwt = false
@@ -22,7 +22,4 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.telegram-pair]
-verify_jwt = false
-
-[functions.temp-export-credentials]
 verify_jwt = false

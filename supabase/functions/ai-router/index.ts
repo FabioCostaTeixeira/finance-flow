@@ -10,7 +10,7 @@ const corsHeaders = {
 type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 
 interface AISettings {
-  provider: 'lovable' | 'openai' | 'anthropic' | 'google';
+  provider: 'lovable' | 'openai' | 'anthropic' | 'google' | 'groq';
   model: string;
   api_key: string | null;
   system_prompt_override: string | null;
@@ -29,10 +29,10 @@ async function loadSettings(): Promise<AISettings> {
 function pickKey(settings: AISettings): string {
   if (settings.provider === 'lovable') {
     const k = Deno.env.get('LOVABLE_API_KEY');
-    if (!k) throw new Error('LOVABLE_API_KEY not configured');
+    if (!k) throw new Error('LOVABLE_API_KEY not configured. Switch to another provider in AI settings.');
     return k;
   }
-  if (!settings.api_key) throw new Error(`API key missing for provider ${settings.provider}`);
+  if (!settings.api_key) throw new Error(`API key missing for provider ${settings.provider}. Configure it in AI settings.`);
   return settings.api_key;
 }
 
@@ -47,6 +47,8 @@ function endpointFor(provider: string): string {
       return 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
     case 'anthropic':
       return 'https://api.anthropic.com/v1/messages';
+    case 'groq':
+      return 'https://api.groq.com/openai/v1/chat/completions';
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
