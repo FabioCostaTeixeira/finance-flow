@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -58,15 +58,14 @@ export function BaixaModal({ lancamento, open, onOpenChange }: BaixaModalProps) 
     },
   });
 
-  // Reset form when lancamento changes
-  useState(() => {
+  useEffect(() => {
     if (lancamento) {
       form.reset({
         valorPago: valorRestante,
         dataPagamento: new Date(),
       });
     }
-  });
+  }, [lancamento?.id]);
 
   const onSubmit = async (data: BaixaFormData) => {
     if (!lancamento) return;
