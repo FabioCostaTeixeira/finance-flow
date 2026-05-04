@@ -4,14 +4,14 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Book, Key, Database, Copy, CheckCircle2, ArrowRightLeft, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 
 const ApiDocumentation = () => {
   const apiBaseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api`;
 
   const copy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    toast.success(`${label} copiado!`);
+    toast({ title: `${label} copiado!` });
   };
 
   const CodeBlock = ({ code, label }: { code: string; label?: string }) => (
