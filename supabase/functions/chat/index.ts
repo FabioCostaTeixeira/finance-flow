@@ -8,6 +8,24 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const throttle = (limit: number) => {
+  let tokens = limit;
+  let lastRefill = Date.now();
+  return async () => {
+    const now = Date.now();
+    tokens += ((now - lastRefill) / 60000) * limit;
+    if (tokens > limit) tokens = limit;
+    lastRefill = now;
+    if (tokens < 1) {
+      await new Promise((r) => setTimeout(r, (60000 / limit) * (1 - tokens)));
+      tokens = 0;
+    } else {
+      tokens -= 1;
+    }
+  };
+};
+const aiThrottle = throttle(30);
+
 async function getAIConfig(supabase: any, fallbackKey: string | null) {
   try {
     const { data } = await supabase.from("ai_settings").select("*").eq("id", 1).single();
@@ -58,10 +76,15 @@ async function executeToolCall(
     content: JSON.stringify({ success: false, error }),
   });
 
-  const ok = (message: string, data?: any) => ({
-    tool_call_id,
-    content: JSON.stringify({ success: true, ...(data !== undefined ? { data } : {}), message }),
-  });
+  const ok = (message: string, data?: any) => {
+    let result = JSON.stringify({ success: true, ...(data !== undefined ? { data } : {}), message });
+    // Truncate large results to stay within token limits
+    if (result.length > 2000) {
+      const truncated = JSON.stringify({ success: true, data: Array.isArray(data?.data) ? data.data.slice(0, 15) : data, message: message + " (resultados truncados)" });
+      result = truncated.length > 2500 ? JSON.stringify({ success: true, message: message + " (dados muito grandes, resumo)" }) : truncated;
+    }
+    return { tool_call_id, content: result };
+  };
 
   let args: any;
   try {
@@ -271,7 +294,9 @@ async function executeToolCall(
 
       const totalValor = (rows || []).reduce((acc: number, l: any) => acc + Number(l.valor || 0), 0);
       const totalPago = (rows || []).reduce((acc: number, l: any) => acc + Number(l.valor_pago || 0), 0);
-      return ok(`${rows?.length || 0} lançamento(s) encontrado(s).`, { count: rows?.length || 0, total_valor: totalValor, total_pago: totalPago, data: rows });
+      // Return compact summary + limited rows
+      const compactRows = (rows || []).slice(0, 15).map((r: any) => ({ id: r.id, cc: r.cliente_credor, v: r.valor, vp: r.valor_pago, dv: r.data_vencimento, s: r.status, b: r.bancos?.nome, c: r.categorias?.nome }));
+      return ok(`${rows?.length || 0} lançamento(s). Total: R$${totalValor.toFixed(2)}, Pago: R$${totalPago.toFixed(2)}`, { count: rows?.length || 0, total_valor: totalValor, total_pago: totalPago, data: compactRows });
     }
 
     if (name === "executar_sql") {
@@ -286,7 +311,57 @@ async function executeToolCall(
       if (sqlErr) return fail(sqlErr.message);
 
       const rows = Array.isArray(sqlResult) ? sqlResult : [];
-      return ok(`Query executada com sucesso.`, { count: rows.length, data: rows });
+      // Limit rows for token budget
+      return ok(`Query OK. ${rows.length} linha(s).`, { count: rows.length, data: rows.slice(0, 20) });
+    }
+
+    if (name === "atualizar_em_massa") {
+      if (!args.cliente_credor && !args.categoria_nome && !args.banco_nome) {
+        return fail("Necessário pelo menos um filtro: cliente_credor, categoria_nome ou banco_nome");
+      }
+
+      // Build filter query
+      let q = supabase.from("lancamentos").select("id, cliente_credor, valor, data_vencimento");
+      if (args.cliente_credor) q = q.ilike("cliente_credor", `%${args.cliente_credor}%`);
+      if (args.data_a_partir) q = q.gte("data_vencimento", args.data_a_partir);
+      if (args.data_ate) q = q.lte("data_vencimento", args.data_ate);
+      if (args.tipo) q = q.eq("tipo", args.tipo);
+      if (args.banco_nome) {
+        const banco = bancos.find((b: any) => (b.nome || "").toLowerCase().includes(String(args.banco_nome).toLowerCase()));
+        if (banco) q = q.eq("banco_id", banco.id);
+      }
+      if (args.categoria_nome) {
+        const cat = categorias.find((c: any) => (c.nome || "").toLowerCase().includes(String(args.categoria_nome).toLowerCase()));
+        if (cat) q = q.eq("categoria_id", cat.id);
+      }
+
+      const { data: found, error: findErr } = await q;
+      if (findErr) return fail(findErr.message);
+      if (!found || found.length === 0) return fail("Nenhum lançamento encontrado com esses filtros.");
+
+      // Build update payload - only specified fields
+      const updateData: Record<string, unknown> = {};
+      if (args.novo_valor !== undefined) updateData.valor = args.novo_valor;
+      if (args.nova_observacao !== undefined) updateData.observacao = args.nova_observacao;
+      if (args.novo_banco_id) updateData.banco_id = args.novo_banco_id;
+      if (args.nova_categoria_id) updateData.categoria_id = args.nova_categoria_id;
+
+      if (Object.keys(updateData).length === 0) return fail("Nenhum campo para atualizar (use novo_valor, nova_observacao, etc.)");
+
+      // Update all matched records
+      const ids = found.map((r: any) => r.id);
+      const { error: updateErr } = await supabase
+        .from("lancamentos")
+        .update(updateData)
+        .in("id", ids);
+
+      if (updateErr) return fail(`Erro ao atualizar: ${updateErr.message}`);
+
+      return ok(`${ids.length} lançamento(s) atualizado(s) com sucesso!`, {
+        count: ids.length,
+        campos_atualizados: Object.keys(updateData),
+        exemplo: { antes: found[0], novos_valores: updateData },
+      });
     }
 
     return fail(`Tool desconhecida: ${name}`);
@@ -355,69 +430,16 @@ serve(async (req) => {
       return null;
     };
 
-    const systemPrompt = `Você é um assistente financeiro com capacidade de criar, atualizar, excluir, baixar lançamentos e realizar transferências entre contas.
+    const bancosList = bancos.map((b: any) => `${b.nome}:${b.id}`).join("|");
+    const catsPai = categorias.filter((c: any) => !c.categoria_pai_id).map((c: any) => `${c.nome}(${c.tipo}):${c.id}`).join("|");
 
-REGRA MESTRE DE DATA:
-- A data de referência para **TODAS** as operações é a \`data_base\`.
-- **data_base = ${data_base}** (formato YYYY-MM-DD).
-
-SUAS RESPONSABILIDADES:
-1. **Interpretar Datas Relativas**: Converta expressões relativas (ex: 'hoje', 'amanhã', 'ontem') em datas absolutas usando a \`data_base\`.
-2. **Proibição de Inferência**: Você está **PROIBIDO** de usar qualquer outra fonte para inferir datas.
-3. **Usar Ferramentas Apropriadas**:
-   - \`consultar_saldo\`: Para saldos e totais por banco. SEMPRE use ao invés de inventar valores.
-   - \`listar_lancamentos\`: Para buscar/listar lançamentos com filtros.
-   - \`criar_lancamento\`: Para criar novos lançamentos.
-   - \`atualizar_lancamento\`: Para modificar lançamentos existentes.
-   - \`excluir_lancamento\`: Para remover lançamentos (confirme antes de executar).
-   - \`baixar_lancamento\`: Para marcar como pago ou recebido.
-   - \`transferir_entre_contas\`: Para transferir valores entre bancos.
-   - \`executar_sql\`: Para análises complexas (agrupamentos, comparativos, médias).
-
-COMO CALCULAR DATAS:
-- 'hoje', 'hj': use \`data_base\` = ${data_base}
-- 'amanhã': \`data_base\` + 1 dia
-- 'ontem': \`data_base\` - 1 dia
-- 'anteontem': \`data_base\` - 2 dias
-- 'daqui a N dias': \`data_base\` + N dias
-
-DADOS OBRIGATÓRIOS PARA \`criar_lancamento\`:
-- \`tipo\`: 'receita' ou 'despesa'
-- \`cliente_credor\`: Nome do cliente ou fornecedor
-- \`valor\`: O montante numérico
-- \`data_vencimento\`: A data calculada no formato YYYY-MM-DD
-
-REGRAS PARA ATUALIZAÇÃO E EXCLUSÃO:
-- Precisa do ID do lançamento. Use \`listar_lancamentos\` para encontrá-lo.
-- Para excluir, confirme com o usuário antes de executar.
-
-REGRAS PARA TRANSFERÊNCIA:
-- Use os IDs dos bancos listados abaixo.
-- Cria automaticamente saída no banco de origem e entrada no banco de destino.
-
-CONSULTAS AVANÇADAS COM SQL (\`executar_sql\`):
-- Apenas SELECT. Use os nomes exatos do schema abaixo.
-- Datas no formato YYYY-MM-DD; use \`data_base\` = ${data_base} para "hoje".
-- Limite seus resultados (LIMIT 50 para linhas; sem LIMIT para agregações).
-
-SCHEMA DO BANCO:
-Tabela \`lancamentos\`: id (uuid), tipo ('receita'|'despesa'), cliente_credor (text), valor (numeric), valor_pago (numeric), data_vencimento (date), data_pagamento (date), status ('a_receber'|'recebido'|'pago'|'a_pagar'|'parcial'|'atrasado'|'vencida'|'transferencia'), banco_id (uuid→bancos.id), categoria_id (uuid→categorias.id), recorrencia_id (uuid), parcela_atual (int), total_parcelas (int), frequencia (text), transferencia_vinculo_id (uuid), observacao (text)
-Tabela \`bancos\`: id (uuid), nome (text)
-Tabela \`categorias\`: id (uuid), nome (text), tipo ('receita'|'despesa'), categoria_pai_id (uuid)
-
-🏦 BANCOS CADASTRADOS (IDs para uso nas ferramentas):
-${bancos.map((b: any) => `- ${b.nome} (ID: ${b.id})`).join("\n") || "- Nenhum banco cadastrado"}
-
-📋 CATEGORIAS DISPONÍVEIS:
-${categorias.filter((c: any) => !c.categoria_pai_id).map((c: any) => `- ${c.nome} (${c.tipo}, ID: ${c.id})`).join("\n") || "- Nenhuma categoria cadastrada"}
-
-📋 SUBCATEGORIAS:
-${categorias.filter((c: any) => c.categoria_pai_id).map((c: any) => {
-  const pai = categorias.find((p: any) => p.id === c.categoria_pai_id);
-  return `- ${pai?.nome || "?"} > ${c.nome} (${c.tipo}, ID: ${c.id})`;
-}).join("\n") || "- Nenhuma subcategoria cadastrada"}
-
-💡 Para dados financeiros em tempo real (saldos, lançamentos, relatórios), use as ferramentas disponíveis.`;
+    const systemPrompt = `Assistente financeiro. data_base=${data_base}.
+Ferramentas: criar_lancamento, atualizar_lancamento, excluir_lancamento, baixar_lancamento, transferir_entre_contas, consultar_saldo, listar_lancamentos, executar_sql, atualizar_em_massa.
+Schema: lancamentos(id,tipo[receita|despesa],cliente_credor,valor,valor_pago,data_vencimento,data_pagamento,status[a_receber|recebido|pago|a_pagar|parcial|atrasado|vencida|transferencia],banco_id→bancos.id,categoria_id→categorias.id,observacao,recorrencia_id,parcela_atual,total_parcelas) | bancos(id,nome) | categorias(id,nome,tipo,categoria_pai_id)
+Bancos: ${bancosList}
+Categorias: ${catsPai}
+Regras: Use data_base p/ datas relativas(hoje=${data_base}). Datas YYYY-MM-DD. executar_sql=apenas SELECT. Confirme antes de excluir. Responda em PT-BR.
+Para edições em massa (recorrentes): use atualizar_em_massa com filtros. Altere SOMENTE o campo solicitado, sem modificar outros campos.`;
 
     const tools = [
       {
@@ -564,34 +586,48 @@ ${categorias.filter((c: any) => c.categoria_pai_id).map((c: any) => {
           },
         },
       },
+      {
+        type: "function",
+        function: {
+          name: "atualizar_em_massa",
+          description: "Atualiza múltiplos lançamentos de uma vez por filtro (ex: alterar valor de todos os lançamentos de um cliente a partir de uma data). Altera SOMENTE os campos especificados, preservando os demais.",
+          parameters: {
+            type: "object",
+            properties: {
+              cliente_credor: { type: "string", description: "Filtro por nome do cliente/credor (busca parcial)" },
+              data_a_partir: { type: "string", description: "Filtro: data_vencimento >= YYYY-MM-DD" },
+              data_ate: { type: "string", description: "Filtro: data_vencimento <= YYYY-MM-DD" },
+              tipo: { type: "string", enum: ["receita", "despesa"] },
+              banco_nome: { type: "string", description: "Filtro por nome do banco" },
+              categoria_nome: { type: "string", description: "Filtro por nome da categoria" },
+              novo_valor: { type: "number", description: "Novo valor para os lançamentos" },
+              nova_observacao: { type: "string", description: "Nova observação" },
+              novo_banco_id: { type: "string", description: "Novo banco (UUID)" },
+              nova_categoria_id: { type: "string", description: "Novo categoria (UUID)" },
+            },
+            required: [],
+            additionalProperties: false,
+          },
+        },
+      },
     ];
 
     // Last user message used for date blindage in criar_lancamento
     const lastUserMessage = [...messages].reverse().find((m: any) => m?.role === "user")?.content as string || "";
 
     const callLLM = async (msgs: any[], withTools: boolean, stream: boolean) => {
-      const MAX_RETRIES = 3;
-      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-        const resp = await fetch(aiCfg.endpoint, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${aiCfg.apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: aiCfg.model,
-            messages: msgs,
-            ...(withTools ? { tools } : {}),
-            stream,
-          }),
-        });
-        if (resp.status === 429 && attempt < MAX_RETRIES) {
-          const delay = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
-          console.log(`Rate limited (429), retry ${attempt + 1}/${MAX_RETRIES} after ${delay}ms`);
-          await new Promise(r => setTimeout(r, delay));
-          continue;
-        }
-        return resp;
-      }
-      // Should not reach here, but just in case
-      return new Response("Rate limit exceeded after retries", { status: 429 });
+      await aiThrottle();
+      return fetch(aiCfg.endpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${aiCfg.apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: aiCfg.model,
+          messages: msgs,
+          ...(withTools ? { tools } : {}),
+          stream,
+          max_tokens: 800,
+        }),
+      });
     };
 
     const errorResponse = (status: number, message: string) =>
@@ -600,52 +636,67 @@ ${categorias.filter((c: any) => c.categoria_pai_id).map((c: any) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
 
-    // Agent loop: keep calling LLM until no more tool_calls (max 5 iterations)
-    const MAX_ITERATIONS = 5;
-    const loopMessages: any[] = [
-      { role: "system", content: aiCfg.systemOverride || systemPrompt },
-      ...messages,
-    ];
+    const sysMsg = { role: "system", content: aiCfg.systemOverride || systemPrompt };
 
-    for (let i = 0; i < MAX_ITERATIONS; i++) {
-      const resp = await callLLM(loopMessages, true, false);
+    // ── STEP 1: Single LLM call with tools (non-streaming) ──
+    const step1Msgs: any[] = [sysMsg, ...messages];
+    const resp = await callLLM(step1Msgs, true, false);
 
-      if (!resp.ok) {
-        if (resp.status === 429) return errorResponse(429, "Limite de requisições excedido. Tente novamente em alguns minutos.");
-        if (resp.status === 402) return errorResponse(402, "Créditos esgotados. Por favor, adicione créditos à sua conta.");
-        const t = await resp.text();
-        console.error("AI gateway error:", resp.status, t);
-        return errorResponse(500, "Erro no serviço de IA");
+    if (!resp.ok) {
+      if (resp.status === 429) {
+        // Wait and retry ONCE for rate limit
+        await new Promise(r => setTimeout(r, 3000));
+        const retry = await callLLM(step1Msgs, true, false);
+        if (!retry.ok) return errorResponse(429, "Limite de requisições excedido. Aguarde 1 minuto.");
+        // Continue with retry response below
+        const retryResp = await retry.json();
+        const retryChoice = retryResp.choices?.[0];
+        if (!retryChoice?.message?.tool_calls?.length) {
+          // Simple response, stream it directly
+          const stream2 = await callLLM(step1Msgs, false, true);
+          return new Response(stream2.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+        }
       }
-
-      const aiResp = await resp.json();
-      const choice = aiResp.choices?.[0];
-
-      // No tool calls → exit loop, stream final response below
-      if (!choice?.message?.tool_calls?.length) break;
-
-      // Execute all tool calls for this iteration
-      const toolResults: any[] = [];
-      for (const toolCall of choice.message.tool_calls) {
-        const result = await executeToolCall(
-          toolCall, supabase, data_base, normalizeDateInput, lastUserMessage, bancos, categorias,
-        );
-        toolResults.push(result);
-      }
-
-      // Append assistant turn + tool results to conversation
-      loopMessages.push(choice.message);
-      for (const tr of toolResults) {
-        loopMessages.push({ role: "tool", tool_call_id: tr.tool_call_id, content: tr.content });
-      }
+      const t = await resp.text();
+      console.error("AI error:", resp.status, t);
+      return errorResponse(500, "Erro no serviço de IA");
     }
 
-    // Final streaming response (no tools — pure text generation)
-    const streamResp = await callLLM(loopMessages, false, true);
+    const aiResp = await resp.json();
+    const choice = aiResp.choices?.[0];
+
+    // ── No tool calls → Simple question, return plain answer ──
+    if (!choice?.message?.tool_calls?.length) {
+      const answer = choice.message.content || "";
+      return new Response(JSON.stringify({ answer }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Tool calls detected → Execute tools ──
+    const toolResults: any[] = [];
+    for (const toolCall of choice.message.tool_calls) {
+      const result = await executeToolCall(
+        toolCall, supabase, data_base, normalizeDateInput, lastUserMessage, bancos, categorias,
+      );
+      toolResults.push(result);
+    }
+
+    // ── STEP 2: Stream final answer with tool results as context ──
+    const step2Msgs: any[] = [
+      sysMsg,
+      ...messages,
+      choice.message,
+      ...toolResults.map(tr => ({ role: "tool", tool_call_id: tr.tool_call_id, content: tr.content })),
+    ];
+
+    const streamResp = await callLLM(step2Msgs, false, true);
     if (!streamResp.ok) {
       const t = await streamResp.text();
-      console.error("Stream response error:", t);
-      return errorResponse(500, "Erro ao processar resposta final");
+      console.error("Stream error:", streamResp.status, t);
+      if (streamResp.status === 429) return errorResponse(429, "Limite de requisições. Aguarde 1 minuto.");
+      return errorResponse(500, "Erro ao processar resposta: " + streamResp.status);
     }
 
     return new Response(streamResp.body, {
