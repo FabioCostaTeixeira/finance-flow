@@ -243,6 +243,60 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    name: "sugerir_categoria",
+    description:
+      "Analisa a descrição de um lançamento e sugere a categoria mais adequada com base em padrões de texto. Use antes de criar_lancamento quando o usuário não especificou categoria.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        descricao: { type: "string", description: "Descrição ou nome do lançamento (cliente_credor ou observacao)" },
+        tipo: { type: "string", enum: ["receita", "despesa"], description: "Tipo do lançamento" },
+      },
+      required: ["descricao", "tipo"],
+    },
+  },
+  {
+    name: "listar_auditoria",
+    description:
+      "Lista o histórico de acessos e operações registradas no sistema (audit log). Útil para rastrear quem fez o quê e quando.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limite: { type: "number", description: "Máximo de registros (default 50, max 200)" },
+        data_inicio: { type: "string", description: "Data inicial YYYY-MM-DD" },
+        data_fim: { type: "string", description: "Data final YYYY-MM-DD" },
+      },
+    },
+  },
+  {
+    name: "projetar_fluxo_caixa",
+    description:
+      "Projeta o fluxo de caixa futuro com base no histórico de lançamentos. Usa média móvel dos últimos meses para estimar receitas e despesas futuras.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        meses_historico: { type: "number", description: "Meses de histórico para base do cálculo (default 3, max 12)" },
+        meses_projecao: { type: "number", description: "Meses a projetar no futuro (default 3, max 6)" },
+      },
+    },
+  },
+  {
+    name: "comparar_periodos",
+    description:
+      "Compara receitas e despesas entre dois períodos distintos. Retorna variação absoluta e percentual (MoM ou YoY).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        periodo_a_inicio: { type: "string", description: "Início do período A (YYYY-MM-DD)" },
+        periodo_a_fim: { type: "string", description: "Fim do período A (YYYY-MM-DD)" },
+        periodo_b_inicio: { type: "string", description: "Início do período B (YYYY-MM-DD)" },
+        periodo_b_fim: { type: "string", description: "Fim do período B (YYYY-MM-DD)" },
+        tipo: { type: "string", enum: ["receita", "despesa"], description: "Filtra por tipo (omitir para ambos)" },
+      },
+      required: ["periodo_a_inicio", "periodo_a_fim", "periodo_b_inicio", "periodo_b_fim"],
+    },
+  },
+  {
     name: "top_clientes_credores",
     description:
       "Top 20 clientes ou credores por valor total: quantidade, valor total, valor recebido/pago, taxa de realização, ticket médio.",
@@ -582,6 +636,177 @@ async function handleRelatorioKpi(): Promise<ToolResult> {
   return textResult({ success: true, data });
 }
 
+const CATEGORY_PATTERNS: Array<{ pattern: RegExp; receita?: string; despesa?: string }> = [
+  { pattern: /salário|salario|folha|holerite/i, receita: "Salário", despesa: "Folha de Pagamento" },
+  { pattern: /aluguel|locação|locacao|imóvel|imovel/i, receita: "Aluguel Recebido", despesa: "Aluguel" },
+  { pattern: /energia|luz|eletric/i, despesa: "Utilidades" },
+  { pattern: /água|agua|saneam/i, despesa: "Utilidades" },
+  { pattern: /internet|telefone|celular|telecom/i, despesa: "Telecom" },
+  { pattern: /supermercado|mercado|alimenta|refeição|refeicao|restaurante|lanche/i, despesa: "Alimentação" },
+  { pattern: /farmácia|farmacia|médico|medico|saúde|saude|plano.saúde|plano.saude/i, despesa: "Saúde" },
+  { pattern: /combustível|combustivel|gasolina|etanol|posto/i, despesa: "Transporte" },
+  { pattern: /uber|99|taxi|ônibus|onibus|metrô|metro/i, despesa: "Transporte" },
+  { pattern: /curso|escola|faculdade|mensalidade|educação|educacao/i, despesa: "Educação" },
+  { pattern: /seguro/i, despesa: "Seguros" },
+  { pattern: /imposto|taxa|tributo|inss|fgts|irrf|iss|icms/i, despesa: "Impostos e Taxas" },
+  { pattern: /serviço|servico|consultoria|honorário|honorario/i, receita: "Serviços Prestados", despesa: "Serviços Contratados" },
+  { pattern: /produto|venda|mercadoria/i, receita: "Vendas", despesa: "Compras" },
+  { pattern: /transferência|transferencia/i, receita: "Transferência Recebida", despesa: "Transferência Enviada" },
+  { pattern: /juros|multa|mora/i, despesa: "Encargos Financeiros" },
+  { pattern: /rendimento|dividendo|yield|aplicação|aplicacao|investimento/i, receita: "Rendimentos" },
+  { pattern: /marketing|publicidade|anúncio|anuncio/i, despesa: "Marketing" },
+  { pattern: /manutenção|manutencao|reparo|reforma/i, despesa: "Manutenção" },
+];
+
+async function handleSugerirCategoria(args: Record<string, unknown>): Promise<ToolResult> {
+  const descricao = String(args.descricao ?? "");
+  const tipo = String(args.tipo ?? "despesa") as "receita" | "despesa";
+
+  const sugestoes: string[] = [];
+  for (const rule of CATEGORY_PATTERNS) {
+    if (rule.pattern.test(descricao)) {
+      const nome = tipo === "receita" ? rule.receita : rule.despesa;
+      if (nome && !sugestoes.includes(nome)) sugestoes.push(nome);
+    }
+  }
+
+  const { data: categorias } = await supabase
+    .from("categorias")
+    .select("id, nome, tipo")
+    .eq("tipo", tipo)
+    .order("nome");
+
+  const matches = (categorias ?? []).filter((c) =>
+    sugestoes.some((s) => c.nome.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(c.nome.toLowerCase()))
+  );
+
+  return textResult({
+    success: true,
+    descricao,
+    tipo,
+    sugestoes_texto: sugestoes,
+    categorias_encontradas: matches,
+    instrucao: matches.length > 0
+      ? `Use o categoria_id de uma das categorias encontradas ao criar o lançamento.`
+      : `Nenhuma categoria automática encontrada. Use listar_categorias para escolher manualmente.`,
+  });
+}
+
+async function handleListarAuditoria(args: Record<string, unknown>): Promise<ToolResult> {
+  const limite = Math.min(Number(args.limite) || 50, 200);
+  let q = supabase
+    .from("lancamentos_audit")
+    .select("id, lancamento_id, operacao, valor_anterior, valor_novo, usuario_id, realizado_em")
+    .order("realizado_em", { ascending: false })
+    .limit(limite);
+
+  if (args.data_inicio) q = q.gte("realizado_em", `${args.data_inicio}T00:00:00`);
+  if (args.data_fim) q = q.lte("realizado_em", `${args.data_fim}T23:59:59`);
+
+  const { data, error } = await q;
+  if (error) return errorResult(error.message);
+  return textResult({ success: true, count: data?.length ?? 0, data });
+}
+
+async function handleProjetarFluxoCaixa(args: Record<string, unknown>): Promise<ToolResult> {
+  const mesesHist = Math.min(Number(args.meses_historico) || 3, 12);
+  const mesesProj = Math.min(Number(args.meses_projecao) || 3, 6);
+
+  const { data: historico, error } = await supabase.rpc("execute_readonly_query", {
+    query_text: `
+      SELECT
+        DATE_TRUNC('month', data_vencimento)::DATE AS mes,
+        SUM(CASE WHEN tipo='receita' THEN valor ELSE 0 END) AS receita,
+        SUM(CASE WHEN tipo='despesa' THEN valor ELSE 0 END) AS despesa
+      FROM lancamentos
+      WHERE data_vencimento >= CURRENT_DATE - INTERVAL '${mesesHist} months'
+        AND data_vencimento < DATE_TRUNC('month', CURRENT_DATE)
+      GROUP BY DATE_TRUNC('month', data_vencimento)
+      ORDER BY mes
+    `,
+  });
+
+  if (error) return errorResult(error.message);
+
+  const rows = (historico as Array<{ mes: string; receita: number; despesa: number }>) ?? [];
+  if (rows.length === 0) return errorResult("Histórico insuficiente para projeção.");
+
+  const mediaReceita = rows.reduce((s, r) => s + Number(r.receita), 0) / rows.length;
+  const mediaDespesa = rows.reduce((s, r) => s + Number(r.despesa), 0) / rows.length;
+  const mediaSaldo = mediaReceita - mediaDespesa;
+
+  const projecao = Array.from({ length: mesesProj }, (_, i) => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + i + 1);
+    const mes = d.toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 7);
+    return {
+      mes,
+      receita_projetada: Math.round(mediaReceita * 100) / 100,
+      despesa_projetada: Math.round(mediaDespesa * 100) / 100,
+      saldo_projetado: Math.round(mediaSaldo * 100) / 100,
+      metodo: "media_movel",
+    };
+  });
+
+  return textResult({
+    success: true,
+    historico_meses: rows.length,
+    media_mensal: { receita: Math.round(mediaReceita * 100) / 100, despesa: Math.round(mediaDespesa * 100) / 100, saldo: Math.round(mediaSaldo * 100) / 100 },
+    projecao,
+  });
+}
+
+async function handleCompararPeriodos(args: Record<string, unknown>): Promise<ToolResult> {
+  if (!args.periodo_a_inicio || !args.periodo_a_fim || !args.periodo_b_inicio || !args.periodo_b_fim) {
+    return errorResult("Campos obrigatórios: periodo_a_inicio, periodo_a_fim, periodo_b_inicio, periodo_b_fim");
+  }
+
+  const tipoFilter = args.tipo ? `AND tipo = '${args.tipo}'` : "";
+
+  const { data, error } = await supabase.rpc("execute_readonly_query", {
+    query_text: `
+      SELECT
+        'A' AS periodo,
+        SUM(CASE WHEN tipo='receita' THEN valor ELSE 0 END) AS receita,
+        SUM(CASE WHEN tipo='despesa' THEN valor ELSE 0 END) AS despesa,
+        SUM(CASE WHEN tipo='receita' THEN valor ELSE -valor END) AS saldo,
+        COUNT(*) AS lancamentos
+      FROM lancamentos
+      WHERE data_vencimento BETWEEN '${args.periodo_a_inicio}' AND '${args.periodo_a_fim}' ${tipoFilter}
+      UNION ALL
+      SELECT
+        'B',
+        SUM(CASE WHEN tipo='receita' THEN valor ELSE 0 END),
+        SUM(CASE WHEN tipo='despesa' THEN valor ELSE 0 END),
+        SUM(CASE WHEN tipo='receita' THEN valor ELSE -valor END),
+        COUNT(*)
+      FROM lancamentos
+      WHERE data_vencimento BETWEEN '${args.periodo_b_inicio}' AND '${args.periodo_b_fim}' ${tipoFilter}
+    `,
+  });
+
+  if (error) return errorResult(error.message);
+
+  const rows = data as Array<{ periodo: string; receita: number; despesa: number; saldo: number; lancamentos: number }>;
+  const a = rows.find((r) => r.periodo === "A") ?? { receita: 0, despesa: 0, saldo: 0, lancamentos: 0 };
+  const b = rows.find((r) => r.periodo === "B") ?? { receita: 0, despesa: 0, saldo: 0, lancamentos: 0 };
+
+  const pct = (va: number, vb: number) =>
+    vb === 0 ? null : Math.round(((va - vb) / Math.abs(vb)) * 10000) / 100;
+
+  return textResult({
+    success: true,
+    periodo_a: { inicio: args.periodo_a_inicio, fim: args.periodo_a_fim, ...a },
+    periodo_b: { inicio: args.periodo_b_inicio, fim: args.periodo_b_fim, ...b },
+    variacao: {
+      receita: { absoluta: Number(a.receita) - Number(b.receita), percentual_pct: pct(Number(a.receita), Number(b.receita)) },
+      despesa: { absoluta: Number(a.despesa) - Number(b.despesa), percentual_pct: pct(Number(a.despesa), Number(b.despesa)) },
+      saldo: { absoluta: Number(a.saldo) - Number(b.saldo), percentual_pct: pct(Number(a.saldo), Number(b.saldo)) },
+    },
+  });
+}
+
 async function handleTopClientesCredores(args: Record<string, unknown>): Promise<ToolResult> {
   const meses = Math.min(Number(args.meses) || 12, 24);
   const limite = Math.min(Number(args.limite) || 20, 50);
@@ -639,6 +864,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "relatorio_inadimplencia":     return handleRelatorioInadimplencia(a);
     case "relatorio_kpi":               return handleRelatorioKpi();
     case "top_clientes_credores":       return handleTopClientesCredores(a);
+    case "sugerir_categoria":           return handleSugerirCategoria(a);
+    case "listar_auditoria":            return handleListarAuditoria(a);
+    case "projetar_fluxo_caixa":        return handleProjetarFluxoCaixa(a);
+    case "comparar_periodos":           return handleCompararPeriodos(a);
     default:
       return errorResult(`Tool desconhecida: ${name}`);
   }

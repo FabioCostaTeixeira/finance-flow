@@ -1,3 +1,4 @@
+
 ---
 titulo: Cast as any para status transferencia em useTransferencia
 tipo: melhoria

@@ -20,16 +20,17 @@ export function useCategorias(tipo?: 'receita' | 'despesa') {
         .from('categorias')
         .select('*')
         .order('nome');
-      
+
       if (tipo) {
         query = query.eq('tipo', tipo);
       }
 
       const { data, error } = await query;
-      
+
       if (error) throw error;
       return data as Categoria[];
     },
+    staleTime: 1000 * 60 * 5,
   });
 }
 

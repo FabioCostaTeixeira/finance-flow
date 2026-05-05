@@ -34,6 +34,7 @@ export function useApiKeys() {
       if (error) throw error;
       return data as ApiKey[];
     },
+    staleTime: 1000 * 60 * 5,
   });
 }
 

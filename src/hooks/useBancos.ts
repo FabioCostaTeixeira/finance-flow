@@ -30,6 +30,7 @@ export function useBancos() {
       if (error) throw error;
       return data as Banco[];
     },
+    staleTime: 1000 * 60 * 5,
   });
 }
 

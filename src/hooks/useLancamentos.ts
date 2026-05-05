@@ -5,6 +5,7 @@ import { calcularRecorrencia, gerarRecorrenciaId, Frequencia } from '@/lib/recur
 import { toISODateLocal } from '@/lib/date';
 import { Banco } from './useBancos';
 import { StatusLancamento } from '@/lib/statusUtils';
+import type { LancamentoInsertWithFrequencia, LancamentoRowWithFrequencia } from '@/integrations/supabase/types-extended';
 
 export interface Lancamento {
   id: string;
@@ -147,7 +148,7 @@ export function useCreateLancamento() {
 
         const { data, error } = await supabase
           .from('lancamentos')
-          .insert(insertData as any)
+          .insert(insertData as LancamentoInsertWithFrequencia)
           .select()
           .single();
 
@@ -187,13 +188,14 @@ export function useBaixarLancamento() {
       dataPagamento: Date;
     }) => {
       // Busca o lançamento atual
-      const { data: lancamento, error: fetchError } = await supabase
+      const { data: lancamentoRaw, error: fetchError } = await supabase
         .from('lancamentos')
         .select('*')
         .eq('id', id)
         .single();
 
       if (fetchError) throw fetchError;
+      const lancamento = lancamentoRaw as LancamentoRowWithFrequencia;
 
       const valorTotal = Number(lancamento.valor);
       const valorPagoAtual = Number(lancamento.valor_pago) || 0;
@@ -252,7 +254,7 @@ export function useBaixarLancamento() {
             parcela_atual: (ultimaParcela.parcela_atual || 0) + 1,
             total_parcelas: 0,
             frequencia: freq,
-          } as any);
+          } as LancamentoInsertWithFrequencia);
         }
       }
 

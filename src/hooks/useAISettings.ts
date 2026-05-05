@@ -61,6 +61,7 @@ export function useAISettings() {
       if (error) throw error;
       return data as AISettings | null;
     },
+    staleTime: 1000 * 60 * 10,
   });
 }
 

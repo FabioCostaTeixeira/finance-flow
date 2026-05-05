@@ -31,6 +31,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+function StatusLabel({ lancamento }: { lancamento: LancamentoExtendido }) {
+  const config = getStatusConfig(lancamento.status as StatusLancamento, lancamento.tipo);
+  return (
+    <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', config.className)}>
+      {config.label}
+    </span>
+  );
+}
+
 export default function FluxoCaixaPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -162,15 +171,6 @@ export default function FluxoCaixaPage() {
     return Number(lancamento.valor);
   };
 
-  const getStatusLabel = (lancamento: LancamentoExtendido) => {
-    const config = getStatusConfig(lancamento.status as StatusLancamento, lancamento.tipo);
-    return (
-      <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', config.className)}>
-        {config.label}
-      </span>
-    );
-  };
-
   const selectedBancoName = selectedBancoId
     ? bancos.find(b => b.id === selectedBancoId)?.nome
     : null;
@@ -290,7 +290,7 @@ export default function FluxoCaixaPage() {
                   <TableCell className="text-muted-foreground">
                     {lancamento.bancos?.nome || '-'}
                   </TableCell>
-                  <TableCell>{getStatusLabel(lancamento)}</TableCell>
+                  <TableCell><StatusLabel lancamento={lancamento} /></TableCell>
                   <TableCell className={cn('text-right font-bold', getValueColorClass(lancamento))}>
                     {formatCurrency(getDisplayValue(lancamento))}
                   </TableCell>

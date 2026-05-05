@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { addDays, addMonths, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toISODateLocal } from '@/lib/date';
+import type { LancamentoRowWithFrequencia } from '@/integrations/supabase/types-extended';
 
 export interface UpdateLancamentoInput {
   id: string;
@@ -84,7 +85,7 @@ export function useUpdateRecurringLancamentos() {
       if (!openLancamentos || openLancamentos.length === 0) return [];
 
       // Determine frequency from the first entry that has it, or default to 'mensal'
-      const frequencia = (openLancamentos[0] as any).frequencia || 'mensal';
+      const frequencia = (openLancamentos[0] as unknown as LancamentoRowWithFrequencia).frequencia || 'mensal';
 
       // Build non-date update fields
       const baseUpdate: Record<string, unknown> = {};
