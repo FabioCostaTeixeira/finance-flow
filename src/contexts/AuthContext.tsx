@@ -32,14 +32,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) {
-        console.log('No role found for user:', error.message);
         setRole(null);
         return;
       }
 
       setRole(data?.role as AppRole);
-    } catch (err) {
-      console.error('Error fetching user role:', err);
+    } catch {
       setRole(null);
     }
   };
@@ -53,13 +51,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) {
-        console.log('No profile found:', error.message);
         return;
       }
 
       setUserName(data?.nome || data?.email?.split('@')[0] || null);
-    } catch (err) {
-      console.error('Error fetching profile:', err);
+    } catch {
+      // silently ignore profile fetch errors
     }
   };
 
@@ -84,19 +81,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchUserRole(session.user.id);
-        fetchUserProfile(session.user.id);
-      }
-      
-      setLoading(false);
-    });
 
     return () => subscription.unsubscribe();
   }, []);

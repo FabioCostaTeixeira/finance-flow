@@ -50,6 +50,7 @@ export function useAllPermissions() {
       if (error) throw error;
       return data as Permission[];
     },
+    staleTime: 1000 * 60 * 5,
   });
 }
 
@@ -67,6 +68,7 @@ export function useMyPermissions() {
       if (error) throw error;
       return data as Permission[];
     },
+    staleTime: 1000 * 60 * 5,
   });
 }
 

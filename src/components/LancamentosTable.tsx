@@ -53,6 +53,36 @@ interface LancamentosTableProps {
   onFiltersChange: (filters: LancamentosFiltersState) => void;
 }
 
+function StatusBadge({ lancamento }: { lancamento: LancamentoExtendido }) {
+  const computedStatus = getComputedStatus({
+    status: lancamento.status,
+    tipo: lancamento.tipo,
+    data_vencimento: lancamento.data_vencimento,
+    valor: lancamento.valor,
+    valor_pago: lancamento.valor_pago,
+  });
+  const config = getStatusConfig(computedStatus);
+  return (
+    <span className={cn(
+      'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
+      config.className
+    )}>
+      {config.label}
+    </span>
+  );
+}
+
+function canBaixar(lancamento: LancamentoExtendido): boolean {
+  const computedStatus = getComputedStatus({
+    status: lancamento.status,
+    tipo: lancamento.tipo,
+    data_vencimento: lancamento.data_vencimento,
+    valor: lancamento.valor,
+    valor_pago: lancamento.valor_pago,
+  });
+  return ['a_receber', 'a_pagar', 'parcial', 'atrasado', 'vencida'].includes(computedStatus);
+}
+
 export function LancamentosTable({
   tipo,
   lancamentos,
@@ -259,37 +289,6 @@ export function LancamentosTable({
   const allDeletaveisSelected = lancamentosDeletaveis.length > 0 && 
     lancamentosDeletaveis.every((l) => selectedIds.has(l.id));
 
-  const getStatusBadge = (lancamento: LancamentoExtendido) => {
-    const computedStatus = getComputedStatus({
-      status: lancamento.status,
-      tipo: lancamento.tipo,
-      data_vencimento: lancamento.data_vencimento,
-      valor: lancamento.valor,
-      valor_pago: lancamento.valor_pago,
-    });
-    
-    const config = getStatusConfig(computedStatus, tipo);
-
-    return (
-      <span className={cn(
-        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
-        config.className
-      )}>
-        {config.label}
-      </span>
-    );
-  };
-
-  const canBaixar = (lancamento: LancamentoExtendido) => {
-    const computedStatus = getComputedStatus({
-      status: lancamento.status,
-      tipo: lancamento.tipo,
-      data_vencimento: lancamento.data_vencimento,
-      valor: lancamento.valor,
-      valor_pago: lancamento.valor_pago,
-    });
-    return ['a_receber', 'a_pagar', 'parcial', 'atrasado', 'vencida'].includes(computedStatus);
-  };
 
   // Get category display name with parent if subcategory
   const getCategoryDisplay = (lancamento: LancamentoExtendido) => {
@@ -423,7 +422,7 @@ export function LancamentosTable({
                     <TableCell className="text-muted-foreground hidden md:table-cell">
                       {getCategoryDisplay(lancamento)}
                     </TableCell>
-                    <TableCell>{getStatusBadge(lancamento)}</TableCell>
+                    <TableCell><StatusBadge lancamento={lancamento} /></TableCell>
                     <TableCell className="text-muted-foreground hidden lg:table-cell">
                       {lancamento.total_parcelas === 0
                         ? `${lancamento.parcela_atual}/∞`

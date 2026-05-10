@@ -23,7 +23,8 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { useCategorias } from '@/hooks/useCategorias';
 import { useBancos } from '@/hooks/useBancos';
-import { statusLabels } from '@/lib/recurrence';
+import { getStatusConfig } from '@/lib/statusUtils';
+import type { StatusLancamento } from '@/lib/statusUtils';
 
 export interface LancamentosFiltersState {
   dataInicio: Date | undefined;
@@ -295,7 +296,7 @@ export function LancamentosFilters({ tipo, filters, onFiltersChange }: Lancament
             selectedValues={filters.statusList}
             options={statusOptions.map((s) => ({
               value: s,
-              label: statusLabels[s as keyof typeof statusLabels],
+              label: getStatusConfig(s as StatusLancamento).label,
             }))}
             onChange={(values) => onFiltersChange({ ...filters, statusList: values })}
           />

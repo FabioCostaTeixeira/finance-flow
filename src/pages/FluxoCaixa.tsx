@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/select';
 
 function StatusLabel({ lancamento }: { lancamento: LancamentoExtendido }) {
-  const config = getStatusConfig(lancamento.status as StatusLancamento, lancamento.tipo);
+  const config = getStatusConfig(lancamento.status as StatusLancamento);
   return (
     <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', config.className)}>
       {config.label}

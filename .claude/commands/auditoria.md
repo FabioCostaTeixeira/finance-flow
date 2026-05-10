@@ -63,9 +63,16 @@ Para cada arquivo analisado, verifique:
 - Loading states inconsistentes
 - Formulários sem validação Zod adequada
 
-**Testes**
+**Testes unitários e de integração**
 - Identificar quais hooks, funções utilitárias e componentes não têm testes
 - Listar o que tem maior prioridade para ser testado
+
+**Testes de Interface (UI)**
+- Verificar se existe framework de testes E2E configurado (Playwright, Cypress ou similar) — se não, registrar como melhoria
+- Para cada página principal (`Receitas`, `Despesas`, `FluxoCaixa`, `Bancos`, `Categorias`, `Auth`), verificar se há ao menos um teste de componente com `@testing-library/react` cobrindo o fluxo principal (render, interação básica, estado de loading/vazio/erro)
+- Verificar se formulários críticos (`LancamentoForm`, `BaixaModal`, `Auth`) têm testes de submissão, validação Zod e feedback de erro
+- Verificar se existe `renderWithProviders` ou helper de teste compartilhado — sem ele, testes de componente tendem a ser escritos de forma inconsistente
+- Identificar fluxos críticos que deveriam ter cobertura E2E: criar lançamento, baixar lançamento, criar transferência, login/logout
 
 ### 3. Relatório
 
@@ -91,6 +98,13 @@ Produza um relatório estruturado com:
 ## Cobertura de Testes
 - Arquivos sem testes: lista
 - Prioridade alta: o que testar primeiro e por quê
+
+## Cobertura de Testes de Interface
+- Framework E2E configurado? (Playwright/Cypress)
+- Helper `renderWithProviders` existe?
+- Páginas sem teste de componente: lista
+- Formulários sem teste de submissão/validação: lista
+- Fluxos críticos sem cobertura E2E: lista
 ```
 
 ### 4. Plano de ação — Top 5 prioridades
@@ -118,6 +132,11 @@ Após o relatório e o top-5, **crie arquivos markdown no backlog** para cada ac
 
 **Nome do arquivo:** `YYYY-MM-DD-slug-curto.md` (data atual, slug em hífens sem acentos)
 
+**Regra de deduplicação — OBRIGATÓRIA:**
+Antes de criar qualquer arquivo, liste os arquivos existentes nas três pastas de backlog.
+Se já existir um arquivo com slug similar ou título equivalente ao achado, **não crie duplicata** — apenas registre no relatório que o item já estava no backlog.
+Só crie arquivo novo se o problema for genuinamente diferente dos existentes.
+
 **Formato de cada arquivo de backlog:**
 
 ```
@@ -128,6 +147,7 @@ prioridade: alta | media | baixa
 esforco: rapido | medio | grande
 arquivo: src/caminho/para/arquivo.ts:linha
 origem: auditoria
+status: open
 data: YYYY-MM-DD
 ---
 
@@ -140,6 +160,8 @@ O que foi encontrado e por que é um problema.
 Passo a passo ou sugestão de implementação.
 ```
 
+**Campo `status`:** sempre `open` ao criar. O Scrum Master altera para `done` ao concluir a implementação.
+
 **Regras de prioridade:**
 - `alta` = críticos de segurança ou bugs que afetam dados
 - `media` = violação de padrões, código morto, melhorias de robustez
@@ -147,7 +169,7 @@ Passo a passo ou sugestão de implementação.
 
 Crie **todos os arquivos do backlog antes** de perguntar o que o usuário quer resolver.
 
-Após criar os arquivos, informe: "X itens registrados no backlog (Y em correcoes/, Z em melhorias/, W em ideias/)."
+Após criar os arquivos, informe: "X itens registrados no backlog (Y em correcoes/, Z em melhorias/, W em ideias/). Z já existiam e foram ignorados."
 
 ---
 

@@ -111,18 +111,6 @@ export function formatDate(date: Date | string): string {
   return new Intl.DateTimeFormat('pt-BR').format(d);
 }
 
-/**
- * Mapeia status para labels amigáveis
- */
-export const statusLabels: Record<string, string> = {
-  a_receber: 'A Receber',
-  recebido: 'Recebido',
-  a_pagar: 'A Pagar',
-  pago: 'Pago',
-  parcial: 'Parcial',
-  atrasado: 'Atrasado',
-  vencida: 'Vencida',
-};
 
 /**
  * Mapeia frequência para labels amigáveis

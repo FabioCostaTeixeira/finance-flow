@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, AlertTriangle, Clock, ChevronRight, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
@@ -50,6 +51,7 @@ function saveDismissed(ids: Set<string>) {
 export function AlertasNotificacao() {
   const [open, setOpen] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => getDismissedToday());
+  const navigate = useNavigate();
   const { data: lancamentos = [] } = useLancamentos();
 
   const todosAlertas = useMemo(() => {
@@ -134,9 +136,9 @@ export function AlertasNotificacao() {
   const handleNavigate = useCallback((alerta: Alerta) => {
     dismissAlerta(alerta.id);
     const rota = alerta.lancamento.tipo === 'receita' ? '/receitas' : '/despesas';
-    window.location.href = `${rota}?highlight=${alerta.lancamento.id}`;
+    navigate(`${rota}?highlight=${alerta.lancamento.id}`);
     setOpen(false);
-  }, [dismissAlerta]);
+  }, [dismissAlerta, navigate]);
 
   const getAlertaColor = (tipo: Alerta['tipo']) => {
     switch (tipo) {

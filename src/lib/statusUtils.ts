@@ -59,7 +59,7 @@ export function getComputedStatus(lancamento: LancamentoForStatus): StatusLancam
 /**
  * Get status badge configuration
  */
-export function getStatusConfig(status: StatusLancamento, tipo: 'receita' | 'despesa') {
+export function getStatusConfig(status: StatusLancamento) {
   const configs: Record<StatusLancamento, { label: string; className: string }> = {
     a_receber: {
       label: 'A Receber',

@@ -36,6 +36,17 @@ const menuItems = [
   { path: '/telegram', label: 'Bot Telegram', icon: Send },
 ];
 
+function buildMenuItems(role: string | null, permissions: ReturnType<typeof useMyPermissions>['data']) {
+  const base = role === 'master'
+    ? [...menuItems, { path: '/ai-settings', label: 'Config. de IA', icon: Settings }, { path: '/usuarios', label: 'Usuários', icon: Users }]
+    : menuItems;
+  return base.filter(item => {
+    const moduleKey = ROUTE_TO_MODULE[item.path];
+    if (!moduleKey) return true;
+    return hasModuleAccess(permissions || [], moduleKey, role);
+  });
+}
+
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -47,15 +58,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     navigate('/auth');
   };
 
-  const baseItems = role === 'master'
-    ? [...menuItems, { path: '/ai-settings', label: 'Config. de IA', icon: Settings }, { path: '/usuarios', label: 'Usuários', icon: Users }]
-    : menuItems;
-
-  const allMenuItems = baseItems.filter(item => {
-    const moduleKey = ROUTE_TO_MODULE[item.path];
-    if (!moduleKey) return true;
-    return hasModuleAccess(permissions || [], moduleKey, role);
-  });
+  const allMenuItems = buildMenuItems(role, permissions);
 
   return (
     <div className="flex flex-col h-full">
@@ -193,15 +196,7 @@ function DesktopNav({ collapsed }: { collapsed: boolean }) {
   const { role } = useAuth();
   const { data: permissions } = useMyPermissions();
 
-  const baseItems = role === 'master'
-    ? [...menuItems, { path: '/ai-settings', label: 'Config. de IA', icon: Settings }, { path: '/usuarios', label: 'Usuários', icon: Users }]
-    : menuItems;
-
-  const allMenuItems = baseItems.filter(item => {
-    const moduleKey = ROUTE_TO_MODULE[item.path];
-    if (!moduleKey) return true;
-    return hasModuleAccess(permissions || [], moduleKey, role);
-  });
+  const allMenuItems = buildMenuItems(role, permissions);
 
   return (
     <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto scrollbar-thin">
@@ -240,7 +235,7 @@ function DesktopNav({ collapsed }: { collapsed: boolean }) {
 
 function DesktopLogout({ collapsed }: { collapsed: boolean }) {
   const navigate = useNavigate();
-  const { signOut, userName } = useAuth();
+  const { signOut } = useAuth();
 
   const handleLogout = async () => {
     await signOut();
