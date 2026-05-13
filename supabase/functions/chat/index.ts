@@ -625,7 +625,7 @@ Para edições em massa (recorrentes): use atualizar_em_massa com filtros. Alter
           messages: msgs,
           ...(withTools ? { tools } : {}),
           stream,
-          max_tokens: 800,
+          max_tokens: 2048,
         }),
       });
     };
@@ -643,34 +643,46 @@ Para edições em massa (recorrentes): use atualizar_em_massa com filtros. Alter
     const resp = await callLLM(step1Msgs, true, false);
 
     if (!resp.ok) {
+      const t = await resp.text();
+      console.error("AI error:", resp.status, t);
+      let detail = t;
+      try { detail = JSON.parse(t)?.error?.message || t; } catch { /* keep raw */ }
+
       if (resp.status === 429) {
-        // Wait and retry ONCE for rate limit
         await new Promise(r => setTimeout(r, 3000));
         const retry = await callLLM(step1Msgs, true, false);
-        if (!retry.ok) return errorResponse(429, "Limite de requisições excedido. Aguarde 1 minuto.");
-        // Continue with retry response below
+        if (!retry.ok) {
+          const t2 = await retry.text();
+          let detail2 = t2;
+          try { detail2 = JSON.parse(t2)?.error?.message || t2; } catch { /* keep raw */ }
+          return errorResponse(429, `Limite de requisições (${retry.status}): ${detail2.slice(0, 300)}`);
+        }
         const retryResp = await retry.json();
         const retryChoice = retryResp.choices?.[0];
         if (!retryChoice?.message?.tool_calls?.length) {
-          // Simple response, stream it directly
           const stream2 = await callLLM(step1Msgs, false, true);
           return new Response(stream2.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
         }
       }
-      const t = await resp.text();
-      console.error("AI error:", resp.status, t);
-      return errorResponse(500, "Erro no serviço de IA");
+
+      return errorResponse(500, `Erro no serviço de IA (${resp.status}): ${detail.slice(0, 300)}`);
     }
 
     const aiResp = await resp.json();
     const choice = aiResp.choices?.[0];
 
-    // ── No tool calls → Simple question, return plain answer ──
+    // ── No tool calls → Simple question, stream the answer directly ──
     if (!choice?.message?.tool_calls?.length) {
-      const answer = choice.message.content || "";
-      return new Response(JSON.stringify({ answer }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const streamResp = await callLLM(step1Msgs, false, true);
+      if (!streamResp.ok) {
+        const t = await streamResp.text();
+        console.error("Stream error:", streamResp.status, t);
+        let detail = t;
+        try { detail = JSON.parse(t)?.error?.message || t; } catch { /* keep raw */ }
+        return errorResponse(500, `Erro ao processar resposta (${streamResp.status}): ${detail.slice(0, 300)}`);
+      }
+      return new Response(streamResp.body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
     }
 
@@ -695,8 +707,9 @@ Para edições em massa (recorrentes): use atualizar_em_massa com filtros. Alter
     if (!streamResp.ok) {
       const t = await streamResp.text();
       console.error("Stream error:", streamResp.status, t);
-      if (streamResp.status === 429) return errorResponse(429, "Limite de requisições. Aguarde 1 minuto.");
-      return errorResponse(500, "Erro ao processar resposta: " + streamResp.status);
+        let detail2 = t;
+      try { detail2 = JSON.parse(t)?.error?.message || t; } catch { /* keep raw */ }
+      return errorResponse(streamResp.status === 429 ? 429 : 500, `Erro ao processar resposta (${streamResp.status}): ${detail2.slice(0, 300)}`);
     }
 
     return new Response(streamResp.body, {

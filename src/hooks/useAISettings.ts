@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-export type AIProvider = 'lovable' | 'openai' | 'anthropic' | 'google';
+export type AIProvider = 'lovable' | 'openai' | 'anthropic' | 'google' | 'groq';
 
 export interface AISettings {
   id: number;
@@ -29,10 +29,13 @@ export const PROVIDER_MODELS: Record<AIProvider, { label: string; models: { valu
   openai: {
     label: 'OpenAI (sua API key)',
     models: [
+      { value: 'gpt-4.1', label: 'GPT-4.1 (recomendado)' },
+      { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini (econômico)' },
+      { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano (mais leve)' },
       { value: 'gpt-4o', label: 'GPT-4o' },
       { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-      { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-      { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+      { value: 'o3', label: 'o3 (raciocínio avançado)' },
+      { value: 'o4-mini', label: 'o4-mini (raciocínio rápido)' },
     ],
   },
   anthropic: {
@@ -46,9 +49,17 @@ export const PROVIDER_MODELS: Record<AIProvider, { label: string; models: { valu
   google: {
     label: 'Google Gemini direto (sua API key)',
     models: [
-      { value: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash (experimental)' },
+      { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (recomendado)' },
       { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-      { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+      { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (estável)' },
+    ],
+  },
+  groq: {
+    label: 'Groq (sua API key)',
+    models: [
+      { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B Versatile (rápido)' },
+      { value: 'llama-3.1-70b-versatile', label: 'Llama 3.1 70B Versatile' },
+      { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
     ],
   },
 };

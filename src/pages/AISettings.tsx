@@ -17,6 +17,7 @@ const PROVIDER_HELP: Record<AIProvider, { url: string; help: string }> = {
   openai: { url: 'https://platform.openai.com/api-keys', help: 'Crie uma chave em platform.openai.com/api-keys (precisa de créditos na sua conta OpenAI).' },
   anthropic: { url: 'https://console.anthropic.com/settings/keys', help: 'Crie uma chave em console.anthropic.com (precisa de créditos na conta Anthropic).' },
   google: { url: 'https://aistudio.google.com/apikey', help: 'Crie uma chave em aistudio.google.com/apikey (gratuito até cota mensal).' },
+  groq: { url: 'https://console.groq.com/keys', help: 'Crie uma chave em console.groq.com/keys (plano gratuito disponível com alta velocidade).' },
 };
 
 export default function AISettingsPage() {
