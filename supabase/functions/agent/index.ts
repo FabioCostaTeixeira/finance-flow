@@ -238,10 +238,29 @@ async function toolTransferirEntreContas(args: Record<string, unknown>, sb: Retu
 }
 
 async function toolConsultarSaldo(args: Record<string, unknown>, sb: ReturnType<typeof createClient>) {
-  const { data, error } = await sb.rpc("get_bancos_com_saldos", {
-    data_inicio: args.data_inicio ?? null,
-    data_fim: args.data_fim ?? null,
-  });
+  // Calcula saldo do mês corrente: soma lançamentos pagos/recebidos com data_pagamento no mês atual.
+  // Inclui "saldo Anterior" (que representa o carry-forward do mês anterior).
+  const mesAtual = args.mes
+    ? String(args.mes).slice(0, 7)          // aceita "2026-06" ou "2026-06-01"
+    : new Date().toISOString().slice(0, 7);  // padrão: mês de hoje
+
+  const query = `
+    SELECT
+      b.id   AS banco_id,
+      b.nome AS banco_nome,
+      COALESCE(SUM(CASE WHEN l.tipo = 'receita' THEN l.valor_pago ELSE 0 END), 0) AS total_entradas,
+      COALESCE(SUM(CASE WHEN l.tipo = 'despesa' THEN l.valor_pago ELSE 0 END), 0) AS total_saidas,
+      COALESCE(SUM(CASE WHEN l.tipo = 'receita' THEN l.valor_pago ELSE -l.valor_pago END), 0) AS saldo
+    FROM bancos b
+    LEFT JOIN lancamentos l
+      ON l.banco_id = b.id
+      AND l.status IN ('pago','recebido','transferencia')
+      AND TO_CHAR(l.data_pagamento, 'YYYY-MM') = '${mesAtual}'
+    GROUP BY b.id, b.nome
+    ORDER BY b.nome
+  `;
+
+  const { data, error } = await sb.rpc("execute_readonly_query", { query_text: query });
   if (error) return fail(error.message);
 
   let resultado = (data ?? []) as Record<string, unknown>[];
@@ -249,7 +268,10 @@ async function toolConsultarSaldo(args: Record<string, unknown>, sb: ReturnType<
     const q = (args.banco_nome as string).toLowerCase();
     resultado = resultado.filter((b) => String(b.banco_nome ?? "").toLowerCase().includes(q));
   }
-  return ok({ count: resultado.length, data: resultado });
+  if (args.banco_id) {
+    resultado = resultado.filter((b) => b.banco_id === args.banco_id);
+  }
+  return ok({ count: resultado.length, data: resultado, mes: mesAtual });
 }
 
 async function toolExecutarSQL(args: Record<string, unknown>, sb: ReturnType<typeof createClient>) {

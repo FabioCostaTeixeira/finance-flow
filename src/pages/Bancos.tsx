@@ -152,17 +152,22 @@ export default function BancosPage() {
           <TableHeader>
             <TableRow className="hover:bg-transparent border-border/50">
               <TableHead className="text-muted-foreground" rowSpan={2}>Banco</TableHead>
-              <TableHead className="text-muted-foreground text-center border-l border-border/30" colSpan={2}>Entradas</TableHead>
-              <TableHead className="text-muted-foreground text-center border-l border-border/30" colSpan={2}>Saídas</TableHead>
-              <TableHead className="text-muted-foreground text-center border-l border-border/30" colSpan={2}>Saldo</TableHead>
+              {/* Grupo: Saldo Atual */}
+              <TableHead className="text-center border-l border-border/30 bg-emerald-950/30 text-emerald-400/90 text-xs font-semibold" colSpan={1}>Saldo Atual</TableHead>
+              {/* Grupo: Realizado */}
+              <TableHead className="text-center border-l border-border/30 bg-blue-950/30 text-blue-400/90 text-xs font-semibold" colSpan={2}>Realizado</TableHead>
+              {/* Grupo: Projetado */}
+              <TableHead className="text-center border-l border-border/30 bg-purple-950/30 text-purple-400/90 text-xs font-semibold" colSpan={2}>Projetado</TableHead>
+              {/* Grupo: Saldo Projetado */}
+              <TableHead className="text-center border-l border-border/30 bg-amber-950/30 text-amber-400/90 text-xs font-semibold" colSpan={1}>Saldo Projetado</TableHead>
             </TableRow>
             <TableRow className="hover:bg-transparent border-border/50">
-              <TableHead className="text-muted-foreground text-right text-xs border-l border-border/30">Projetado</TableHead>
-              <TableHead className="text-muted-foreground text-right text-xs">Recebido</TableHead>
-              <TableHead className="text-muted-foreground text-right text-xs border-l border-border/30">A Pagar</TableHead>
-              <TableHead className="text-muted-foreground text-right text-xs">Pago</TableHead>
-              <TableHead className="text-muted-foreground text-right text-xs border-l border-border/30">Projetado</TableHead>
-              <TableHead className="text-muted-foreground text-right text-xs">Atual</TableHead>
+              <TableHead className="text-right text-xs border-l border-border/30 bg-emerald-950/20 text-emerald-400/70">Atual</TableHead>
+              <TableHead className="text-right text-xs border-l border-border/30 bg-blue-950/20 text-blue-400/70">Recebido</TableHead>
+              <TableHead className="text-right text-xs bg-blue-950/20 text-blue-400/70">Pago</TableHead>
+              <TableHead className="text-right text-xs border-l border-border/30 bg-purple-950/20 text-purple-400/70">A Receber</TableHead>
+              <TableHead className="text-right text-xs bg-purple-950/20 text-purple-400/70">A Pagar</TableHead>
+              <TableHead className="text-right text-xs border-l border-border/30 bg-amber-950/20 text-amber-400/70">Projetado</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -188,24 +193,25 @@ export default function BancosPage() {
                           onClick={() => navigate(`/fluxo-caixa?bancoId=${banco.id}`)}
                         >
                           <TableCell className="font-medium">{banco.nome}</TableCell>
-                          {/* Entradas */}
-                          <TableCell className="text-right text-primary/70 border-l border-border/30">{formatCurrency(banco.total_entradas)}</TableCell>
-                          <TableCell className="text-right text-primary font-semibold">{formatCurrency(banco.entradas_recebidas)}</TableCell>
-                          {/* Saídas */}
-                          <TableCell className="text-right text-destructive/70 border-l border-border/30">{formatCurrency(banco.saidas_a_pagar)}</TableCell>
-                          <TableCell className="text-right text-destructive font-semibold">{formatCurrency(banco.saidas_pagas)}</TableCell>
-                          {/* Saldo */}
+                          {/* Saldo Atual */}
                           <TableCell className={cn(
-                            "text-right border-l border-border/30",
-                            banco.saldo >= 0 ? "text-success/70" : "text-amber-500/70"
-                          )}>
-                            {formatCurrency(banco.saldo)}
-                          </TableCell>
-                          <TableCell className={cn(
-                            "text-right font-bold",
-                            saldoAtual >= 0 ? "text-success" : "text-amber-500"
+                            "text-right font-bold border-l border-border/30 bg-emerald-950/10",
+                            saldoAtual >= 0 ? "text-emerald-400" : "text-amber-500"
                           )}>
                             {formatCurrency(saldoAtual)}
+                          </TableCell>
+                          {/* Realizado */}
+                          <TableCell className="text-right text-blue-400 font-semibold border-l border-border/30 bg-blue-950/10">{formatCurrency(banco.entradas_recebidas)}</TableCell>
+                          <TableCell className="text-right text-blue-300/70 bg-blue-950/10">{formatCurrency(banco.saidas_pagas)}</TableCell>
+                          {/* Projetado */}
+                          <TableCell className="text-right text-purple-400 border-l border-border/30 bg-purple-950/10">{formatCurrency(banco.entradas_a_receber)}</TableCell>
+                          <TableCell className="text-right text-purple-300/70 bg-purple-950/10">{formatCurrency(banco.saidas_a_pagar)}</TableCell>
+                          {/* Saldo Projetado */}
+                          <TableCell className={cn(
+                            "text-right border-l border-border/30 bg-amber-950/10",
+                            banco.saldo >= 0 ? "text-amber-400" : "text-red-400"
+                          )}>
+                            {formatCurrency(banco.saldo)}
                           </TableCell>
                         </motion.tr>
                       </TooltipTrigger>
