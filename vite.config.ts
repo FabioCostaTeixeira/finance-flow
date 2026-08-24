@@ -15,8 +15,31 @@ export default defineConfig(() => ({
     },
   },
   test: {
-    environment: "jsdom",
-    globals: true,
-    setupFiles: "./src/test/setup.ts",
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          environment: "jsdom",
+          globals: true,
+          setupFiles: "./src/test/setup.ts",
+          exclude: ["**/node_modules/**", "src/test/rls/**"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "rls",
+          environment: "node",
+          globals: true,
+          include: ["src/test/rls/**/*.test.ts"],
+          setupFiles: "./src/test/rls/env.ts",
+          testTimeout: 30000,
+          // Os testes compartilham um Postgres real: rodar arquivos em paralelo
+          // faria um cleanup derrubar o cenário de outro.
+          fileParallelism: false,
+        },
+      },
+    ],
   },
 }));
