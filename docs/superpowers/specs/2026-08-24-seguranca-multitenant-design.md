@@ -32,7 +32,7 @@ separado significaria reescrevê-las duas vezes.
 | 7 | ALTO | `ai_settings.api_key` em texto puro na tabela |
 | 8 | ALTO | `Access-Control-Allow-Origin: *` em funções que usam service role key |
 | 9 | ALTO | `verify_jwt = false` em todas as edge functions |
-| 10 | MÉDIO | Funções `SECURITY DEFINER` sem `search_path`, executáveis por `anon` (advisor do Supabase) |
+| 10 | MÉDIO | Oito funções `SECURITY DEFINER` executáveis por `anon` via `/rest/v1/rpc/`. Destas, `audit_lancamentos` também está sem `search_path` (advisor do Supabase) |
 | 11 | MÉDIO | Proteção contra senha vazada desativada |
 | 12 | MÉDIO | Banco divergiu das migrations: `audit_lancamentos` e `rls_auto_enable` existem em produção mas não no repo |
 
@@ -149,18 +149,38 @@ O módulo `fluxo-caixa` é somente-leitura e derivado: quem tem `fluxo-caixa` ma
 consumir a RPC `get_fluxo_caixa(tenant, periodo)`, que é `SECURITY DEFINER` e checa
 `can_access(_tenant, 'fluxo-caixa')` internamente, devolvendo apenas agregados.
 
-### Funções que hoje contornam o RLS
+### Funções que contornam o RLS
 
-`get_bancos_com_saldos(data_inicio, data_fim)` é `SECURITY DEFINER` e devolve saldos
-agregados sem qualquer filtro de dono. Depois da migração ela continuaria funcionando e
-vazaria saldos entre tenants — uma policy correta em `bancos` não a alcança, porque a
-função roda com os privilégios do dono.
+Uma função `SECURITY DEFINER` roda com os privilégios de quem a criou e **ignora as
+policies** das tabelas que lê. Uma função esquecida anula todo o trabalho de RLS, então o
+inventário abaixo é exaustivo e foi levantado direto do catálogo (`pg_proc.prosecdef`):
 
-Toda função `SECURITY DEFINER` que toca dado financeiro é reescrita para receber
-`_tenant uuid`, checar `can_access(_tenant, <módulo>)` na primeira linha e levantar
-exceção se a checagem falhar. Isso vale para `get_bancos_com_saldos`, `get_fluxo_caixa` e
-`execute_readonly_query`. A auditoria dessas funções faz parte da fase 6 e nenhuma pode
-ficar de fora: uma função esquecida anula todo o trabalho de RLS.
+| Função | `SECURITY DEFINER` | `search_path` | Ação |
+|---|---|---|---|
+| `audit_lancamentos` | sim | **ausente** | Reescrita para gravar em `audit_log`, com `SET search_path` |
+| `execute_readonly_query` | sim | ok | Timeout, `LIMIT` forçado, escopo de tenant |
+| `get_user_role` | sim | ok | Removida junto com `user_roles` |
+| `has_role` | sim | ok | Removida; substituída por `can_access` |
+| `has_permission` | sim | ok | Removida; substituída por `can_access` |
+| `handle_new_user` | sim | ok | Mantida; `REVOKE` de `anon`/`authenticated` |
+| `set_chat_message_user_id` | sim | ok | Mantida; `REVOKE` de `anon`/`authenticated` |
+| `rls_auto_enable` | sim | ok | Avaliar remoção — não consta nas migrations |
+| `get_bancos_com_saldos` | **não** (INVOKER) | ok | Nenhuma mudança de segurança necessária |
+| `update_updated_at_column` | não | ok | Nenhuma |
+
+`get_bancos_com_saldos` é `SECURITY INVOKER`: ela executa com os privilégios de quem
+chama e portanto **respeita as policies** de `bancos` e `lancamentos`. Assim que as
+policies de tenant entrarem, ela passa a ser filtrada automaticamente, sem precisar de
+parâmetro de tenant. A suíte de testes de RLS confirma isso explicitamente, chamando a
+RPC como usuário de outro tenant e afirmando resultado vazio.
+
+`get_fluxo_caixa`, a função nova para o módulo `fluxo-caixa`, é criada como
+`SECURITY DEFINER` justamente para permitir agregados a quem não pode ler as linhas — e
+por isso checa `can_access(_tenant, 'fluxo-caixa')` na primeira instrução, levantando
+exceção se falhar.
+
+Todas as funções `SECURITY DEFINER` sobreviventes recebem
+`REVOKE EXECUTE ... FROM anon, public`, fechando os WARN do advisor.
 
 ### Preenchimento automático do tenant
 
