@@ -19,6 +19,8 @@
   export DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
   ```
 - Não existe comando `supabase db execute`. Para rodar SQL avulso, use `psql "$DB_URL" -c "..."`.
+- **`npx tsc --noEmit` não verifica nada neste projeto.** O `tsconfig.json` raiz tem `"files": []` e apenas `references`, então o comando compila zero arquivos e sai com exit 0 mesmo com erros de tipo reais. Use sempre `npx tsc -p tsconfig.app.json --noEmit`. Um relatório que cite `tsc --noEmit` como evidência de tipagem limpa não provou nada.
+- Ao regenerar os tipos, descarte o stderr: `npx supabase gen types typescript --local 2>/dev/null > src/integrations/supabase/types.ts`. Sem isso, a linha `Connecting to db 5432` é capturada dentro do arquivo e o TypeScript fica inválido. Confira a primeira linha do arquivo depois de gerar — ela deve começar com um comentário ou `export type`.
 - Toda função `SECURITY DEFINER` criada ou alterada leva `SET search_path = public` e `REVOKE EXECUTE ... FROM anon, public`.
 - Nomes de domínio em português (`lancamentos`, `bancos`, `categorias`, `tenants`). Nomes de infraestrutura em inglês (`can_access`, `audit_log`).
 - Lógica de fetch e mutação fica em `src/hooks/` — nunca dentro de páginas.

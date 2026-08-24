@@ -35,11 +35,23 @@ ALTER TABLE public.platform_operators ENABLE ROW LEVEL SECURITY;
 -- significa "ninguém autenticado acessa", que é exatamente a intenção.
 
 -- Migração dos dados atuais: um tenant único com todos os usuários existentes.
-INSERT INTO public.tenants (nome, slug) VALUES ('Principal', 'principal');
+INSERT INTO public.tenants (nome, slug) VALUES ('Principal', 'principal')
+ON CONFLICT (slug) DO NOTHING;
 
+-- user_roles tem UNIQUE (user_id, role), não UNIQUE (user_id): um mesmo usuário
+-- pode ter várias linhas (ex.: 'master' e 'user'). DISTINCT ON escolhe
+-- deterministicamente o papel mais privilegiado por usuário.
 INSERT INTO public.tenant_members (tenant_id, user_id, role)
-SELECT (SELECT id FROM public.tenants WHERE slug = 'principal'),
+SELECT DISTINCT ON (ur.user_id)
+       (SELECT id FROM public.tenants WHERE slug = 'principal'),
        ur.user_id,
        ur.role
 FROM public.user_roles ur
+ORDER BY ur.user_id,
+         CASE ur.role WHEN 'master' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END
 ON CONFLICT (tenant_id, user_id) DO NOTHING;
+
+-- Defesa em profundidade: platform_operators deve ser inacessível a qualquer
+-- usuário autenticado. RLS sem policies já nega tudo, mas o REVOKE explícito
+-- remove o GRANT DML herdado do ALTER DEFAULT PRIVILEGES padrão do Supabase.
+REVOKE ALL ON public.platform_operators FROM anon, authenticated;
