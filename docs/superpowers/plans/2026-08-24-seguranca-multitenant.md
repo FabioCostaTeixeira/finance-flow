@@ -32,17 +32,17 @@
 ## File Structure
 
 **Migrations (criar):**
-- `supabase/migrations/20260824120000_tenants_core.sql` — tabelas `tenants`, `tenant_members`, `platform_operators`
-- `supabase/migrations/20260824120100_tenant_id_columns.sql` — colunas + backfill
-- `supabase/migrations/20260824120200_rls_engine.sql` — `my_tenant_ids`, `can_access`
-- `supabase/migrations/20260824120300_tenant_triggers.sql` — preenchimento automático
-- `supabase/migrations/20260824120400_policies_financeiro.sql` — troca das policies críticas
-- `supabase/migrations/20260824120500_policies_restantes.sql` — demais tabelas
-- `supabase/migrations/20260824120600_security_definer_cleanup.sql` — inventário de funções + `get_fluxo_caixa`
-- `supabase/migrations/20260824120700_audit_log.sql` — auditoria
-- `supabase/migrations/20260824120800_rpc_me.sql` — RPC `me()`
-- `supabase/migrations/20260824120900_api_keys_hash.sql` — hash + `tenant_id` em `api_keys`
-- `supabase/migrations/20260824121000_indices_e_limpeza.sql` — índices, `DROP TABLE user_roles`
+- `supabase/migrations/20260825000100_tenants_core.sql` — tabelas `tenants`, `tenant_members`, `platform_operators`
+- `supabase/migrations/20260825000200_tenant_id_columns.sql` — colunas + backfill
+- `supabase/migrations/20260825000300_rls_engine.sql` — `my_tenant_ids`, `can_access`
+- `supabase/migrations/20260825000400_tenant_triggers.sql` — preenchimento automático
+- `supabase/migrations/20260825000500_policies_financeiro.sql` — troca das policies críticas
+- `supabase/migrations/20260825000600_policies_restantes.sql` — demais tabelas
+- `supabase/migrations/20260825000700_security_definer_cleanup.sql` — inventário de funções + `get_fluxo_caixa`
+- `supabase/migrations/20260825000800_audit_log.sql` — auditoria
+- `supabase/migrations/20260825000900_rpc_me.sql` — RPC `me()`
+- `supabase/migrations/20260825001000_api_keys_hash.sql` — hash + `tenant_id` em `api_keys`
+- `supabase/migrations/20260825001100_indices_e_limpeza.sql` — índices, `DROP TABLE user_roles`
 
 **Testes (criar):**
 - `src/test/rls/helpers.ts` — fábrica de clientes autenticados
@@ -451,7 +451,7 @@ git commit -m "test: harness de RLS e teste de isolamento entre tenants (vermelh
 ## Task 2: Tabelas núcleo do tenant
 
 **Files:**
-- Create: `supabase/migrations/20260824120000_tenants_core.sql`
+- Create: `supabase/migrations/20260825000100_tenants_core.sql`
 - Test: `src/test/rls/isolamento.test.ts` (já existe; avança de erro)
 
 **Interfaces:**
@@ -460,7 +460,7 @@ git commit -m "test: harness de RLS e teste de isolamento entre tenants (vermelh
 
 - [ ] **Step 1: Escrever a migration**
 
-Crie `supabase/migrations/20260824120000_tenants_core.sql`:
+Crie `supabase/migrations/20260825000100_tenants_core.sql`:
 
 ```sql
 -- Núcleo de multitenancy: organizações, seus membros e os operadores da plataforma.
@@ -516,7 +516,7 @@ ON CONFLICT (tenant_id, user_id) DO NOTHING;
 npx supabase migration up
 ```
 
-Expected: `Applying migration 20260824120000_tenants_core.sql... done.`
+Expected: `Applying migration 20260825000100_tenants_core.sql... done.`
 
 > `migration up` sem `--linked` age no banco local. Se o comando pedir confirmação
 > mencionando `ngjoyxtmrfmnepwwontd`, cancele: o CLI está apontado para produção.
@@ -541,7 +541,7 @@ Expected: ainda FAIL, mas agora com `column "tenant_id" of relation "lancamentos
 
 ```bash
 npx supabase gen types typescript --local > src/integrations/supabase/types.ts
-git add supabase/migrations/20260824120000_tenants_core.sql src/integrations/supabase/types.ts
+git add supabase/migrations/20260825000100_tenants_core.sql src/integrations/supabase/types.ts
 git commit -m "feat(db): tabelas tenants, tenant_members e platform_operators"
 ```
 
@@ -550,7 +550,7 @@ git commit -m "feat(db): tabelas tenants, tenant_members e platform_operators"
 ## Task 3: Coluna tenant_id e backfill
 
 **Files:**
-- Create: `supabase/migrations/20260824120100_tenant_id_columns.sql`
+- Create: `supabase/migrations/20260825000200_tenant_id_columns.sql`
 
 **Interfaces:**
 - Consumes: tabela `tenants` da Task 2.
@@ -558,7 +558,7 @@ git commit -m "feat(db): tabelas tenants, tenant_members e platform_operators"
 
 - [ ] **Step 1: Escrever a migration**
 
-Crie `supabase/migrations/20260824120100_tenant_id_columns.sql`:
+Crie `supabase/migrations/20260825000200_tenant_id_columns.sql`:
 
 ```sql
 -- Adiciona tenant_id às tabelas de dados, faz backfill com o tenant Principal
@@ -570,7 +570,7 @@ DECLARE
 BEGIN
   SELECT id INTO tenant_principal FROM public.tenants WHERE slug = 'principal';
   IF tenant_principal IS NULL THEN
-    RAISE EXCEPTION 'Tenant Principal não encontrado. A migration 20260824120000 rodou?';
+    RAISE EXCEPTION 'Tenant Principal não encontrado. A migration 20260825000100 rodou?';
   END IF;
 
   -- Fase nullable + backfill, tabela por tabela.
@@ -677,7 +677,7 @@ Expected: ERRO `null value in column "tenant_id" ... violates not-null constrain
 
 ```bash
 npx supabase gen types typescript --local > src/integrations/supabase/types.ts
-git add supabase/migrations/20260824120100_tenant_id_columns.sql src/integrations/supabase/types.ts
+git add supabase/migrations/20260825000200_tenant_id_columns.sql src/integrations/supabase/types.ts
 git commit -m "feat(db): coluna tenant_id com backfill para o tenant Principal"
 ```
 
@@ -686,7 +686,7 @@ git commit -m "feat(db): coluna tenant_id com backfill para o tenant Principal"
 ## Task 4: Motor do RLS
 
 **Files:**
-- Create: `supabase/migrations/20260824120200_rls_engine.sql`
+- Create: `supabase/migrations/20260825000300_rls_engine.sql`
 - Create: `src/test/rls/permissoes.test.ts`
 
 **Interfaces:**
@@ -695,7 +695,7 @@ git commit -m "feat(db): coluna tenant_id com backfill para o tenant Principal"
 
 - [ ] **Step 1: Escrever a migration**
 
-Crie `supabase/migrations/20260824120200_rls_engine.sql`:
+Crie `supabase/migrations/20260825000300_rls_engine.sql`:
 
 ```sql
 -- Motor de autorização. SECURITY DEFINER evita recursão infinita: a policy de
@@ -890,7 +890,7 @@ Expected: os dois testes de `can_access` PASSAM. Os testes de leitura ainda FALH
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260824120200_rls_engine.sql src/test/rls/permissoes.test.ts
+git add supabase/migrations/20260825000300_rls_engine.sql src/test/rls/permissoes.test.ts
 git commit -m "feat(db): funções my_tenant_ids e can_access com policies das tabelas núcleo"
 ```
 
@@ -899,7 +899,7 @@ git commit -m "feat(db): funções my_tenant_ids e can_access com policies das t
 ## Task 5: Preenchimento automático de tenant_id
 
 **Files:**
-- Create: `supabase/migrations/20260824120300_tenant_triggers.sql`
+- Create: `supabase/migrations/20260825000400_tenant_triggers.sql`
 
 **Interfaces:**
 - Consumes: `my_tenant_ids()` da Task 4.
@@ -907,7 +907,7 @@ git commit -m "feat(db): funções my_tenant_ids e can_access com policies das t
 
 - [ ] **Step 1: Escrever a migration**
 
-Crie `supabase/migrations/20260824120300_tenant_triggers.sql`:
+Crie `supabase/migrations/20260825000400_tenant_triggers.sql`:
 
 ```sql
 -- Preenche tenant_id automaticamente quando o usuário pertence a exatamente um
@@ -1062,7 +1062,7 @@ Expected: os testes de trigger PASSAM (o master tem acesso irrestrito via `can_a
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260824120300_tenant_triggers.sql src/test/rls/permissoes.test.ts
+git add supabase/migrations/20260825000400_tenant_triggers.sql src/test/rls/permissoes.test.ts
 git commit -m "feat(db): triggers de preenchimento e congelamento de tenant_id"
 ```
 
@@ -1073,7 +1073,7 @@ git commit -m "feat(db): triggers de preenchimento e congelamento de tenant_id"
 Esta é a tarefa que fecha os achados críticos 1 e 2.
 
 **Files:**
-- Create: `supabase/migrations/20260824120400_policies_financeiro.sql`
+- Create: `supabase/migrations/20260825000500_policies_financeiro.sql`
 
 **Interfaces:**
 - Consumes: `can_access` da Task 4.
@@ -1081,7 +1081,7 @@ Esta é a tarefa que fecha os achados críticos 1 e 2.
 
 - [ ] **Step 1: Escrever a migration**
 
-Crie `supabase/migrations/20260824120400_policies_financeiro.sql`:
+Crie `supabase/migrations/20260825000500_policies_financeiro.sql`:
 
 ```sql
 -- Substitui as policies USING(true) por isolamento de tenant + checagem de módulo.
@@ -1203,7 +1203,7 @@ Expected: nenhuma linha nas tabelas financeiras. Se algo aparecer, é policy ant
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260824120400_policies_financeiro.sql
+git add supabase/migrations/20260825000500_policies_financeiro.sql
 git commit -m "fix(security): isolamento de tenant e checagem de módulo em lancamentos, bancos e categorias"
 ```
 
@@ -1212,7 +1212,7 @@ git commit -m "fix(security): isolamento de tenant e checagem de módulo em lanc
 ## Task 7: Policies das tabelas restantes
 
 **Files:**
-- Create: `supabase/migrations/20260824120500_policies_restantes.sql`
+- Create: `supabase/migrations/20260825000600_policies_restantes.sql`
 - Create: `src/test/rls/operador.test.ts`
 
 **Interfaces:**
@@ -1221,7 +1221,7 @@ git commit -m "fix(security): isolamento de tenant e checagem de módulo em lanc
 
 - [ ] **Step 1: Escrever a migration**
 
-Crie `supabase/migrations/20260824120500_policies_restantes.sql`:
+Crie `supabase/migrations/20260825000600_policies_restantes.sql`:
 
 ```sql
 -- Demais tabelas passam ao mesmo regime de tenant + módulo.
@@ -1405,7 +1405,7 @@ Expected: PASS em tudo, incluindo os seis testes de operador.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260824120500_policies_restantes.sql src/test/rls/operador.test.ts
+git add supabase/migrations/20260825000600_policies_restantes.sql src/test/rls/operador.test.ts
 git commit -m "feat(security): policies de tenant nas tabelas restantes e teste do operador"
 ```
 
@@ -1414,7 +1414,7 @@ git commit -m "feat(security): policies de tenant nas tabelas restantes e teste 
 ## Task 8: Limpeza das funções SECURITY DEFINER
 
 **Files:**
-- Create: `supabase/migrations/20260824120600_security_definer_cleanup.sql`
+- Create: `supabase/migrations/20260825000700_security_definer_cleanup.sql`
 - Create: `src/test/rls/funcoes.test.ts`
 
 **Interfaces:**
@@ -1423,7 +1423,7 @@ git commit -m "feat(security): policies de tenant nas tabelas restantes e teste 
 
 - [ ] **Step 1: Escrever a migration**
 
-Crie `supabase/migrations/20260824120600_security_definer_cleanup.sql`:
+Crie `supabase/migrations/20260825000700_security_definer_cleanup.sql`:
 
 ```sql
 -- Fecha os WARN do advisor: nenhuma função SECURITY DEFINER acessível a anon,
@@ -1433,7 +1433,7 @@ REVOKE EXECUTE ON FUNCTION public.handle_new_user()             FROM anon, publi
 REVOKE EXECUTE ON FUNCTION public.set_chat_message_user_id()    FROM anon, public;
 
 -- audit_lancamentos estava sem search_path. É reescrita na migration de auditoria
--- (20260824120700); aqui apenas trancamos o acesso.
+-- (20260825000800); aqui apenas trancamos o acesso.
 REVOKE EXECUTE ON FUNCTION public.audit_lancamentos()           FROM anon, public;
 
 -- rls_auto_enable não consta em nenhuma migration do repo e não é chamada pelo
@@ -1634,7 +1634,7 @@ Expected: nenhuma função `SECURITY DEFINER` com `proconfig` nulo. As funções
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/20260824120600_security_definer_cleanup.sql src/test/rls/funcoes.test.ts
+git add supabase/migrations/20260825000700_security_definer_cleanup.sql src/test/rls/funcoes.test.ts
 git commit -m "fix(security): tranca funções SECURITY DEFINER e adiciona get_fluxo_caixa"
 ```
 
@@ -1643,7 +1643,7 @@ git commit -m "fix(security): tranca funções SECURITY DEFINER e adiciona get_f
 ## Task 9: Trilha de auditoria
 
 **Files:**
-- Create: `supabase/migrations/20260824120700_audit_log.sql`
+- Create: `supabase/migrations/20260825000800_audit_log.sql`
 
 **Interfaces:**
 - Consumes: `can_access` da Task 4.
@@ -1651,7 +1651,7 @@ git commit -m "fix(security): tranca funções SECURITY DEFINER e adiciona get_f
 
 - [ ] **Step 1: Escrever a migration**
 
-Crie `supabase/migrations/20260824120700_audit_log.sql`:
+Crie `supabase/migrations/20260825000800_audit_log.sql`:
 
 ```sql
 CREATE TABLE public.audit_log (
@@ -1790,7 +1790,7 @@ Expected: PASS.
 
 ```bash
 npx supabase gen types typescript --local > src/integrations/supabase/types.ts
-git add supabase/migrations/20260824120700_audit_log.sql src/test/rls/funcoes.test.ts src/integrations/supabase/types.ts
+git add supabase/migrations/20260825000800_audit_log.sql src/test/rls/funcoes.test.ts src/integrations/supabase/types.ts
 git commit -m "feat(db): trilha de auditoria em lancamentos e bancos"
 ```
 
@@ -1799,7 +1799,7 @@ git commit -m "feat(db): trilha de auditoria em lancamentos e bancos"
 ## Task 10: RPC me() e refatoração do AuthContext
 
 **Files:**
-- Create: `supabase/migrations/20260824120800_rpc_me.sql`
+- Create: `supabase/migrations/20260825000900_rpc_me.sql`
 - Modify: `src/contexts/AuthContext.tsx`
 
 **Interfaces:**
@@ -1808,7 +1808,7 @@ git commit -m "feat(db): trilha de auditoria em lancamentos e bancos"
 
 - [ ] **Step 1: Escrever a migration**
 
-Crie `supabase/migrations/20260824120800_rpc_me.sql`:
+Crie `supabase/migrations/20260825000900_rpc_me.sql`:
 
 ```sql
 -- Uma chamada devolve tudo que o app precisa saber sobre a sessão, substituindo
@@ -1981,7 +1981,7 @@ export function useAuth() {
 
 ```bash
 npx supabase gen types typescript --local > src/integrations/supabase/types.ts
-git add supabase/migrations/20260824120800_rpc_me.sql src/contexts/AuthContext.tsx src/integrations/supabase/types.ts
+git add supabase/migrations/20260825000900_rpc_me.sql src/contexts/AuthContext.tsx src/integrations/supabase/types.ts
 git commit -m "feat(auth): RPC me() e AuthContext com uma única chamada de sessão"
 ```
 
@@ -2742,7 +2742,7 @@ git commit -m "fix(security): remove setup-master, restaura verify_jwt e aplica 
 ## Task 14: Hash e limite de uso das API keys
 
 **Files:**
-- Create: `supabase/migrations/20260824120900_api_keys_hash.sql`
+- Create: `supabase/migrations/20260825001000_api_keys_hash.sql`
 - Modify: `supabase/functions/api/index.ts`
 - Modify: `src/hooks/useApiKeys.ts`
 - Modify: `src/pages/ApiKeys.tsx`
@@ -2753,7 +2753,7 @@ git commit -m "fix(security): remove setup-master, restaura verify_jwt e aplica 
 
 - [ ] **Step 1: Escrever a migration**
 
-Crie `supabase/migrations/20260824120900_api_keys_hash.sql`:
+Crie `supabase/migrations/20260825001000_api_keys_hash.sql`:
 
 ```sql
 -- Chave em texto puro no banco significa que um dump vira acesso à API.
@@ -2910,7 +2910,7 @@ Expected: aproximadamente 100 respostas `200` e o restante `429`.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add supabase/migrations/20260824120900_api_keys_hash.sql supabase/functions/api/index.ts src/hooks/useApiKeys.ts src/pages/ApiKeys.tsx
+git add supabase/migrations/20260825001000_api_keys_hash.sql supabase/functions/api/index.ts src/hooks/useApiKeys.ts src/pages/ApiKeys.tsx
 git commit -m "fix(security): hash sha256 das API keys, escopo de tenant e rate limit"
 ```
 
@@ -2919,7 +2919,7 @@ git commit -m "fix(security): hash sha256 das API keys, escopo de tenant e rate 
 ## Task 15: Índices, limpeza final e promoção para produção
 
 **Files:**
-- Create: `supabase/migrations/20260824121000_indices_e_limpeza.sql`
+- Create: `supabase/migrations/20260825001100_indices_e_limpeza.sql`
 - Modify: `finance-flow/CLAUDE.md`
 
 **Interfaces:**
@@ -2928,7 +2928,7 @@ git commit -m "fix(security): hash sha256 das API keys, escopo de tenant e rate 
 
 - [ ] **Step 1: Escrever a migration**
 
-Crie `supabase/migrations/20260824121000_indices_e_limpeza.sql`:
+Crie `supabase/migrations/20260825001100_indices_e_limpeza.sql`:
 
 ```sql
 -- Índice composto para a query principal do app: lançamentos de um tenant,
@@ -2979,7 +2979,7 @@ Em `finance-flow/CLAUDE.md`, atualize:
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/20260824121000_indices_e_limpeza.sql CLAUDE.md
+git add supabase/migrations/20260825001100_indices_e_limpeza.sql CLAUDE.md
 git commit -m "chore(db): índices por tenant, remoção de user_roles e documentação atualizada"
 ```
 
