@@ -31,3 +31,7 @@ dist-ssr
 
 # Ambiente de testes de RLS
 .env.test
+
+# Artefatos locais do Supabase CLI (inclui segredos do stack local)
+supabase/.temp/
+supabase/.branches/
