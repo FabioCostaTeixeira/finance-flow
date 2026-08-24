@@ -1,3 +1,4 @@
+Connecting to db 5432
 export type Json =
   | string
   | number
@@ -7,13 +8,57 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.1"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
+      agent_memory: {
+        Row: {
+          agent: string
+          id: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          agent: string
+          id?: string
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          agent?: string
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       ai_settings: {
         Row: {
           api_key: string | null
@@ -152,7 +197,7 @@ export type Database = {
           id?: string
           nome: string
           nome_normalizado: string
-          tipo: Database["public"]["Enums"]["tipo_lancamento"]
+          tipo?: Database["public"]["Enums"]["tipo_lancamento"]
           updated_at?: string | null
         }
         Update: {
@@ -180,18 +225,21 @@ export type Database = {
           created_at: string | null
           id: string
           role: string
+          user_id: string | null
         }
         Insert: {
           content: string
           created_at?: string | null
           id?: string
           role: string
+          user_id?: string | null
         }
         Update: {
           content?: string
           created_at?: string | null
           id?: string
           role?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -231,7 +279,7 @@ export type Database = {
           parcela_atual?: number | null
           recorrencia_id?: string | null
           status?: Database["public"]["Enums"]["status_lancamento"]
-          tipo: Database["public"]["Enums"]["tipo_lancamento"]
+          tipo?: Database["public"]["Enums"]["tipo_lancamento"]
           total_parcelas?: number | null
           transferencia_vinculo_id?: string | null
           updated_at?: string | null
@@ -276,6 +324,51 @@ export type Database = {
           },
         ]
       }
+      lancamentos_audit: {
+        Row: {
+          id: string
+          lancamento_id: string | null
+          operacao: string
+          realizado_em: string
+          usuario_id: string | null
+          valor_anterior: Json | null
+          valor_novo: Json | null
+        }
+        Insert: {
+          id?: string
+          lancamento_id?: string | null
+          operacao: string
+          realizado_em?: string
+          usuario_id?: string | null
+          valor_anterior?: Json | null
+          valor_novo?: Json | null
+        }
+        Update: {
+          id?: string
+          lancamento_id?: string | null
+          operacao?: string
+          realizado_em?: string
+          usuario_id?: string | null
+          valor_anterior?: Json | null
+          valor_novo?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamentos_audit_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lancamentos_audit_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_bi"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messaging_channels: {
         Row: {
           channel_type: string
@@ -311,6 +404,21 @@ export type Database = {
           pairing_token?: string | null
           status?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      platform_operators: {
+        Row: {
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
           user_id?: string
         }
         Relationships: []
@@ -390,6 +498,62 @@ export type Database = {
           response_text?: string | null
           text?: string | null
           update_id?: number
+        }
+        Relationships: []
+      }
+      tenant_members: {
+        Row: {
+          created_at: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_members_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          nome: string
+          plano: string
+          slug: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          plano?: string
+          slug: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          plano?: string
+          slug?: string
         }
         Relationships: []
       }
@@ -634,6 +798,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["master", "admin", "user"],
@@ -652,3 +819,4 @@ export const Constants = {
     },
   },
 } as const
+
