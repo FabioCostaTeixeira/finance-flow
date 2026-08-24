@@ -1,13 +1,13 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 
-const URL = process.env.SUPABASE_TEST_URL!;
+const SUPABASE_URL = process.env.SUPABASE_TEST_URL!;
 const ANON = process.env.SUPABASE_TEST_ANON_KEY!;
 const SERVICE = process.env.SUPABASE_TEST_SERVICE_ROLE_KEY!;
 
 /** Cliente com service role: ignora RLS. Usado só para preparar e limpar cenário. */
 export function createAdminClient(): SupabaseClient {
-  return createClient(URL, SERVICE, {
+  return createClient(SUPABASE_URL, SERVICE, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
@@ -17,7 +17,7 @@ export async function createUserClient(
   email: string,
   password: string
 ): Promise<SupabaseClient> {
-  const client = createClient(URL, ANON, {
+  const client = createClient(SUPABASE_URL, ANON, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const { error } = await client.auth.signInWithPassword({ email, password });
@@ -83,14 +83,65 @@ export async function cleanup(
   userIds: string[],
   tenantIds: string[]
 ) {
-  for (const id of userIds) {
-    await admin.auth.admin.deleteUser(id).catch(() => undefined);
+  const validUserIds = userIds.filter(Boolean);
+  const validTenantIds = tenantIds.filter(Boolean);
+
+  for (const id of validTenantIds) {
+    const { error: lancamentosError } = await admin
+      .from("lancamentos")
+      .delete()
+      .eq("tenant_id", id);
+    if (lancamentosError) {
+      console.warn(`Falha ao limpar lancamentos do tenant ${id}: ${lancamentosError.message}`);
+    }
+
+    const { error: bancosError } = await admin
+      .from("bancos")
+      .delete()
+      .eq("tenant_id", id);
+    if (bancosError) {
+      console.warn(`Falha ao limpar bancos do tenant ${id}: ${bancosError.message}`);
+    }
+
+    const { error: categoriasError } = await admin
+      .from("categorias")
+      .delete()
+      .eq("tenant_id", id);
+    if (categoriasError) {
+      console.warn(`Falha ao limpar categorias do tenant ${id}: ${categoriasError.message}`);
+    }
+
+    const { error: membersError } = await admin
+      .from("tenant_members")
+      .delete()
+      .eq("tenant_id", id);
+    if (membersError) {
+      console.warn(`Falha ao limpar tenant_members do tenant ${id}: ${membersError.message}`);
+    }
   }
-  for (const id of tenantIds) {
-    await admin.from("lancamentos").delete().eq("tenant_id", id);
-    await admin.from("bancos").delete().eq("tenant_id", id);
-    await admin.from("categorias").delete().eq("tenant_id", id);
-    await admin.from("tenants").delete().eq("id", id);
+
+  if (validUserIds.length > 0) {
+    const { error: operatorsError } = await admin
+      .from("platform_operators")
+      .delete()
+      .in("user_id", validUserIds);
+    if (operatorsError) {
+      console.warn(`Falha ao limpar platform_operators: ${operatorsError.message}`);
+    }
+  }
+
+  for (const id of validUserIds) {
+    const { error } = await admin.auth.admin.deleteUser(id);
+    if (error) {
+      console.warn(`Falha ao apagar usuário ${id}: ${error.message}`);
+    }
+  }
+
+  for (const id of validTenantIds) {
+    const { error } = await admin.from("tenants").delete().eq("id", id);
+    if (error) {
+      console.warn(`Falha ao apagar tenant ${id}: ${error.message}`);
+    }
   }
 }
 

@@ -102,5 +102,16 @@ describe("isolamento entre tenants", () => {
     });
 
     expect(error).not.toBeNull();
+    const isRlsDenial =
+      error?.code === "42501" ||
+      error?.message?.toLowerCase().includes("row-level security");
+    expect(isRlsDenial).toBe(true);
+
+    const { data } = await admin
+      .from("lancamentos")
+      .select("id")
+      .eq("tenant_id", tenantA)
+      .eq("cliente_credor", "Invasor");
+    expect(data).toHaveLength(0);
   });
 });
