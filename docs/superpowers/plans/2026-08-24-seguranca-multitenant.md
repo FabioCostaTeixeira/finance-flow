@@ -11,11 +11,18 @@
 ## Global Constraints
 
 - Toda migration vai para `supabase/migrations/` com timestamp no formato `YYYYMMDDHHMMSS_descricao.sql`. Nada é aplicado direto pelo painel — o banco já divergiu do repo uma vez e isso não se repete.
-- Nada roda em produção antes de passar na branch de teste do Supabase. O projeto de produção é `ngjoyxtmrfmnepwwontd`.
+- **Todo o desenvolvimento acontece no Supabase local (Docker).** O projeto de produção é `ngjoyxtmrfmnepwwontd` e só é tocado na Task 15, Step 7. Nenhum comando com `--linked` aparece antes disso; se você se pegar digitando um, pare.
+- Comandos do dia a dia: `npx supabase migration up` aplica as migrations pendentes no banco local; `npx supabase db reset` recria o banco local do zero replicando todas as migrations em ordem. Rode `db reset` sempre que terminar uma tarefa que criou migration — é assim que se descobre uma migration que só funciona porque o banco já estava num certo estado.
+- `psql` não está no PATH desta máquina. Ele existe em `C:\Program Files\PostgreSQL\18\bin\psql.exe`. Antes de rodar os comandos `psql` deste plano, exporte:
+  ```bash
+  export PATH="$PATH:/c/Program Files/PostgreSQL/18/bin"
+  export DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+  ```
+- Não existe comando `supabase db execute`. Para rodar SQL avulso, use `psql "$DB_URL" -c "..."`.
 - Toda função `SECURITY DEFINER` criada ou alterada leva `SET search_path = public` e `REVOKE EXECUTE ... FROM anon, public`.
 - Nomes de domínio em português (`lancamentos`, `bancos`, `categorias`, `tenants`). Nomes de infraestrutura em inglês (`can_access`, `audit_log`).
 - Lógica de fetch e mutação fica em `src/hooks/` — nunca dentro de páginas.
-- `src/integrations/supabase/types.ts` é gerado. Após cada migration que altere schema, regenerar com `npx supabase gen types typescript --linked > src/integrations/supabase/types.ts`.
+- `src/integrations/supabase/types.ts` é gerado. Após cada migration que altere schema, regenerar com `npx supabase gen types typescript --local > src/integrations/supabase/types.ts`.
 - Nenhuma tarefa é considerada pronta sem os testes que a acompanham passando.
 - Roles válidos no enum `app_role`: `master`, `admin`, `user`. Não inventar outros.
 - Módulos válidos, conforme `ALL_MODULES` em `src/hooks/useUserPermissions.ts`: `insights`, `receitas`, `despesas`, `categorias`, `bancos`, `fluxo-caixa`, `api`, `api-docs`, `telegram`, `ai-settings`, `usuarios`.
@@ -82,17 +89,41 @@ Esta tarefa não muda o app. Ela cria a infraestrutura de teste e escreve o test
 - Consumes: nada.
 - Produces: `createAdminClient(): SupabaseClient`, `createUserClient(email: string, password: string): Promise<SupabaseClient>`, `seedTenant(admin, nome): Promise<{tenantId: string}>`, `createMember(admin, tenantId, email, role): Promise<{userId: string, password: string}>`, `cleanup(admin, userIds: string[], tenantIds: string[]): Promise<void>`. Usados por todos os testes de RLS das tarefas seguintes.
 
-- [ ] **Step 1: Criar a branch de teste no Supabase**
+- [ ] **Step 1: Subir o Supabase local**
+
+Pré-requisito: Docker Desktop instalado e rodando (`docker info` responde sem erro). A
+organização está no plano free, então branching remoto não está disponível — e o stack
+local é melhor para este trabalho de qualquer forma: reseta do zero em segundos e não tem
+como alcançar produção.
 
 ```bash
 cd finance-flow
-npx supabase branches create rls-test --experimental
-npx supabase branches list --experimental
+npx supabase start
 ```
 
-Expected: a branch `rls-test` aparece com status `MIGRATIONS_PASSED` e um `project_ref` próprio. Anote a URL, a anon key e a service role key da branch (`npx supabase branches get rls-test --experimental`).
+Expected: na primeira execução baixa as imagens (alguns minutos) e termina imprimindo as
+credenciais locais. Anote-as:
 
-> Se a organização não tiver branching habilitado (exige plano Pro), use um projeto Supabase separado criado à mão para testes. O resto do plano não muda: só as variáveis de `.env.test` apontam para outro lugar.
+```
+API URL: http://127.0.0.1:54321
+DB URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+anon key: eyJ...
+service_role key: eyJ...
+```
+
+Para reimprimir depois: `npx supabase status`.
+
+Aplique as migrations existentes do repo no banco local:
+
+```bash
+npx supabase db reset
+```
+
+Expected: as migrations de `supabase/migrations/` rodam em ordem, terminando em
+`Finished supabase db reset.`
+
+> `db reset` apaga e recria o banco **local**. Não toca em produção. É o comando que você
+> vai usar sempre que quiser voltar ao estado limpo.
 
 - [ ] **Step 2: Instalar dotenv e criar o arquivo de ambiente de teste**
 
@@ -100,12 +131,12 @@ Expected: a branch `rls-test` aparece com status `MIGRATIONS_PASSED` e um `proje
 npm install -D dotenv
 ```
 
-Crie `.env.test` (não versionado) com os valores da branch:
+Crie `.env.test` (não versionado) com os valores que o `supabase status` imprimiu:
 
 ```
-SUPABASE_TEST_URL=https://<ref-da-branch>.supabase.co
-SUPABASE_TEST_ANON_KEY=<anon key da branch>
-SUPABASE_TEST_SERVICE_ROLE_KEY=<service role key da branch>
+SUPABASE_TEST_URL=http://127.0.0.1:54321
+SUPABASE_TEST_ANON_KEY=<anon key local>
+SUPABASE_TEST_SERVICE_ROLE_KEY=<service_role key local>
 ```
 
 Crie `.env.test.example` (versionado) com as mesmas chaves e valores vazios.
@@ -168,7 +199,7 @@ const required = [
 for (const key of required) {
   if (!process.env[key]) {
     throw new Error(
-      `Variável ${key} ausente. Copie .env.test.example para .env.test e preencha com os dados da branch de teste.`
+      `Variável ${key} ausente. Copie .env.test.example para .env.test e preencha com as credenciais que `npx supabase status` imprime.`
     );
   }
 }
@@ -479,21 +510,21 @@ FROM public.user_roles ur
 ON CONFLICT (tenant_id, user_id) DO NOTHING;
 ```
 
-- [ ] **Step 2: Aplicar na branch de teste**
+- [ ] **Step 2: Aplicar no banco local**
 
 ```bash
-npx supabase db push --linked
+npx supabase migration up
 ```
 
 Expected: `Applying migration 20260824120000_tenants_core.sql... done.`
 
-> Confirme antes que o CLI está apontado para a branch de teste, não para produção:
-> `npx supabase branches list --experimental` e `npx supabase link --project-ref <ref-da-branch>`.
+> `migration up` sem `--linked` age no banco local. Se o comando pedir confirmação
+> mencionando `ngjoyxtmrfmnepwwontd`, cancele: o CLI está apontado para produção.
 
 - [ ] **Step 3: Verificar que o tenant Principal existe com os membros certos**
 
 ```bash
-npx supabase db execute --linked "SELECT t.nome, count(m.user_id) AS membros FROM tenants t LEFT JOIN tenant_members m ON m.tenant_id = t.id GROUP BY t.nome;"
+psql "$DB_URL" -c "SELECT t.nome, count(m.user_id) AS membros FROM tenants t LEFT JOIN tenant_members m ON m.tenant_id = t.id GROUP BY t.nome;"
 ```
 
 Expected: uma linha, `Principal | 2` (os dois usuários que existem hoje em `user_roles`).
@@ -509,7 +540,7 @@ Expected: ainda FAIL, mas agora com `column "tenant_id" of relation "lancamentos
 - [ ] **Step 5: Regenerar os tipos e commitar**
 
 ```bash
-npx supabase gen types typescript --linked > src/integrations/supabase/types.ts
+npx supabase gen types typescript --local > src/integrations/supabase/types.ts
 git add supabase/migrations/20260824120000_tenants_core.sql src/integrations/supabase/types.ts
 git commit -m "feat(db): tabelas tenants, tenant_members e platform_operators"
 ```
@@ -618,16 +649,26 @@ ALTER TABLE public.user_permissions
 - [ ] **Step 2: Aplicar e conferir a contagem**
 
 ```bash
-npx supabase db push --linked
-npx supabase db execute --linked "SELECT count(*) AS total, count(tenant_id) AS com_tenant FROM lancamentos;"
+npx supabase migration up
+psql "$DB_URL" -c "SELECT count(*) AS total, count(tenant_id) AS com_tenant FROM lancamentos;"
 ```
 
-Expected: `total` e `com_tenant` iguais. Em produção esse número será 1296; na branch de teste, o que a branch tiver copiado.
+Expected: `total` e `com_tenant` iguais. No banco local recém-resetado ambos serão `0`, o que já valida a migration; em produção, na Task 15, serão 1296.
+
+Para exercitar o backfill com dados de verdade, carregue o dump de produção no banco local antes de repetir o `db reset`:
+
+```bash
+npx supabase link --project-ref ngjoyxtmrfmnepwwontd
+npx supabase db dump --linked --data-only -f /tmp/dados-prod.sql
+psql "$DB_URL" -f /tmp/dados-prod.sql
+```
+
+Esse dump contém dados financeiros reais: mantenha-o fora do repositório e apague ao terminar.
 
 - [ ] **Step 3: Confirmar que a coluna é obrigatória**
 
 ```bash
-npx supabase db execute --linked "INSERT INTO lancamentos (tipo, status, cliente_credor, valor, data_vencimento) VALUES ('receita','a_receber','x',1,'2026-01-01');"
+psql "$DB_URL" -c "INSERT INTO lancamentos (tipo, status, cliente_credor, valor, data_vencimento) VALUES ('receita','a_receber','x',1,'2026-01-01');"
 ```
 
 Expected: ERRO `null value in column "tenant_id" ... violates not-null constraint`. É o comportamento desejado — a Task 5 adiciona o trigger que preenche o valor automaticamente para o app.
@@ -635,7 +676,7 @@ Expected: ERRO `null value in column "tenant_id" ... violates not-null constrain
 - [ ] **Step 4: Regenerar tipos e commitar**
 
 ```bash
-npx supabase gen types typescript --linked > src/integrations/supabase/types.ts
+npx supabase gen types typescript --local > src/integrations/supabase/types.ts
 git add supabase/migrations/20260824120100_tenant_id_columns.sql src/integrations/supabase/types.ts
 git commit -m "feat(db): coluna tenant_id com backfill para o tenant Principal"
 ```
@@ -724,7 +765,7 @@ CREATE POLICY user_permissions_manage ON public.user_permissions FOR ALL TO auth
 - [ ] **Step 2: Aplicar**
 
 ```bash
-npx supabase db push --linked
+npx supabase migration up
 ```
 
 Expected: `done.`
@@ -952,7 +993,7 @@ CREATE TRIGGER trg_freeze_tenant_id_categorias
 - [ ] **Step 2: Aplicar**
 
 ```bash
-npx supabase db push --linked
+npx supabase migration up
 ```
 
 Expected: `done.`
@@ -1136,7 +1177,7 @@ CREATE POLICY categorias_delete ON public.categorias FOR DELETE TO authenticated
 - [ ] **Step 2: Aplicar**
 
 ```bash
-npx supabase db push --linked
+npx supabase migration up
 ```
 
 Expected: `done.`
@@ -1154,7 +1195,7 @@ Se `usuário SEM permissão não lê nada` ainda falhar, verifique se o usuário
 - [ ] **Step 4: Confirmar que não sobrou policy permissiva**
 
 ```bash
-npx supabase db execute --linked "SELECT tablename, policyname FROM pg_policies WHERE schemaname='public' AND qual = 'true';"
+psql "$DB_URL" -c "SELECT tablename, policyname FROM pg_policies WHERE schemaname='public' AND qual = 'true';"
 ```
 
 Expected: nenhuma linha nas tabelas financeiras. Se algo aparecer, é policy antiga que o `DROP` não pegou — apague pelo nome exato retornado.
@@ -1264,7 +1305,7 @@ CREATE POLICY profiles_update ON public.profiles FOR UPDATE TO authenticated
 - [ ] **Step 2: Aplicar**
 
 ```bash
-npx supabase db push --linked
+npx supabase migration up
 ```
 
 Expected: `done.`
@@ -1474,7 +1515,7 @@ GRANT  EXECUTE ON FUNCTION public.get_fluxo_caixa(uuid, date, date) TO authentic
 - [ ] **Step 2: Aplicar**
 
 ```bash
-npx supabase db push --linked
+npx supabase migration up
 ```
 
 Expected: `done.` Se der erro de dependência ao remover `has_role`, alguma policy ainda a referencia — liste com `SELECT policyname, tablename FROM pg_policies WHERE qual LIKE '%has_role%';` e troque por `can_access` antes de repetir.
@@ -1582,10 +1623,10 @@ Expected: PASS. O teste `get_bancos_com_saldos devolve apenas bancos do próprio
 
 - [ ] **Step 5: Verificar o advisor**
 
-Use a ferramenta de advisors do Supabase apontando para a branch de teste, ou:
+O advisor do Supabase só roda em projeto hospedado, não no stack local. Aqui a verificação equivalente é feita direto no catálogo:
 
 ```bash
-npx supabase db execute --linked "SELECT proname, prosecdef, proconfig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prokind='f' ORDER BY prosecdef DESC, proname;"
+psql "$DB_URL" -c "SELECT proname, prosecdef, proconfig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prokind='f' ORDER BY prosecdef DESC, proname;"
 ```
 
 Expected: nenhuma função `SECURITY DEFINER` com `proconfig` nulo. As funções `has_role`, `get_user_role`, `has_permission` e `rls_auto_enable` não aparecem mais.
@@ -1673,7 +1714,7 @@ CREATE TRIGGER trg_audit_bancos
 - [ ] **Step 2: Aplicar**
 
 ```bash
-npx supabase db push --linked
+npx supabase migration up
 ```
 
 Expected: `done.`
@@ -1748,7 +1789,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-npx supabase gen types typescript --linked > src/integrations/supabase/types.ts
+npx supabase gen types typescript --local > src/integrations/supabase/types.ts
 git add supabase/migrations/20260824120700_audit_log.sql src/test/rls/funcoes.test.ts src/integrations/supabase/types.ts
 git commit -m "feat(db): trilha de auditoria em lancamentos e bancos"
 ```
@@ -1809,7 +1850,7 @@ GRANT  EXECUTE ON FUNCTION public.me() TO authenticated;
 - [ ] **Step 2: Aplicar e testar manualmente**
 
 ```bash
-npx supabase db push --linked
+npx supabase migration up
 ```
 
 Expected: `done.`
@@ -1939,7 +1980,7 @@ export function useAuth() {
 - [ ] **Step 4: Commit**
 
 ```bash
-npx supabase gen types typescript --linked > src/integrations/supabase/types.ts
+npx supabase gen types typescript --local > src/integrations/supabase/types.ts
 git add supabase/migrations/20260824120800_rpc_me.sql src/contexts/AuthContext.tsx src/integrations/supabase/types.ts
 git commit -m "feat(auth): RPC me() e AuthContext com uma única chamada de sessão"
 ```
@@ -2502,7 +2543,7 @@ Expected: PASS, sem erros de lint, build concluído.
 
 - [ ] **Step 6: Testar o app manualmente contra a branch**
 
-Aponte `.env` para a branch de teste e rode:
+Aponte `.env` para o Supabase local (`VITE_SUPABASE_URL=http://127.0.0.1:54321` e a anon key local) e rode:
 
 ```bash
 npm run dev
@@ -2536,7 +2577,7 @@ git commit -m "feat(tenant): escopo de organização em todos os hooks de dados"
 
 ```bash
 git rm -r supabase/functions/setup-master
-npx supabase functions delete setup-master --project-ref <ref-da-branch>
+npx supabase functions delete setup-master
 ```
 
 Expected: a função some da listagem em `npx supabase functions list`.
@@ -2565,7 +2606,7 @@ export function corsHeaders(origin: string | null): Record<string, string> {
 }
 ```
 
-Configure o segredo na branch e depois em produção:
+Configure o segredo localmente e, na Task 15, também em produção:
 
 ```bash
 npx supabase secrets set ALLOWED_ORIGINS="https://seu-dominio.vercel.app,http://localhost:8080"
@@ -2676,13 +2717,13 @@ verify_jwt = true
 - [ ] **Step 6: Publicar e testar**
 
 ```bash
-npx supabase functions deploy create-user delete-user --project-ref <ref-da-branch>
+npx supabase functions deploy create-user delete-user
 ```
 
 Teste que a função rejeita quem não é master do tenant:
 
 ```bash
-curl -i -X POST "https://<ref-da-branch>.supabase.co/functions/v1/create-user" \
+curl -i -X POST "http://127.0.0.1:54321/functions/v1/create-user" \
   -H "Content-Type: application/json" \
   -d '{"email":"x@y.z","password":"Aa123456","nome":"X","role":"user","tenantId":"<id>"}'
 ```
@@ -2742,8 +2783,8 @@ CREATE INDEX idx_api_access_logs_janela
 - [ ] **Step 2: Aplicar**
 
 ```bash
-npx supabase db push --linked
-npx supabase db execute --linked "SELECT prefixo, length(hash) FROM api_keys;"
+npx supabase migration up
+psql "$DB_URL" -c "SELECT prefixo, length(hash) FROM api_keys;"
 ```
 
 Expected: `length` igual a 64 em todas as linhas (sha256 em hex).
@@ -2854,12 +2895,12 @@ npm run test:unit && npm run lint && npm run build
 
 Expected: PASS, sem erros, build concluído.
 
-Teste o rate limit contra a branch:
+Teste o rate limit contra o stack local:
 
 ```bash
 for i in $(seq 1 105); do
   curl -s -o /dev/null -w "%{http_code}\n" \
-    "https://<ref-da-branch>.supabase.co/functions/v1/api/lancamentos" \
+    "http://127.0.0.1:54321/functions/v1/api/lancamentos" \
     -H "x-api-key: <chave-de-teste>"
 done | sort | uniq -c
 ```
@@ -2906,8 +2947,8 @@ DROP TABLE IF EXISTS public.user_roles;
 - [ ] **Step 2: Aplicar e conferir o plano da query principal**
 
 ```bash
-npx supabase db push --linked
-npx supabase db execute --linked "EXPLAIN ANALYZE SELECT * FROM lancamentos WHERE tipo='despesa' AND status='a_pagar' ORDER BY data_vencimento LIMIT 50;"
+npx supabase migration up
+psql "$DB_URL" -c "EXPLAIN ANALYZE SELECT * FROM lancamentos WHERE tipo='despesa' AND status='a_pagar' ORDER BY data_vencimento LIMIT 50;"
 ```
 
 Expected: o plano usa `Index Scan` sobre `idx_lancamentos_tenant_tipo_status_venc`, não `Seq Scan`.
@@ -2920,7 +2961,7 @@ npm run test:rls && npm run test:unit && npm run lint && npm run build
 
 Expected: PASS em tudo.
 
-- [ ] **Step 4: Conferir o advisor de segurança na branch**
+- [ ] **Step 4: Conferir o advisor de segurança (após a promoção, em produção)**
 
 Rode o advisor de segurança do Supabase apontando para a branch.
 
@@ -2946,14 +2987,18 @@ git commit -m "chore(db): índices por tenant, remoção de user_roles e documen
 
 Este passo é irreversível e derruba o app por alguns segundos na troca de policies. Execute em janela combinada com o dono do sistema.
 
-```bash
-# 1. Backup antes de tudo
-npx supabase db dump --linked -f backup-pre-multitenant.sql
+Este é o único momento do plano em que se fala com produção. Todos os comandos anteriores
+foram locais; aqui, e só aqui, entra o `--linked`.
 
-# 2. Apontar o CLI para produção
+```bash
+# 1. Apontar o CLI para produção
 npx supabase link --project-ref ngjoyxtmrfmnepwwontd
 
-# 3. Conferir o que será aplicado
+# 2. Backup antes de tudo
+npx supabase db dump --linked -f backup-pre-multitenant.sql
+npx supabase db dump --linked --data-only -f backup-dados-pre-multitenant.sql
+
+# 3. Conferir o que será aplicado, sem aplicar
 npx supabase db push --linked --dry-run
 
 # 4. Aplicar
@@ -2963,10 +3008,11 @@ npx supabase db push --linked
 npx supabase functions deploy api create-user delete-user
 ```
 
-Expected: as onze migrations aplicam em ordem. Confira imediatamente:
+Expected: as onze migrations aplicam em ordem. Confira imediatamente, usando a connection
+string de produção obtida no painel (Settings → Database):
 
 ```bash
-npx supabase db execute --linked "SELECT count(*) FROM lancamentos WHERE tenant_id IS NULL;"
+psql "$DB_URL_PRODUCAO" -c "SELECT count(*) FROM lancamentos WHERE tenant_id IS NULL;"
 ```
 
 Expected: `0`.
