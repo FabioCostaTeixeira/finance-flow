@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Toda migration vai para `supabase/migrations/` com timestamp no formato `YYYYMMDDHHMMSS_descricao.sql`. Nada é aplicado direto pelo painel — o banco já divergiu do repo uma vez e isso não se repete.
-- **Todo o desenvolvimento acontece no Supabase local (Docker).** O projeto de produção é `ngjoyxtmrfmnepwwontd` e só é tocado na Task 15, Step 7. Nenhum comando com `--linked` aparece antes disso; se você se pegar digitando um, pare.
+- **Todo o desenvolvimento acontece no Supabase local (Docker).** O projeto de produção é `ngjoyxtmrfmnepwwontd`. Nenhum comando que **escreve** em produção — `db push`, `migration up --linked`, `functions deploy` — roda antes da Task 15, Step 7. A única exceção permitida é `db dump --linked`, que é leitura. Se você se pegar digitando um comando de escrita com `--linked` fora da Task 15, pare.
 - Comandos do dia a dia: `npx supabase migration up` aplica as migrations pendentes no banco local; `npx supabase db reset` recria o banco local do zero replicando todas as migrations em ordem. Rode `db reset` sempre que terminar uma tarefa que criou migration — é assim que se descobre uma migration que só funciona porque o banco já estava num certo estado.
 - `psql` não está no PATH desta máquina. Ele existe em `C:\Program Files\PostgreSQL\18\bin\psql.exe`. Antes de rodar os comandos `psql` deste plano, exporte:
   ```bash
