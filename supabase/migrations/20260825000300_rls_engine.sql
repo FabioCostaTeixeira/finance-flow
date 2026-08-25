@@ -71,8 +71,14 @@ REVOKE EXECUTE ON FUNCTION public.is_tenant_admin(uuid) FROM anon, public;
 GRANT  EXECUTE ON FUNCTION public.is_tenant_admin(uuid) TO authenticated;
 
 -- Sem esta proteção, quem tem o módulo 'usuarios' promove a si mesmo a master.
+-- USING e WITH CHECK são idênticos de propósito: sem isso, um membro comum com
+-- o módulo 'usuarios' poderia DELETAR a linha de outro membro (inclusive o
+-- master do tenant) sem nunca precisar promover ninguém, já que o WITH CHECK
+-- só se aplica a INSERT/UPDATE.
+DROP POLICY IF EXISTS tenant_members_manage ON public.tenant_members;
 CREATE POLICY tenant_members_manage ON public.tenant_members FOR ALL TO authenticated
   USING (public.can_access(tenant_id,'usuarios')
+         AND (role = 'user' OR public.is_tenant_admin(tenant_id))
          AND (user_id <> auth.uid() OR public.is_tenant_admin(tenant_id)))
   WITH CHECK (public.can_access(tenant_id,'usuarios')
          AND (role = 'user' OR public.is_tenant_admin(tenant_id))
