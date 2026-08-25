@@ -1261,6 +1261,12 @@ CREATE POLICY messaging_channels_all ON public.messaging_channels FOR ALL TO aut
   WITH CHECK (tenant_id IN (SELECT public.my_tenant_ids()) AND user_id = auth.uid());
 
 DROP POLICY IF EXISTS "Users manage own messages" ON public.chat_messages;
+-- Estas tres sobrevivem da baseline com USING/WITH CHECK literal `true`. Sendo
+-- PERMISSIVE, somam por OR com chat_messages_all e a anulam por completo --
+-- mesma classe de erro que a Task 4 encontrou em user_permissions.
+DROP POLICY IF EXISTS "Authenticated can view chat_messages"   ON public.chat_messages;
+DROP POLICY IF EXISTS "Authenticated can insert chat_messages" ON public.chat_messages;
+DROP POLICY IF EXISTS "Authenticated can delete chat_messages" ON public.chat_messages;
 
 CREATE POLICY chat_messages_all ON public.chat_messages FOR ALL TO authenticated
   USING (tenant_id IN (SELECT public.my_tenant_ids()) AND user_id = auth.uid())
@@ -1449,12 +1455,16 @@ REVOKE EXECUTE ON FUNCTION public.audit_lancamentos()           FROM anon, publi
 -- app. Removida por ser superfície sem dono.
 DROP FUNCTION IF EXISTS public.rls_auto_enable();
 
--- get_user_role, has_role e has_permission são substituídas por can_access.
--- Só podem cair depois que nenhuma policy as referencie — o que já é verdade
--- após as Tasks 6 e 7.
+-- get_user_role e has_permission sao substituidas por can_access. Ja e verdade
+-- que nenhuma policy as referencia apos as Tasks 6 e 7.
 DROP FUNCTION IF EXISTS public.get_user_role(uuid);
-DROP FUNCTION IF EXISTS public.has_role(uuid, public.app_role);
 DROP FUNCTION IF EXISTS public.has_permission(uuid, text);
+
+-- has_role NAO cai aqui. Uma revisao da Task 4 confirmou 4 policies de
+-- user_roles ainda dependendo dela ("Only master can delete/insert/update
+-- roles", "Users can view their own role"), e user_roles so e removida na
+-- Task 15. Tentar o DROP FUNCTION agora aborta a migration. Ela sai junto
+-- com a tabela, na Task 15.
 
 -- execute_readonly_query: mantém acesso exclusivo de service_role e ganha
 -- teto de tempo. O LIMIT é responsabilidade de quem monta a query no agente,
@@ -1651,6 +1661,17 @@ git commit -m "fix(security): tranca funções SECURITY DEFINER e adiciona get_f
 
 ## Task 9: Trilha de auditoria
 
+> **`lancamentos_audit` (tabela legada da baseline, nao das migrations deste plano) tem uma
+> falha de isolamento e um conflito de trigger com esta task, achados numa revisao da Task 4
+> que estendeu a varredura alem do proprio escopo.** A policy `authenticated_read USING
+> (auth.uid() IS NOT NULL)` deixa qualquer usuario autenticado, de qualquer tenant, ler os
+> snapshots financeiros completos (`valor_anterior`/`valor_novo`) de todo lancamento ja
+> auditado -- vazamento cross-tenant que sobrevive mesmo depois da Task 6 fechar
+> `lancamentos`, porque e outra tabela. E o trigger `lancamentos_audit_trigger` da baseline
+> ja chama `audit_lancamentos()`; sem derruba-lo, o Step 1 abaixo cria um SEGUNDO trigger
+> chamando a mesma funcao reescrita, duplicando toda insercao em `audit_log`. O Step 1 foi
+> ajustado para resolver os dois.
+
 **Files:**
 - Create: `supabase/migrations/20260825000800_audit_log.sql`
 
@@ -1709,6 +1730,17 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION public.audit_lancamentos() FROM anon, public;
 
+-- A baseline ja tinha um trigger chamando audit_lancamentos(). Sem este DROP,
+-- ele continua ativo e a funcao reescrita acima dispara DUAS vezes por
+-- operacao -- uma vez por este trigger novo, outra pelo antigo -- duplicando
+-- toda insercao em audit_log.
+DROP TRIGGER IF EXISTS lancamentos_audit_trigger ON public.lancamentos;
+
+-- Fecha o vazamento cross-tenant de lancamentos_audit: qualquer usuario
+-- autenticado lia os snapshots financeiros de todos os tenants. A tabela
+-- carece de tenant_id, entao nao da para dar-lhe escopo -- fica so para
+-- service_role (que ja tem policy propria), sem leitura via app.
+DROP POLICY IF EXISTS "authenticated_read" ON public.lancamentos_audit;
 DROP TRIGGER IF EXISTS trg_audit_lancamentos ON public.lancamentos;
 CREATE TRIGGER trg_audit_lancamentos
   AFTER INSERT OR UPDATE OR DELETE ON public.lancamentos
@@ -2952,9 +2984,13 @@ CREATE INDEX IF NOT EXISTS idx_lancamentos_tenant_tipo_status_venc
 CREATE INDEX IF NOT EXISTS idx_bancos_tenant     ON public.bancos (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_categorias_tenant ON public.categorias (tenant_id);
 
--- user_roles foi substituída por tenant_members. Só cai agora, depois que
--- nenhuma policy, função ou linha de código a referencia.
+-- user_roles foi substituida por tenant_members. As 4 policies que dependiam
+-- de has_role ("Only master can delete/insert/update roles", "Users can view
+-- their own role") caem junto com a tabela via CASCADE implicito de DROP
+-- POLICY nao ser necessario -- DROP TABLE remove as policies da propria
+-- tabela automaticamente. So entao has_role fica sem dependente e pode cair.
 DROP TABLE IF EXISTS public.user_roles;
+DROP FUNCTION IF EXISTS public.has_role(uuid, public.app_role);
 ```
 
 - [ ] **Step 2: Aplicar e conferir o plano da query principal**
