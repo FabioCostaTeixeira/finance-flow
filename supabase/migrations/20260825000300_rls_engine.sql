@@ -7,7 +7,7 @@ RETURNS SETOF uuid
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
   SELECT tenant_id FROM public.tenant_members WHERE user_id = auth.uid()
 $$;
@@ -17,7 +17,7 @@ RETURNS boolean
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
   SELECT EXISTS (
     SELECT 1
@@ -50,9 +50,33 @@ CREATE POLICY tenants_select ON public.tenants FOR SELECT TO authenticated
 CREATE POLICY tenant_members_select ON public.tenant_members FOR SELECT TO authenticated
   USING (tenant_id IN (SELECT public.my_tenant_ids()));
 
+-- Guarda exclusivo do campo role. NÃO use esta função no lugar de can_access em
+-- nenhuma outra policy: ela ignora user_permissions de propósito.
+CREATE OR REPLACE FUNCTION public.is_tenant_admin(_tenant uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.tenant_members tm
+    WHERE tm.user_id = auth.uid()
+      AND tm.tenant_id = _tenant
+      AND tm.role IN ('master','admin')
+  )
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.is_tenant_admin(uuid) FROM anon, public;
+GRANT  EXECUTE ON FUNCTION public.is_tenant_admin(uuid) TO authenticated;
+
+-- Sem esta proteção, quem tem o módulo 'usuarios' promove a si mesmo a master.
 CREATE POLICY tenant_members_manage ON public.tenant_members FOR ALL TO authenticated
-  USING (public.can_access(tenant_id, 'usuarios'))
-  WITH CHECK (public.can_access(tenant_id, 'usuarios'));
+  USING (public.can_access(tenant_id,'usuarios')
+         AND (user_id <> auth.uid() OR public.is_tenant_admin(tenant_id)))
+  WITH CHECK (public.can_access(tenant_id,'usuarios')
+         AND (role = 'user' OR public.is_tenant_admin(tenant_id))
+         AND (user_id <> auth.uid() OR public.is_tenant_admin(tenant_id)));
 
 CREATE POLICY user_permissions_select ON public.user_permissions FOR SELECT TO authenticated
   USING (user_id = auth.uid() OR public.can_access(tenant_id, 'usuarios'));
@@ -60,3 +84,11 @@ CREATE POLICY user_permissions_select ON public.user_permissions FOR SELECT TO a
 CREATE POLICY user_permissions_manage ON public.user_permissions FOR ALL TO authenticated
   USING (public.can_access(tenant_id, 'usuarios'))
   WITH CHECK (public.can_access(tenant_id, 'usuarios'));
+
+-- Policies legadas da baseline. São PERMISSIVE, então se SOMAM por OR às novas
+-- e as anulam: "Master can manage all permissions" é FOR ALL sem WITH CHECK,
+-- então seu USING vira o check de escrita e libera user_permissions de QUALQUER
+-- tenant para quem tiver linha master em user_roles. Ambas são subsumidas por
+-- user_permissions_select e user_permissions_manage.
+DROP POLICY IF EXISTS "Master can manage all permissions" ON public.user_permissions;
+DROP POLICY IF EXISTS "Users can view own permissions"    ON public.user_permissions;
