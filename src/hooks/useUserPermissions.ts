@@ -82,7 +82,7 @@ export function useTogglePermission() {
         .from('user_permissions')
         .upsert(
           { user_id: userId, module_key: moduleKey, allowed },
-          { onConflict: 'user_id,module_key' }
+          { onConflict: 'tenant_id,user_id,module_key' }
         )
         .select()
         .single();
