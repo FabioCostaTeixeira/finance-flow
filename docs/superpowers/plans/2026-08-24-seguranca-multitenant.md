@@ -1084,12 +1084,14 @@ Esta é a tarefa que fecha os achados críticos 1 e 2.
 > **A Task 5 deixou um caminho aberto de proposito, para esta task fechar:** o trigger
 > `set_tenant_id` so age quando o campo vem nulo. Um INSERT que informa `tenant_id`
 > EXPLICITAMENTE, de um tenant do qual o usuario nao e membro, passa direto pelo trigger --
-> confirmado em revisao com dados sinteticos, inclusive para usuario sem tenant algum. A
+> confirmado em revisao com dados sinteticos, em `bancos` e `lancamentos`, inclusive para
+> usuario sem tenant algum. Vale igualmente para `categorias`, que tem o mesmo trigger. A
 > unica barreira e o `WITH CHECK` da policy que esta task cria. Adicione um teste dedicado
 > em `isolamento.test.ts` ou `permissoes.test.ts`: usuario membro do tenant A tenta INSERT
 > em `lancamentos` informando `tenant_id` do tenant B explicitamente -- deve falhar por RLS.
 > Sem esse teste, esta e a unica linha de defesa contra a porta que a Task 5 deixou aberta,
-> e ela fica sem cobertura.
+> e ela fica sem cobertura. (O mesmo vetor em `chat_messages`/`messaging_channels` tem nota
+> equivalente no topo da Task 7, que e quem fecha aquelas duas.)
 
 **Files:**
 - Create: `supabase/migrations/20260825000500_policies_financeiro.sql`
@@ -1229,6 +1231,17 @@ git commit -m "fix(security): isolamento de tenant e checagem de módulo em lanc
 ---
 
 ## Task 7: Policies das tabelas restantes
+
+> **Mesmo caminho aberto que a nota da Task 6 descreve, agora para `chat_messages` e**
+> **`messaging_channels`.** `set_tenant_id` so age quando o campo vem nulo; um INSERT com
+> `tenant_id` explicito de tenant alheio passa direto pelo trigger, confirmado em revisao
+> com dados sinteticos ("plantar" uma linha nova ja nascida no tenant errado, distinto de
+> "mover" uma existente, que o freeze da Task 5 ja bloqueia). Aqui quem fecha e o
+> `WITH CHECK (tenant_id IN (SELECT my_tenant_ids()) AND user_id = auth.uid())` de
+> `chat_messages_all`/`messaging_channels_all`. Adicione um teste dedicado -- pode entrar em
+> `operador.test.ts` ou em arquivo proprio: usuario membro do tenant A tenta INSERT em
+> `chat_messages` informando `tenant_id` do tenant B -- deve falhar por RLS. Sem isso, metade
+> do vetor que a Task 7 existe para fechar fica sem cobertura.
 
 **Files:**
 - Create: `supabase/migrations/20260825000600_policies_restantes.sql`
