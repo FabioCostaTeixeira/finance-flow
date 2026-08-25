@@ -311,4 +311,39 @@ describe("transferência exige acesso simultâneo a receitas e despesas", () => 
       .eq("status", "transferencia");
     expect(data).toHaveLength(0);
   });
+
+  it("usuário com só o módulo receitas NÃO consegue promover um lançamento existente para transferência via UPDATE", async () => {
+    const { data: inserted, error: insertError } = await admin
+      .from("lancamentos")
+      .insert({
+        tenant_id: tenantId,
+        tipo: "receita",
+        status: "a_receber",
+        cliente_credor: "Receita normal",
+        valor: 100,
+        data_vencimento: "2026-09-01",
+      })
+      .select("id")
+      .single();
+
+    expect(insertError).toBeNull();
+
+    const { error } = await clienteSoReceitas
+      .from("lancamentos")
+      .update({ status: "transferencia" })
+      .eq("id", inserted!.id);
+
+    expect(error).not.toBeNull();
+    const isRlsDenial =
+      error?.code === "42501" ||
+      error?.message?.toLowerCase().includes("row-level security");
+    expect(isRlsDenial).toBe(true);
+
+    const { data: unchanged } = await admin
+      .from("lancamentos")
+      .select("status")
+      .eq("id", inserted!.id)
+      .single();
+    expect(unchanged?.status).toBe("a_receber");
+  });
 });
