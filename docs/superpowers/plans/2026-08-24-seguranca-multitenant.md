@@ -2460,6 +2460,8 @@ Para cada hook da lista de arquivos, aplique as três mudanças:
 2. `activeTenant?.id` como segundo elemento da `queryKey`, e `enabled: !!activeTenant` na query.
 3. `tenant_id: activeTenant.id` em todo `.insert(...)`, com o guarda `if (!activeTenant) throw new Error('Nenhuma organização ativa');` antes.
 
+**`useAISettings.ts` exige atenção extra.** A tabela `ai_settings` deixou de ser linha única na Task 3: o `CHECK (id = 1)` saiu, a coluna `id` ganhou identity e existe uma linha por tenant. O hook hoje fixa `.eq('id', 1)`, que precisa virar `.eq('tenant_id', activeTenant.id)`. E como um tenant novo não tem linha nenhuma, o `.single()` estoura por zero linhas — troque por `.maybeSingle()` e trate a ausência criando a configuração padrão daquele tenant. As edge functions `ai-router` e `chat` têm o mesmo `.eq('id', 1)` e são corrigidas na Task 13.
+
 Mutações que só fazem `.update()` ou `.delete()` por `id` não precisam de `tenant_id`: a policy já impede alcançar linha de outro tenant, e o trigger `freeze_tenant_id` impede mover linha entre tenants.
 
 - [ ] **Step 3: Reescrever useUserPermissions.ts para o modelo por tenant**
@@ -2682,6 +2684,8 @@ E o vínculo do novo usuário passa a ser em `tenant_members`:
 - [ ] **Step 4: Atualizar delete-user pelo mesmo padrão**
 
 Em `supabase/functions/delete-user/index.ts`: mesma troca de CORS, mesma checagem de `tenant_members` para o solicitante, e a proteção do alvo passa a ser "não é possível remover o master da organização", consultando `tenant_members` em vez de `user_roles`. Se o usuário removido pertencer a outros tenants, remova apenas o vínculo com o tenant informado e só apague a conta quando `tenant_members` não tiver mais nenhuma linha para ele.
+
+Nesta mesma task, corrija `ai-router/index.ts` e `chat/index.ts`: ambos leem `ai_settings` com `.eq('id', 1)`, que deixou de fazer sentido quando a Task 3 removeu o `CHECK (id = 1)` e a tabela passou a ter uma linha por tenant. Devem buscar por `tenant_id` — resolvido a partir do tenant do usuário autenticado, ou da chave de API no caminho que a usa.
 
 - [ ] **Step 5: Religar o verify_jwt**
 
@@ -2992,6 +2996,11 @@ Este passo é irreversível e derruba o app por alguns segundos na troca de poli
 
 Este é o único momento do plano em que se fala com produção. Todos os comandos anteriores
 foram locais; aqui, e só aqui, entra o `--linked`.
+
+> **As migrations 200 (tenant_id) e 400 (triggers) têm que ir no mesmo deploy.** A coluna
+> `tenant_id` é NOT NULL sem default, então entre a aplicação de uma e outra todo INSERT do
+> app vivo falha. Não existe janela segura entre as duas. Como o `db push` aplica todas as
+> pendentes numa sequência, isso acontece naturalmente — mas nunca aplique a 200 sozinha.
 
 ```bash
 # 1. Apontar o CLI para produção
