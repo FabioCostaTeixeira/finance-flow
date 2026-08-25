@@ -688,6 +688,12 @@ git commit -m "feat(db): coluna tenant_id com backfill para o tenant Principal"
 
 ## Task 4: Motor do RLS
 
+> **Não use `has_permission()` ao escrever policies, nesta task nem nas Tasks 6 e 7.**
+> Ela faz uma subquery escalar sobre `user_permissions` que só era segura por causa da
+> `UNIQUE (user_id, module_key)` que a Task 3 removeu. Com um usuário em dois tenants ela
+> passa a estourar `more than one row returned by a subquery`. A função sai na Task 8,
+> substituída por `can_access`, que é a única que deve ser usada daqui em diante.
+
 **Files:**
 - Create: `supabase/migrations/20260825000300_rls_engine.sql`
 - Create: `src/test/rls/permissoes.test.ts`
