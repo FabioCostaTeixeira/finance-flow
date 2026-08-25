@@ -5,6 +5,7 @@ import {
   createUserClient,
   seedTenant,
   createMember,
+  createOperator,
   cleanup,
   uniqueEmail,
 } from "./helpers";
@@ -144,6 +145,36 @@ describe("preenchimento automático de tenant_id", () => {
       .eq("id", banco!.id);
 
     expect(error).not.toBeNull();
+    expect(error!.message).toContain("tenant_id não pode ser alterado");
     await cleanup(admin, [], [outro.tenantId]);
+  });
+
+  it("recusa inserir sem tenant_id quando o usuário pertence a 2 tenants", async () => {
+    const outroTenant = await seedTenant(admin, "Tenant Trigger 2");
+    await admin.from("tenant_members").insert({
+      tenant_id: outroTenant.tenantId,
+      user_id: userIds[0],
+      role: "master",
+    });
+
+    const { error } = await cliente.from("bancos").insert({ nome: "Banco Ambíguo" });
+
+    expect(error).not.toBeNull();
+    expect(error!.message).toContain("Usuário pertence a");
+
+    await cleanup(admin, [], [outroTenant.tenantId]);
+  });
+
+  it("recusa inserir sem tenant_id quando o usuário não pertence a nenhum tenant", async () => {
+    const emailOperador = uniqueEmail("operador-sem-tenant");
+    const operador = await createOperator(admin, emailOperador);
+    const clienteOperador = await createUserClient(emailOperador, operador.password);
+
+    const { error } = await clienteOperador.from("bancos").insert({ nome: "Banco Órfão" });
+
+    expect(error).not.toBeNull();
+    expect(error!.message).toContain("não pertence a nenhum tenant");
+
+    await cleanup(admin, [operador.userId], []);
   });
 });
