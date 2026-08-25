@@ -178,3 +178,137 @@ describe("preenchimento automático de tenant_id", () => {
     await cleanup(admin, [operador.userId], []);
   });
 });
+
+describe("ataque: tenant_id explícito de tenant do qual o usuário não é membro", () => {
+  // A Task 5 deixou o trigger set_tenant_id agir só quando tenant_id vem nulo.
+  // Um INSERT que informa tenant_id explicitamente, de um tenant alheio, passa
+  // direto pelo trigger. A única barreira é o WITH CHECK das policies criadas
+  // nesta task. Este teste prova que essa barreira segura sozinha.
+  const admin = createAdminClient();
+  let tenantA: string;
+  let tenantB: string;
+  let clienteA: SupabaseClient;
+  let userIds: string[] = [];
+
+  beforeAll(async () => {
+    tenantA = (await seedTenant(admin, "Tenant Ataque A")).tenantId;
+    tenantB = (await seedTenant(admin, "Tenant Ataque B")).tenantId;
+
+    const emailA = uniqueEmail("master-ataque-a");
+    const a = await createMember(admin, tenantA, emailA, "master");
+    userIds = [a.userId];
+
+    clienteA = await createUserClient(emailA, a.password);
+  });
+
+  afterAll(async () => {
+    await cleanup(admin, userIds, [tenantA, tenantB]);
+  });
+
+  it("membro só do tenant A não consegue inserir lancamentos com tenant_id do tenant B", async () => {
+    const { error } = await clienteA.from("lancamentos").insert({
+      tenant_id: tenantB,
+      tipo: "despesa",
+      status: "a_pagar",
+      cliente_credor: "Ataque via tenant_id explícito",
+      valor: 1,
+      data_vencimento: "2026-09-01",
+    });
+
+    expect(error).not.toBeNull();
+    const isRlsDenial =
+      error?.code === "42501" ||
+      error?.message?.toLowerCase().includes("row-level security");
+    expect(isRlsDenial).toBe(true);
+
+    const { data } = await admin
+      .from("lancamentos")
+      .select("id")
+      .eq("tenant_id", tenantB);
+    expect(data).toHaveLength(0);
+  });
+
+  it("membro só do tenant A não consegue inserir bancos com tenant_id do tenant B", async () => {
+    const { error } = await clienteA.from("bancos").insert({
+      tenant_id: tenantB,
+      nome: "Banco Invasor",
+    });
+
+    expect(error).not.toBeNull();
+    const isRlsDenial =
+      error?.code === "42501" ||
+      error?.message?.toLowerCase().includes("row-level security");
+    expect(isRlsDenial).toBe(true);
+
+    const { data } = await admin.from("bancos").select("id").eq("tenant_id", tenantB);
+    expect(data).toHaveLength(0);
+  });
+
+  it("membro só do tenant A não consegue inserir categorias com tenant_id do tenant B", async () => {
+    const { error } = await clienteA.from("categorias").insert({
+      tenant_id: tenantB,
+      nome: "Categoria Invasora",
+    });
+
+    expect(error).not.toBeNull();
+    const isRlsDenial =
+      error?.code === "42501" ||
+      error?.message?.toLowerCase().includes("row-level security");
+    expect(isRlsDenial).toBe(true);
+
+    const { data } = await admin.from("categorias").select("id").eq("tenant_id", tenantB);
+    expect(data).toHaveLength(0);
+  });
+});
+
+describe("transferência exige acesso simultâneo a receitas e despesas", () => {
+  const admin = createAdminClient();
+  let tenantId: string;
+  let clienteSoReceitas: SupabaseClient;
+  let userIds: string[] = [];
+
+  beforeAll(async () => {
+    tenantId = (await seedTenant(admin, "Tenant Transferencia")).tenantId;
+
+    const email = uniqueEmail("user-so-receitas");
+    const u = await createMember(admin, tenantId, email, "user");
+    userIds = [u.userId];
+
+    await admin.from("user_permissions").insert({
+      tenant_id: tenantId,
+      user_id: u.userId,
+      module_key: "receitas",
+      allowed: true,
+    });
+
+    clienteSoReceitas = await createUserClient(email, u.password);
+  });
+
+  afterAll(async () => {
+    await cleanup(admin, userIds, [tenantId]);
+  });
+
+  it("usuário com só o módulo receitas NÃO consegue criar uma transferência", async () => {
+    const { error } = await clienteSoReceitas.from("lancamentos").insert({
+      tenant_id: tenantId,
+      tipo: "receita",
+      status: "transferencia",
+      cliente_credor: "Transferência indevida",
+      valor: 100,
+      data_vencimento: "2026-09-01",
+    });
+
+    expect(error).not.toBeNull();
+    const isRlsDenial =
+      error?.code === "42501" ||
+      error?.message?.toLowerCase().includes("row-level security");
+    expect(isRlsDenial).toBe(true);
+
+    const { data } = await admin
+      .from("lancamentos")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("status", "transferencia");
+    expect(data).toHaveLength(0);
+  });
+});

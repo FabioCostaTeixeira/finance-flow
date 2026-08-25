@@ -749,6 +749,10 @@ export type Database = {
         Returns: boolean
       }
       is_tenant_admin: { Args: { _tenant: string }; Returns: boolean }
+      modulo_do_lancamento: {
+        Args: { _tipo: Database["public"]["Enums"]["tipo_lancamento"] }
+        Returns: string
+      }
       my_tenant_ids: { Args: never; Returns: string[] }
     }
     Enums: {
