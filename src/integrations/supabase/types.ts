@@ -714,6 +714,10 @@ export type Database = {
       }
     }
     Functions: {
+      can_access: {
+        Args: { _module: string; _tenant: string }
+        Returns: boolean
+      }
       execute_readonly_query: { Args: { query_text: string }; Returns: Json }
       get_bancos_com_saldos: {
         Args: { data_fim?: string; data_inicio?: string }
@@ -744,6 +748,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      my_tenant_ids: { Args: never; Returns: string[] }
     }
     Enums: {
       app_role: "master" | "admin" | "user"

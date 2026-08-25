@@ -1,0 +1,102 @@
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { SupabaseClient } from "@supabase/supabase-js";
+import {
+  createAdminClient,
+  createUserClient,
+  seedTenant,
+  createMember,
+  cleanup,
+  uniqueEmail,
+} from "./helpers";
+
+describe("user_permissions aplicado no banco", () => {
+  const admin = createAdminClient();
+  let tenantId: string;
+  let clienteSemPermissao: SupabaseClient;
+  let clienteComPermissao: SupabaseClient;
+  let userIds: string[] = [];
+
+  beforeAll(async () => {
+    tenantId = (await seedTenant(admin, "Tenant Perm")).tenantId;
+
+    const emailSem = uniqueEmail("user-sem");
+    const emailCom = uniqueEmail("user-com");
+    const sem = await createMember(admin, tenantId, emailSem, "user");
+    const com = await createMember(admin, tenantId, emailCom, "user");
+    userIds = [sem.userId, com.userId];
+
+    // Só o segundo usuário recebe o módulo de receitas.
+    await admin.from("user_permissions").insert({
+      tenant_id: tenantId,
+      user_id: com.userId,
+      module_key: "receitas",
+      allowed: true,
+    });
+
+    await admin.from("lancamentos").insert({
+      tenant_id: tenantId,
+      tipo: "receita",
+      status: "a_receber",
+      cliente_credor: "Receita do tenant",
+      valor: 100,
+      data_vencimento: "2026-09-01",
+    });
+
+    clienteSemPermissao = await createUserClient(emailSem, sem.password);
+    clienteComPermissao = await createUserClient(emailCom, com.password);
+  });
+
+  afterAll(async () => {
+    await cleanup(admin, userIds, [tenantId]);
+  });
+
+  it("usuário COM permissão de receitas lê receitas", async () => {
+    const { data, error } = await clienteComPermissao
+      .from("lancamentos")
+      .select("id")
+      .eq("tipo", "receita");
+
+    expect(error).toBeNull();
+    expect(data!.length).toBeGreaterThan(0);
+  });
+
+  it("usuário SEM permissão não lê nada, mesmo sendo membro do tenant", async () => {
+    const { data, error } = await clienteSemPermissao
+      .from("lancamentos")
+      .select("id");
+
+    expect(error).toBeNull();
+    expect(data).toHaveLength(0);
+  });
+
+  it("usuário SEM permissão não consegue inserir", async () => {
+    const { error } = await clienteSemPermissao.from("lancamentos").insert({
+      tenant_id: tenantId,
+      tipo: "receita",
+      status: "a_receber",
+      cliente_credor: "Não deveria entrar",
+      valor: 1,
+      data_vencimento: "2026-09-01",
+    });
+
+    expect(error).not.toBeNull();
+  });
+
+  it("can_access responde false para módulo não concedido", async () => {
+    const { data } = await clienteSemPermissao.rpc("can_access", {
+      _tenant: tenantId,
+      _module: "receitas",
+    });
+
+    expect(data).toBe(false);
+  });
+
+  it("can_access responde true para módulo concedido", async () => {
+    const { data } = await clienteComPermissao.rpc("can_access", {
+      _tenant: tenantId,
+      _module: "receitas",
+    });
+
+    expect(data).toBe(true);
+  });
+});
