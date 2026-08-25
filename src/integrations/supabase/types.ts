@@ -73,7 +73,7 @@ export type Database = {
         Insert: {
           api_key?: string | null
           enabled?: boolean
-          id: number
+          id?: number
           model?: string
           provider?: string
           system_prompt_override?: string | null
