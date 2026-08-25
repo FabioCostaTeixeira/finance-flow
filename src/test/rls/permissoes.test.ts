@@ -100,3 +100,50 @@ describe("user_permissions aplicado no banco", () => {
     expect(data).toBe(true);
   });
 });
+
+describe("preenchimento automático de tenant_id", () => {
+  const admin = createAdminClient();
+  let tenantId: string;
+  let cliente: SupabaseClient;
+  let userIds: string[] = [];
+
+  beforeAll(async () => {
+    tenantId = (await seedTenant(admin, "Tenant Trigger")).tenantId;
+    const email = uniqueEmail("master-trigger");
+    const m = await createMember(admin, tenantId, email, "master");
+    userIds = [m.userId];
+    cliente = await createUserClient(email, m.password);
+  });
+
+  afterAll(async () => {
+    await cleanup(admin, userIds, [tenantId]);
+  });
+
+  it("insere sem informar tenant_id e o trigger preenche", async () => {
+    const { data, error } = await cliente
+      .from("bancos")
+      .insert({ nome: "Banco Sem Tenant Explícito" })
+      .select("id, tenant_id")
+      .single();
+
+    expect(error).toBeNull();
+    expect(data!.tenant_id).toBe(tenantId);
+  });
+
+  it("não permite mover uma linha para outro tenant", async () => {
+    const outro = await seedTenant(admin, "Tenant Alvo");
+    const { data: banco } = await cliente
+      .from("bancos")
+      .insert({ nome: "Banco Fixo" })
+      .select("id")
+      .single();
+
+    const { error } = await cliente
+      .from("bancos")
+      .update({ tenant_id: outro.tenantId })
+      .eq("id", banco!.id);
+
+    expect(error).not.toBeNull();
+    await cleanup(admin, [], [outro.tenantId]);
+  });
+});
