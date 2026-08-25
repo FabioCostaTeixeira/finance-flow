@@ -1081,6 +1081,16 @@ git commit -m "feat(db): triggers de preenchimento e congelamento de tenant_id"
 
 Esta é a tarefa que fecha os achados críticos 1 e 2.
 
+> **A Task 5 deixou um caminho aberto de proposito, para esta task fechar:** o trigger
+> `set_tenant_id` so age quando o campo vem nulo. Um INSERT que informa `tenant_id`
+> EXPLICITAMENTE, de um tenant do qual o usuario nao e membro, passa direto pelo trigger --
+> confirmado em revisao com dados sinteticos, inclusive para usuario sem tenant algum. A
+> unica barreira e o `WITH CHECK` da policy que esta task cria. Adicione um teste dedicado
+> em `isolamento.test.ts` ou `permissoes.test.ts`: usuario membro do tenant A tenta INSERT
+> em `lancamentos` informando `tenant_id` do tenant B explicitamente -- deve falhar por RLS.
+> Sem esse teste, esta e a unica linha de defesa contra a porta que a Task 5 deixou aberta,
+> e ela fica sem cobertura.
+
 **Files:**
 - Create: `supabase/migrations/20260825000500_policies_financeiro.sql`
 
