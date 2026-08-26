@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,20 +6,24 @@
 
 @layer base {
   :root {
+    /* Finance Flow design system — dark-first glassmorphism (gold + purple over navy) */
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 14%;
+    --card: 222 40% 15%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 12%;
+    --popover: 222 44% 13%;
     --popover-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
+    --primary: 38 92% 50%;
     --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
+    --secondary: 43 96% 56%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 222 26% 21%;
     --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 20%;
+    --accent: 222 26% 21%;
     --accent-foreground: 210 40% 98%;
+    /* Vibrant accent/CTA (purple) — distinct from shadcn's subtle hover `accent` above */
+    --accent-vibrant: 258 90% 66%;
+    --accent-vibrant-foreground: 210 40% 98%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
     --success: 142 76% 36%;
@@ -32,23 +36,23 @@
     --despesa: 0 84% 60%;
     --despesa-foreground: 210 40% 98%;
     --despesa-muted: 0 50% 20%;
-    --border: 217 33% 20%;
-    --input: 217 33% 17%;
-    --ring: 217 91% 60%;
+    --border: 215 25% 27%;
+    --input: 222 26% 21%;
+    --ring: 38 92% 50%;
     --radius: 0.75rem;
     --sidebar-background: 222 47% 9%;
     --sidebar-foreground: 215 20% 65%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary: 38 92% 50%;
     --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent: 222 26% 21%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 17%;
-    --sidebar-ring: 217 91% 60%;
-    --chart-1: 217 91% 60%;
+    --sidebar-border: 215 25% 22%;
+    --sidebar-ring: 38 92% 50%;
+    --chart-1: 38 92% 50%;
     --chart-2: 142 76% 36%;
-    --chart-3: 38 92% 50%;
+    --chart-3: 43 96% 56%;
     --chart-4: 0 84% 60%;
-    --chart-5: 262 83% 58%;
+    --chart-5: 258 90% 66%;
   }
 
   * {
@@ -56,17 +60,42 @@
   }
 
   html {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
+    background-image:
+      radial-gradient(circle at 15% 0%, hsl(var(--accent-vibrant) / 0.10), transparent 45%),
+      radial-gradient(circle at 85% 20%, hsl(var(--primary) / 0.08), transparent 40%);
+    background-attachment: fixed;
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
 }
 
 @layer components {
   .glass-card {
-    @apply bg-card/80 backdrop-blur-xl border border-border/50 shadow-xl;
+    @apply bg-card/60 backdrop-blur-xl border border-white/10 shadow-xl rounded-xl;
+  }
+
+  .glass-panel {
+    @apply bg-card/40 backdrop-blur-2xl border border-white/10 shadow-lg rounded-xl;
+  }
+
+  .glass-nav {
+    @apply bg-sidebar/70 backdrop-blur-xl border-r border-white/10;
+  }
+
+  .glass-modal {
+    @apply bg-popover/90 backdrop-blur-2xl border border-white/10 shadow-2xl;
+  }
+
+  .text-gradient-brand {
+    @apply bg-gradient-to-r from-primary to-accent-vibrant bg-clip-text text-transparent;
   }
 
   .table-row-hover {
@@ -106,7 +135,7 @@
   }
 
   .sidebar-item-active {
-    @apply bg-primary/10 text-primary font-medium border-l-2 border-primary;
+    @apply bg-primary/10 text-primary font-medium border-l-2 border-primary shadow-[0_0_16px_-4px_hsl(var(--primary)/0.4)];
   }
 
   .chat-bubble-user {
@@ -125,5 +154,16 @@
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

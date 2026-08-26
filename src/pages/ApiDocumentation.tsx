@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Book, Key, Database, Copy, CheckCircle2, ArrowRightLeft, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+import { motion } from "framer-motion";
 
 const ApiDocumentation = () => {
   const apiBaseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api`;
@@ -51,22 +52,32 @@ const ApiDocumentation = () => {
 
   return (
     <div className="container mx-auto py-6 max-w-5xl">
-      <div className="mb-8">
+      <motion.div
+        initial={{ opacity: 0, y: -16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
+        className="mb-8"
+      >
         <div className="flex items-center gap-3 mb-2">
           <Book className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold">Documentação da API</h1>
+          <h1 className="text-3xl font-bold text-gradient-brand">Documentação da API</h1>
           <Badge className="bg-primary/10 text-primary border-primary/30">v2.0 — CRUD Completo</Badge>
         </div>
         <p className="text-muted-foreground">
           API REST com operações completas de leitura, criação, edição, exclusão e ações de negócio
           (baixa, transferência, recorrência).
         </p>
-      </div>
+      </motion.div>
 
       <ScrollArea className="h-[calc(100vh-200px)]">
-        <div className="space-y-6 pr-4">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1, ease: [0.34, 1.56, 0.64, 1] }}
+          className="space-y-6 pr-4"
+        >
           {/* AUTENTICAÇÃO */}
-          <Card>
+          <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Key className="h-5 w-5 text-primary" /> Autenticação
@@ -84,7 +95,7 @@ const ApiDocumentation = () => {
           </Card>
 
           {/* LANCAMENTOS */}
-          <Card>
+          <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Database className="h-5 w-5 text-primary" /> Lançamentos
@@ -144,7 +155,7 @@ const ApiDocumentation = () => {
           </Card>
 
           {/* TRANSFERENCIAS */}
-          <Card>
+          <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ArrowRightLeft className="h-5 w-5 text-primary" /> Transferências
@@ -176,7 +187,7 @@ const ApiDocumentation = () => {
           </Card>
 
           {/* CATEGORIAS */}
-          <Card>
+          <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Database className="h-5 w-5 text-primary" /> Categorias e Subcategorias
@@ -211,7 +222,7 @@ const ApiDocumentation = () => {
           </Card>
 
           {/* BANCOS */}
-          <Card>
+          <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Database className="h-5 w-5 text-primary" /> Bancos / Contas
@@ -238,7 +249,7 @@ const ApiDocumentation = () => {
           </Card>
 
           {/* RESUMO */}
-          <Card>
+          <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-primary" /> Resumo Financeiro
@@ -250,7 +261,7 @@ const ApiDocumentation = () => {
           </Card>
 
           {/* REGRAS DO CORE */}
-          <Card>
+          <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Repeat className="h-5 w-5 text-primary" /> Regras de Negócio
@@ -295,7 +306,7 @@ const ApiDocumentation = () => {
           </Card>
 
           {/* EXEMPLO CURL */}
-          <Card>
+          <Card className="glass-card">
             <CardHeader>
               <CardTitle>Exemplo com cURL</CardTitle>
             </CardHeader>
@@ -320,7 +331,7 @@ curl -X POST -H "X-API-Key: sua_chave" -H "Content-Type: application/json" \\
   "${apiBaseUrl}/transferencias"`} label="cURL" />
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
       </ScrollArea>
     </div>
   );

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -94,17 +95,31 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-background p-4 overflow-hidden">
+      {/* Ambient glow */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(circle at 20% 20%, hsl(var(--accent-vibrant) / 0.16), transparent 45%), radial-gradient(circle at 80% 80%, hsl(var(--primary) / 0.14), transparent 45%)',
+        }}
+      />
+
+      <motion.div
+        initial={{ opacity: 0, y: 24, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.45, ease: [0.34, 1.56, 0.64, 1] }}
+        className="glass-card relative z-10 w-full max-w-md"
+      >
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <img 
-              src={logo} 
-              alt="Mary Personal" 
-              className="h-20 w-20 object-cover rounded-full shadow-lg"
+            <img
+              src={logo}
+              alt="Mary Personal"
+              className="h-20 w-20 object-cover rounded-full shadow-lg ring-2 ring-primary/30"
             />
           </div>
-          <CardTitle className="text-2xl">Financeiro MarySysten</CardTitle>
+          <CardTitle className="text-2xl text-gradient-brand">Financeiro MarySysten</CardTitle>
           <CardDescription>Entre com suas credenciais para acessar o sistema</CardDescription>
         </CardHeader>
         <CardContent>
@@ -124,7 +139,7 @@ export default function Auth() {
                 <p className="text-sm text-destructive">{errors.email}</p>
               )}
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
               <Input
@@ -140,8 +155,8 @@ export default function Auth() {
                 <p className="text-sm text-destructive">{errors.password}</p>
               )}
             </div>
-            
-            <Button type="submit" className="w-full" disabled={isLoading}>
+
+            <Button type="submit" className="w-full min-h-[44px]" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -156,7 +171,7 @@ export default function Auth() {
             </Button>
           </form>
         </CardContent>
-      </Card>
+      </motion.div>
     </div>
   );
 }

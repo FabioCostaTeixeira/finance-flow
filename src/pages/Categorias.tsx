@@ -253,8 +253,9 @@ export default function CategoriasPage() {
     <div className="flex-1 p-3 md:p-6 space-y-4 md:space-y-6 overflow-auto">
       {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"
       >
         <div className="pl-10 md:pl-0">
@@ -371,9 +372,9 @@ export default function CategoriasPage() {
 
       {/* Stats */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
+        transition={{ duration: 0.4, delay: 0.1, ease: [0.34, 1.56, 0.64, 1] }}
         className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4"
       >
         <div className="glass-card rounded-xl p-3 md:p-5">
@@ -408,9 +409,9 @@ export default function CategoriasPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Receitas */}
         <motion.div
-          initial={{ opacity: 0, x: -20 }}
+          initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ duration: 0.4, delay: 0.2, ease: [0.34, 1.56, 0.64, 1] }}
           className="glass-card rounded-xl overflow-hidden"
         >
           <div className="p-4 border-b border-border/50 flex items-center gap-2">
@@ -440,9 +441,9 @@ export default function CategoriasPage() {
 
         {/* Despesas */}
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
+          initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ duration: 0.4, delay: 0.24, ease: [0.34, 1.56, 0.64, 1] }}
           className="glass-card rounded-xl overflow-hidden"
         >
           <div className="p-4 border-b border-border/50 flex items-center gap-2">

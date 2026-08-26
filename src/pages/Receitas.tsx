@@ -39,8 +39,9 @@ export default function ReceitasPage() {
   return (
     <div className="flex-1 p-3 md:p-6 space-y-4 md:space-y-6 overflow-auto">
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
         className="flex items-center justify-between"
       >
         <div className="pl-10 md:pl-0">
@@ -68,9 +69,9 @@ export default function ReceitasPage() {
       </div>
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+        transition={{ duration: 0.4, delay: 0.2, ease: [0.34, 1.56, 0.64, 1] }}
       >
         <LancamentosTable
           tipo="receita"

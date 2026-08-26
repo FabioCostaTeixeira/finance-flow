@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfiles, useUserRoles, useCreateUsuario, useDeleteUsuario } from '@/hooks/useUsuarios';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -111,16 +112,25 @@ export default function Usuarios() {
   return (
     <main className="flex-1 p-6 overflow-auto">
       <div className="max-w-6xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Gerenciamento de Usuários</h1>
+        <motion.div
+          initial={{ opacity: 0, y: -16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
+        >
+          <h1 className="text-3xl font-bold text-gradient-brand">Gerenciamento de Usuários</h1>
           <p className="text-muted-foreground">Cadastre e gerencie os usuários do sistema</p>
-        </div>
+        </motion.div>
 
         {/* Create User Form */}
-        <Card>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.08, ease: [0.34, 1.56, 0.64, 1] }}
+        >
+        <Card className="glass-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5" />
+              <UserPlus className="h-5 w-5 text-primary" />
               Cadastrar Novo Usuário
             </CardTitle>
             <CardDescription>
@@ -185,7 +195,7 @@ export default function Usuarios() {
               </div>
 
               <div className="flex items-end">
-                <Button type="submit" disabled={isCreating} className="w-full">
+                <Button type="submit" disabled={isCreating} className="w-full min-h-[44px]">
                   {isCreating ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -202,12 +212,18 @@ export default function Usuarios() {
             </form>
           </CardContent>
         </Card>
+        </motion.div>
 
         {/* Users List */}
-        <Card>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.16, ease: [0.34, 1.56, 0.64, 1] }}
+        >
+        <Card className="glass-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
+              <Shield className="h-5 w-5 text-primary" />
               Usuários Cadastrados
             </CardTitle>
           </CardHeader>
@@ -219,7 +235,7 @@ export default function Usuarios() {
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="border-border/50">
                     <TableHead>Nome</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Perfil</TableHead>
@@ -228,13 +244,19 @@ export default function Usuarios() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {profiles?.map((profile) => {
+                  {profiles?.map((profile, index) => {
                     const userRole = getUserRole(profile.user_id);
                     const isCurrentUser = profile.user_id === currentUser?.id;
                     const isMaster = userRole === 'master';
 
                     return (
-                      <TableRow key={profile.id}>
+                      <motion.tr
+                        key={profile.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: Math.min(index, 12) * 0.03, ease: 'easeOut' }}
+                        className="table-row-hover border-border/30"
+                      >
                         <TableCell className="font-medium">{profile.nome || '-'}</TableCell>
                         <TableCell>{profile.email}</TableCell>
                         <TableCell>{getRoleBadge(userRole)}</TableCell>
@@ -245,11 +267,11 @@ export default function Usuarios() {
                           {!isCurrentUser && !isMaster && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive cursor-pointer">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </AlertDialogTrigger>
-                              <AlertDialogContent>
+                              <AlertDialogContent className="glass-modal">
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Remover usuário?</AlertDialogTitle>
                                   <AlertDialogDescription>
@@ -269,7 +291,7 @@ export default function Usuarios() {
                             </AlertDialog>
                           )}
                         </TableCell>
-                      </TableRow>
+                      </motion.tr>
                     );
                   })}
                 </TableBody>
@@ -277,6 +299,7 @@ export default function Usuarios() {
             )}
           </CardContent>
         </Card>
+        </motion.div>
         {/* Permissions Manager */}
         <UserPermissionsManager />
       </div>

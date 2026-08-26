@@ -27,7 +27,7 @@ export function KpiCard({ title, badgeLabel, mainValue, stats, delay = 0 }: KpiC
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay }}
-      className="relative overflow-hidden rounded-2xl border border-border/50 bg-card p-4 md:p-6 flex flex-col justify-between gap-3 shadow-lg hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl transition-all duration-300"
+      className="glass-card relative overflow-hidden rounded-2xl p-4 md:p-6 flex flex-col justify-between gap-3 hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl transition-all duration-300"
     >
       {/* Rotating glow */}
       <div className="pointer-events-none absolute -top-1/2 -left-1/2 w-[200%] h-[200%] animate-[spin_12s_linear_infinite] opacity-30"

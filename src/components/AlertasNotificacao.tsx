@@ -164,7 +164,7 @@ export function AlertasNotificacao() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full">
+        <Button variant="ghost" size="icon" className="relative h-11 w-11 rounded-full cursor-pointer">
           <Bell className={cn("h-5 w-5", totalUrgente > 0 && "text-destructive animate-pulse")} />
           {alertas.length > 0 && (
             <motion.span
@@ -199,7 +199,7 @@ export function AlertasNotificacao() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
                     clearAll();
@@ -235,7 +235,7 @@ export function AlertasNotificacao() {
                     transition={{ delay: index * 0.05 }}
                     onClick={() => handleNavigate(alerta)}
                     className={cn(
-                      "p-3 rounded-lg border cursor-pointer transition-all hover:scale-[1.02]",
+                      "p-3 rounded-lg border cursor-pointer transition-colors duration-200 hover:brightness-125",
                       getAlertaColor(alerta.tipo)
                     )}
                   >

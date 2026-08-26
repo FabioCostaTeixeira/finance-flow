@@ -389,9 +389,9 @@ export function LancamentosTable({
                   <motion.tr
                     key={lancamento.id}
                     id={`lancamento-${lancamento.id}`}
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
+                    transition={{ duration: 0.3, delay: Math.min(index, 12) * 0.03, ease: 'easeOut' }}
                     className={cn(
                       "table-row-hover border-border/30",
                       isHighlighted && "bg-primary/10 ring-2 ring-primary/50",
@@ -535,8 +535,9 @@ export function LancamentosTable({
               <p>
                 Você está prestes a excluir <strong>{selectedIds.size} lançamento(s)</strong>.
               </p>
-              <p className="text-destructive font-medium">
-                ⚠️ Esta ação não pode ser desfeita. Os dados excluídos não poderão ser recuperados.
+              <p className="text-destructive font-medium flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                Esta ação não pode ser desfeita. Os dados excluídos não poderão ser recuperados.
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>

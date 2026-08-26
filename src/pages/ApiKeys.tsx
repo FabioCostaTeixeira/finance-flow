@@ -61,7 +61,7 @@ export default function ApiKeysPage() {
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="p-6 border-b border-border/50">
+      <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }} className="p-6 border-b border-border/50">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -177,10 +177,10 @@ export default function ApiKeysPage() {
                 return (
                   <motion.div
                     key={key.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ delay: index * 0.05 }}
+                    initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -16 }}
+                    transition={{ duration: 0.35, delay: Math.min(index, 10) * 0.04, ease: [0.34, 1.56, 0.64, 1] }}
                   >
                     <Card className="glass-card">
                       <CardContent className="p-4">

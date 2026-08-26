@@ -218,8 +218,9 @@ export default function FluxoCaixaPage() {
     <div className="flex-1 p-3 md:p-6 space-y-4 md:space-y-6 overflow-auto">
       {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
         className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4"
       >
         <div className="pl-10 md:pl-0">
@@ -283,9 +284,9 @@ export default function FluxoCaixaPage() {
 
       {/* Table */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+        transition={{ duration: 0.4, delay: 0.2, ease: [0.34, 1.56, 0.64, 1] }}
         className="glass-card rounded-xl overflow-x-auto"
       >
         <Table className="text-xs md:text-sm">
@@ -317,9 +318,9 @@ export default function FluxoCaixaPage() {
               fluxoComSaldo.map((lancamento, index) => (
                 <motion.tr
                   key={lancamento.id}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.02 }}
+                  transition={{ duration: 0.3, delay: Math.min(index, 12) * 0.03, ease: 'easeOut' }}
                   className="table-row-hover border-border/30"
                 >
                   <TableCell className="font-medium">

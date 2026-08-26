@@ -39,11 +39,15 @@ function OperatorCheck({ children }: { children: React.ReactNode }) {
   if (isError || !data?.isOperator) {
     return (
       <div className="min-h-screen w-full flex flex-col items-center justify-center gap-3 bg-background text-center px-4">
-        <ShieldAlert className="h-10 w-10 text-destructive" />
-        <h1 className="text-xl font-semibold">Acesso restrito</h1>
-        <p className="text-muted-foreground max-w-md">
-          Esta área é exclusiva para operadores de plataforma. Sua conta não tem essa permissão.
-        </p>
+        <div className="glass-card flex flex-col items-center gap-3 px-8 py-10 max-w-md">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 border border-destructive/20">
+            <ShieldAlert className="h-7 w-7 text-destructive" />
+          </div>
+          <h1 className="text-xl font-semibold">Acesso restrito</h1>
+          <p className="text-muted-foreground">
+            Esta área é exclusiva para operadores de plataforma. Sua conta não tem essa permissão.
+          </p>
+        </div>
       </div>
     );
   }

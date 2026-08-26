@@ -48,7 +48,7 @@ export default function TelegramBotPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
+      <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }} className="mb-6">
         <div className="pl-10 md:pl-0">
           <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
             <Send className="w-7 h-7 text-primary" />
@@ -122,7 +122,7 @@ export default function TelegramBotPage() {
                 </Button>
               </div>
             ) : (
-              <Button onClick={handleGenerate} disabled={generate.isPending} className="w-full gap-2">
+              <Button onClick={handleGenerate} disabled={generate.isPending} className="w-full min-h-[44px] gap-2">
                 <RefreshCw className={`w-4 h-4 ${generate.isPending ? 'animate-spin' : ''}`} />
                 Gerar token de pareamento
               </Button>
