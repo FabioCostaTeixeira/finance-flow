@@ -73,8 +73,9 @@ export default function FluxoCaixaPage() {
         if (selectedBancoId && lancamento.banco_id !== selectedBancoId) return false;
         return true;
       })
-      // Ordem cronológica (mais antigo primeiro): é o que faz o saldo acumulado
-      // de cada linha significar "saldo até esta data", como num extrato.
+      // Ordena cronologicamente para o CÁLCULO do saldo acumulado (cada linha
+      // significa "saldo até esta data"). A inversão para exibir o mais recente
+      // primeiro acontece depois, em fluxoComSaldo.
       .sort((a, b) => getDataEfetiva(a).getTime() - getDataEfetiva(b).getTime());
   }, [lancamentos, date, selectedBancoId]);
 
@@ -126,7 +127,10 @@ export default function FluxoCaixaPage() {
         saida: pago + aPagar,
         saldoAcumulado,
       };
-    });
+    })
+      // O saldo acima é acumulado em ordem cronológica (senão "saldo até esta
+      // data" não faz sentido). A exibição é invertida: mais recente primeiro.
+      .reverse();
   }, [filteredLancamentos]);
 
   // Calcular totais
