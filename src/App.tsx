@@ -5,10 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { TenantProvider, useTenant } from "@/contexts/TenantContext";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AlertasNotificacao } from "@/components/AlertasNotificacao";
-import { useMyPermissions, hasModuleAccess, ROUTE_TO_MODULE } from "@/hooks/useUserPermissions";
-import type { ModuleKey } from "@/hooks/useUserPermissions";
 import Auth from "./pages/Auth";
 import Insights from "./pages/Insights";
 import Receitas from "./pages/Receitas";
@@ -53,7 +52,8 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
 }
 
 function MasterRoute({ children }: { children: React.ReactNode }) {
-  const { role, loading } = useAuth();
+  const { loading } = useAuth();
+  const { role } = useTenant();
 
   if (loading) {
     return (
@@ -70,11 +70,11 @@ function MasterRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function PermissionRoute({ moduleKey, children }: { moduleKey: ModuleKey; children: React.ReactNode }) {
-  const { role, loading } = useAuth();
-  const { data: permissions, isLoading } = useMyPermissions();
+function PermissionRoute({ moduleKey, children }: { moduleKey: string; children: React.ReactNode }) {
+  const { loading } = useAuth();
+  const { hasModule, activeTenant } = useTenant();
 
-  if (loading || isLoading) {
+  if (loading || !activeTenant) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -82,7 +82,7 @@ function PermissionRoute({ moduleKey, children }: { moduleKey: ModuleKey; childr
     );
   }
 
-  if (!hasModuleAccess(permissions || [], moduleKey, role)) {
+  if (!hasModule(moduleKey)) {
     return <Navigate to="/insights" replace />;
   }
 
@@ -134,6 +134,7 @@ const App = () => {
   return (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+      <TenantProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -141,6 +142,7 @@ const App = () => {
           <AppRoutes />
         </BrowserRouter>
       </TooltipProvider>
+      </TenantProvider>
     </AuthProvider>
   </QueryClientProvider>
   );

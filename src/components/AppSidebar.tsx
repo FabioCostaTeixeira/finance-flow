@@ -20,8 +20,10 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
+import { ROUTE_TO_MODULE } from '@/hooks/useUserPermissions';
+import { TenantSwitcher } from '@/components/TenantSwitcher';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useMyPermissions, hasModuleAccess, ROUTE_TO_MODULE } from '@/hooks/useUserPermissions';
 import logo from '@/assets/logo.jpg';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
@@ -36,29 +38,29 @@ const menuItems = [
   { path: '/telegram', label: 'Bot Telegram', icon: Send },
 ];
 
-function buildMenuItems(role: string | null, permissions: ReturnType<typeof useMyPermissions>['data']) {
+function buildMenuItems(role: string | null, hasModule: (key:string)=>boolean) {
   const base = role === 'master'
     ? [...menuItems, { path: '/ai-settings', label: 'Config. de IA', icon: Settings }, { path: '/usuarios', label: 'Usuários', icon: Users }]
     : menuItems;
   return base.filter(item => {
     const moduleKey = ROUTE_TO_MODULE[item.path];
     if (!moduleKey) return true;
-    return hasModuleAccess(permissions || [], moduleKey, role);
+    return hasModule(moduleKey);
   });
 }
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, role, userName } = useAuth();
-  const { data: permissions } = useMyPermissions();
+  const { signOut, userName } = useAuth();
+  const { role, hasModule } = useTenant();
 
   const handleLogout = async () => {
     await signOut();
     navigate('/auth');
   };
 
-  const allMenuItems = buildMenuItems(role, permissions);
+  const allMenuItems = buildMenuItems(role, hasModule);
 
   return (
     <div className="flex flex-col h-full">
@@ -74,6 +76,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         </div>
       </div>
+
+      <div className="px-3 pt-3"><TenantSwitcher /></div>
 
       {/* Navigation */}
       <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto scrollbar-thin">
@@ -167,6 +171,7 @@ export function AppSidebar() {
       </div>
 
       {/* Navigation */}
+      {!collapsed && <div className="px-3 pt-3"><TenantSwitcher /></div>}
       <DesktopNav collapsed={collapsed} />
 
       {/* Footer with Logout and Collapse */}
@@ -193,10 +198,9 @@ export function AppSidebar() {
 
 function DesktopNav({ collapsed }: { collapsed: boolean }) {
   const location = useLocation();
-  const { role } = useAuth();
-  const { data: permissions } = useMyPermissions();
+  const { role, hasModule } = useTenant();
 
-  const allMenuItems = buildMenuItems(role, permissions);
+  const allMenuItems = buildMenuItems(role, hasModule);
 
   return (
     <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto scrollbar-thin">
