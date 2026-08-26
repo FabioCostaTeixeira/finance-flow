@@ -12,7 +12,11 @@ export interface UpdateLancamentoInput {
   banco_id?: string | null;
   categoria_id?: string | null;
   observacao?: string | null;
+  /** Status do lançamento ANTES desta edição — usado só para decidir se `valor_pago` acompanha `valor` (ver abaixo). */
+  statusAtual?: string;
 }
+
+const STATUS_QUITADO = ['recebido', 'pago', 'transferencia'];
 
 export function useUpdateLancamento() {
   const queryClient = useQueryClient();
@@ -25,7 +29,18 @@ export function useUpdateLancamento() {
         updateData.data_vencimento = toISODateLocal(input.data_vencimento);
       }
       if (input.cliente_credor !== undefined) updateData.cliente_credor = input.cliente_credor;
-      if (input.valor !== undefined) updateData.valor = input.valor;
+      if (input.valor !== undefined) {
+        updateData.valor = input.valor;
+        // Um lançamento quitado (recebido/pago/transferência) tem valor_pago
+        // == valor no momento da baixa. Editar só `valor` depois deixava
+        // valor_pago para trás — e é valor_pago que o Fluxo de Caixa (e
+        // qualquer outro lugar que trate a linha como liquidada) exibe como
+        // "realizado". Sem isso, a edição "não aparecia" lá. Não se aplica a
+        // 'parcial': ali valor_pago é quanto já foi pago, não o total.
+        if (input.statusAtual && STATUS_QUITADO.includes(input.statusAtual)) {
+          updateData.valor_pago = input.valor;
+        }
+      }
       if (input.banco_id !== undefined) updateData.banco_id = input.banco_id;
       if (input.categoria_id !== undefined) updateData.categoria_id = input.categoria_id;
       if (input.observacao !== undefined) updateData.observacao = input.observacao;

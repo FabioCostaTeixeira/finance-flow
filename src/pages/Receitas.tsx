@@ -27,12 +27,16 @@ export default function ReceitasPage() {
   });
 
   const { filteredLancamentos } = useLancamentosFilter(lancamentos, filters, categorias);
-  
-  const totalReceitas = filteredLancamentos.reduce((acc, l) => acc + Number(l.valor), 0);
-  const totalRecebido = filteredLancamentos
+
+  // Transferência entre contas próprias não é receita de verdade — é dinheiro
+  // que só mudou de banco. A tabela continua mostrando essas linhas (o filtro
+  // acima não mexe nisso); só os totais do card acima ignoram elas.
+  const lancamentosParaTotais = filteredLancamentos.filter((l) => l.status !== 'transferencia');
+  const totalReceitas = lancamentosParaTotais.reduce((acc, l) => acc + Number(l.valor), 0);
+  const totalRecebido = lancamentosParaTotais
     .filter((l) => l.status === 'recebido')
     .reduce((acc, l) => acc + Number(l.valor), 0);
-  const totalAReceber = filteredLancamentos
+  const totalAReceber = lancamentosParaTotais
     .filter((l) => ['a_receber', 'parcial'].includes(l.status))
     .reduce((acc, l) => acc + Number(l.valor) - Number(l.valor_pago || 0), 0);
 

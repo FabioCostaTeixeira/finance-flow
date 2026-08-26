@@ -28,11 +28,15 @@ export default function DespesasPage() {
 
   const { filteredLancamentos } = useLancamentosFilter(lancamentos, filters, categorias);
 
-  const totalDespesas = filteredLancamentos.reduce((acc, l) => acc + Number(l.valor), 0);
-  const totalPago = filteredLancamentos
+  // Transferência entre contas próprias não é despesa de verdade — é dinheiro
+  // que só mudou de banco. A tabela continua mostrando essas linhas (o filtro
+  // acima não mexe nisso); só os totais do card acima ignoram elas.
+  const lancamentosParaTotais = filteredLancamentos.filter((l) => l.status !== 'transferencia');
+  const totalDespesas = lancamentosParaTotais.reduce((acc, l) => acc + Number(l.valor), 0);
+  const totalPago = lancamentosParaTotais
     .filter((l) => l.status === 'pago')
     .reduce((acc, l) => acc + Number(l.valor), 0);
-  const totalAPagar = filteredLancamentos
+  const totalAPagar = lancamentosParaTotais
     .filter((l) => ['a_pagar', 'parcial'].includes(l.status))
     .reduce((acc, l) => acc + Number(l.valor) - Number(l.valor_pago || 0), 0);
 

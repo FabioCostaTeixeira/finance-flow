@@ -59,7 +59,7 @@ export default function BancosPage() {
       saidasAPagar: acc.saidasAPagar + banco.saidas_a_pagar,
       saidasPago: acc.saidasPago + banco.saidas_pagas,
       saldoProjetado: acc.saldoProjetado + banco.saldo,
-      saldoAtual: acc.saldoAtual + (banco.entradas_recebidas - banco.saidas_pagas),
+      saldoAtual: acc.saldoAtual + banco.saldoAtualReal,
     }), {
       entradasProjetado: 0,
       entradasRecebido: 0,
@@ -182,7 +182,7 @@ export default function BancosPage() {
               </TableRow>
             ) : (
                 filteredBancos.map((banco, index) => {
-                  const saldoAtual = banco.entradas_recebidas - banco.saidas_pagas;
+                  const saldoAtual = banco.saldoAtualReal;
                   return (
                     <Tooltip key={banco.id}>
                       <TooltipTrigger asChild>

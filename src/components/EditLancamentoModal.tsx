@@ -131,6 +131,7 @@ export function EditLancamentoModal({
           banco_id: data.banco_id || null,
           categoria_id: finalCategoriaId,
           observacao: data.observacao || null,
+          statusAtual: lancamento.status,
         });
 
         toast({
