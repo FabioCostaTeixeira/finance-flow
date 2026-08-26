@@ -15,3 +15,5 @@ verify_jwt = true
 verify_jwt = true
 [functions.agent]
 verify_jwt = true
+[functions.operator-console]
+verify_jwt = true

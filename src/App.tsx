@@ -21,6 +21,9 @@ import Usuarios from "./pages/Usuarios";
 import AISettings from "./pages/AISettings";
 import TelegramBot from "./pages/TelegramBot";
 import NotFound from "./pages/NotFound";
+import { OperatorGuard } from "./pages/operador/OperatorGuard";
+import OperatorDashboard from "./pages/operador/OperatorDashboard";
+import OperatorTenantDetail from "./pages/operador/OperatorTenantDetail";
 import { Loader2 } from "lucide-react";
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
@@ -124,6 +127,8 @@ function AppRoutes() {
           </ProtectedLayout>
         } 
       />
+      <Route path="/operador" element={<OperatorGuard><OperatorDashboard /></OperatorGuard>} />
+      <Route path="/operador/tenants/:tenantId" element={<OperatorGuard><OperatorTenantDetail /></OperatorGuard>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
