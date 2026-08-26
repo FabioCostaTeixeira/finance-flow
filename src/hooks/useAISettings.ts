@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenant } from '@/contexts/TenantContext';
 
 export type AIProvider = 'lovable' | 'openai' | 'anthropic' | 'google' | 'groq';
 
@@ -65,10 +66,11 @@ export const PROVIDER_MODELS: Record<AIProvider, { label: string; models: { valu
 };
 
 export function useAISettings() {
+  const { activeTenant } = useTenant();
   return useQuery({
-    queryKey: ['ai-settings'],
+    queryKey: ['ai-settings', activeTenant?.id], enabled: !!activeTenant,
     queryFn: async () => {
-      const { data, error } = await supabase.from('ai_settings').select('*').eq('id', 1).maybeSingle();
+      const { data, error } = await supabase.from('ai_settings').select('*').eq('tenant_id', activeTenant!.id).maybeSingle();
       if (error) throw error;
       return data as AISettings | null;
     },
@@ -78,13 +80,17 @@ export function useAISettings() {
 
 export function useUpdateAISettings() {
   const qc = useQueryClient();
+  const { activeTenant } = useTenant();
   return useMutation({
     mutationFn: async (patch: Partial<Omit<AISettings, 'id' | 'updated_at' | 'updated_by'>>) => {
+      if (!activeTenant) throw new Error('Nenhuma organização ativa');
       const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase
         .from('ai_settings')
-        .update({ ...patch, updated_by: user?.id ?? null })
-        .eq('id', 1)
+        .upsert(
+          { ...patch, tenant_id: activeTenant.id, updated_by: user?.id ?? null },
+          { onConflict: 'tenant_id' },
+        )
         .select()
         .single();
       if (error) throw error;

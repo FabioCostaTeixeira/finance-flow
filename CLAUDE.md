@@ -94,7 +94,8 @@ Tabelas principais:
 - **`lancamentos`** — transações financeiras (receitas e despesas). Campos-chave: `tipo`, `status`, `valor`, `data_vencimento`, `data_pagamento`, `banco_id`, `categoria_id`, `recorrencia_id`, `frequencia`, `parcela_atual`, `total_parcelas`
 - **`bancos`** — contas bancárias
 - **`categorias`** — hierarquia de categorias (`categoria_pai_id` auto-referencia)
-- **`user_roles`** — roles dos usuários (`master | admin | user`)
+- **`tenants`**, **`tenant_members`**, **`platform_operators`** — organizações, papéis por organização e operadores isolados
+- **`audit_log`** — trilha de alterações por tenant
 - **`profiles`** — dados de perfil dos usuários
 - **`ai_settings`** — configuração global de IA
 - **`api_keys`** — chaves de acesso externo
@@ -105,13 +106,13 @@ Enums relevantes:
 - `tipo_lancamento`: `receita | despesa`
 - `status_lancamento`: `a_receber | recebido | a_pagar | pago | parcial | atrasado | vencida | transferencia`
 
-Migrations: feitas diretamente no painel do Supabase (sem CLI local de migrations versionadas por enquanto).
+Migrations: toda alteração vai por arquivo versionado em `supabase/migrations/`; nunca aplicar schema diretamente no painel.
 
 ---
 
 ## Autenticação e roles
 
-O sistema tem três roles com permissões distintas:
+O sistema tem três roles por tenant, em `tenant_members.role`, com autorização aplicada no banco por `can_access`:
 
 | Role | Acesso |
 |---|---|
@@ -144,6 +145,7 @@ O MCP server em `mcp/src/index.ts` expõe ferramentas como `listar_lancamentos` 
 - Importações usam alias `@/` para `src/`
 - Nomes de arquivos e variáveis de domínio em **português** (ex: `lancamentos`, `categorias`, `bancos`)
 - **Testes:** ao finalizar qualquer feature, escrever todos os testes possíveis (unitários, integração, componentes). Ainda a definir o framework de testes (Vitest é o natural para projetos Vite/React)
+- Antes de merge que toque em policies/RLS, rode `npm run test:rls`.
 
 ---
 

@@ -38,6 +38,7 @@ export default defineConfig(() => ({
           // Os testes compartilham um Postgres real: rodar arquivos em paralelo
           // faria um cleanup derrubar o cenário de outro.
           fileParallelism: false,
+          maxWorkers: 1,
         },
       },
     ],
