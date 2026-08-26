@@ -400,56 +400,6 @@ export type Database = {
           },
         ]
       }
-      messaging_channels: {
-        Row: {
-          channel_type: string
-          channel_user_id: string | null
-          created_at: string
-          display_name: string | null
-          id: string
-          pairing_expires_at: string | null
-          pairing_token: string | null
-          status: string
-          tenant_id: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          channel_type: string
-          channel_user_id?: string | null
-          created_at?: string
-          display_name?: string | null
-          id?: string
-          pairing_expires_at?: string | null
-          pairing_token?: string | null
-          status?: string
-          tenant_id: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          channel_type?: string
-          channel_user_id?: string | null
-          created_at?: string
-          display_name?: string | null
-          id?: string
-          pairing_expires_at?: string | null
-          pairing_token?: string | null
-          status?: string
-          tenant_id?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "messaging_channels_tenant_fk"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       platform_operators: {
         Row: {
           created_at: string
@@ -489,57 +439,6 @@ export type Database = {
           nome?: string | null
           updated_at?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      telegram_bot_state: {
-        Row: {
-          id: number
-          update_offset: number
-          updated_at: string
-        }
-        Insert: {
-          id: number
-          update_offset?: number
-          updated_at?: string
-        }
-        Update: {
-          id?: number
-          update_offset?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      telegram_messages: {
-        Row: {
-          chat_id: number
-          created_at: string
-          processed: boolean
-          processed_at: string | null
-          raw_update: Json
-          response_text: string | null
-          text: string | null
-          update_id: number
-        }
-        Insert: {
-          chat_id: number
-          created_at?: string
-          processed?: boolean
-          processed_at?: string | null
-          raw_update: Json
-          response_text?: string | null
-          text?: string | null
-          update_id: number
-        }
-        Update: {
-          chat_id?: number
-          created_at?: string
-          processed?: boolean
-          processed_at?: string | null
-          raw_update?: Json
-          response_text?: string | null
-          text?: string | null
-          update_id?: number
         }
         Relationships: []
       }

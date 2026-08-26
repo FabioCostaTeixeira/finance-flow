@@ -1,13 +1,9 @@
 project_id = "ngjoyxtmrfmnepwwontd"
 [functions.api]
 verify_jwt = false
-[functions.telegram-poll]
-verify_jwt = false
 [functions.create-user]
 verify_jwt = true
 [functions.delete-user]
-verify_jwt = true
-[functions.telegram-pair]
 verify_jwt = true
 [functions.operator-console]
 verify_jwt = true

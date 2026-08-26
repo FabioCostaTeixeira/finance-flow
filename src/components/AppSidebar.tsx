@@ -14,7 +14,6 @@ import {
   ArrowLeftRight,
   Menu,
   X,
-  Send,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,7 +31,6 @@ const menuItems = [
   { path: '/bancos', label: 'Bancos', icon: Landmark },
   { path: '/fluxo-caixa', label: 'Fluxo de Caixa', icon: ArrowLeftRight },
   { path: '/api', label: 'API', icon: Key },
-  { path: '/telegram', label: 'Bot Telegram', icon: Send },
 ];
 
 function buildMenuItems(role: string | null, hasModule: (key:string)=>boolean) {

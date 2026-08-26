@@ -21,7 +21,6 @@ const FluxoCaixa = lazy(() => import("./pages/FluxoCaixa"));
 const ApiKeys = lazy(() => import("./pages/ApiKeys"));
 const ApiDocumentation = lazy(() => import("./pages/ApiDocumentation"));
 const Usuarios = lazy(() => import("./pages/Usuarios"));
-const TelegramBot = lazy(() => import("./pages/TelegramBot"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const OperatorGuard = lazy(() => import("./pages/operador/OperatorGuard").then((m) => ({ default: m.OperatorGuard })));
 const OperatorDashboard = lazy(() => import("./pages/operador/OperatorDashboard"));
@@ -124,7 +123,6 @@ function AppRoutes() {
       <Route path="/fluxo-caixa" element={<ProtectedLayout><PermissionRoute moduleKey="fluxo-caixa"><FluxoCaixa /></PermissionRoute></ProtectedLayout>} />
       <Route path="/api" element={<ProtectedLayout><PermissionRoute moduleKey="api"><ApiKeys /></PermissionRoute></ProtectedLayout>} />
       <Route path="/api/docs" element={<ProtectedLayout><PermissionRoute moduleKey="api-docs"><ApiDocumentation /></PermissionRoute></ProtectedLayout>} />
-      <Route path="/telegram" element={<ProtectedLayout><PermissionRoute moduleKey="telegram"><TelegramBot /></PermissionRoute></ProtectedLayout>} />
       <Route
         path="/usuarios" 
         element={

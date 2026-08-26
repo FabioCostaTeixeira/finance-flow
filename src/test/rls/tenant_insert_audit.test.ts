@@ -15,9 +15,9 @@ describe("inserts explícitos e auditoria por tenant", () => {
   });
   afterAll(() => cleanup(admin, [userA], [tenantA, tenantB]));
 
-  it("recusa plantar messaging_channels em tenant alheio", async () => {
-    const channel = await clientA.from("messaging_channels").insert({ tenant_id: tenantB, user_id: userA, channel_type: "telegram", status: "pending" });
-    expect(channel.error).not.toBeNull();
+  it("recusa plantar bancos em tenant alheio", async () => {
+    const banco = await clientA.from("bancos").insert({ tenant_id: tenantB, nome: "Banco alheio" });
+    expect(banco.error).not.toBeNull();
   });
 
   it("gera uma única auditoria tenant-scoped e não expõe a tabela legada", async () => {

@@ -1,6 +1,6 @@
 # Finance Flow — CLAUDE.md
 
-Sistema de gestão financeira pessoal/empresarial com suporte a lançamentos, fluxo de caixa, categorias hierárquicas, integração com Telegram, e controle de acesso por roles. **A IA embutida no app foi descontinuada** — todo acesso de IA a dados financeiros é feito externamente via servidor MCP (`mcp/`).
+Sistema de gestão financeira pessoal/empresarial com suporte a lançamentos, fluxo de caixa, categorias hierárquicas, e controle de acesso por roles. **A IA embutida no app foi descontinuada** e **a integração com Telegram foi removida por completo** — o único caminho de acesso de IA a dados financeiros é o servidor MCP externo (`mcp/`), autenticado por API key.
 
 ---
 
@@ -80,7 +80,6 @@ finance-flow/
 | `FluxoCaixa` | Visão consolidada de entradas e saídas |
 | `Bancos` | Cadastro de contas bancárias |
 | `Categorias` | Categorias com hierarquia pai/filho |
-| `TelegramBot` | Configuração da integração Telegram |
 | `ApiKeys` | Gerenciamento de chaves de API externas |
 | `Usuarios` | Gerenciamento de permissões de usuários |
 
@@ -97,7 +96,6 @@ Tabelas principais:
 - **`profiles`** — dados de perfil dos usuários
 - **`api_keys`** — chaves de acesso externo
 - **`api_access_logs`** — log de acessos por API key
-- **`messaging_channels`** — pareamento de canais de mensageria (Telegram)
 - **`agent_memory`** — memória usada pelo servidor MCP externo (`mcp/`), não pelo frontend
 
 Enums relevantes:
@@ -126,12 +124,11 @@ O sistema tem três roles por tenant, em `tenant_members.role`, com autorizaçã
 
 | Integração | Status |
 |---|---|
-| Telegram Bot | Em validação |
+| Telegram Bot | **Removido** — edge functions `telegram-pair`/`telegram-poll`, página `TelegramBot`, hook `useTelegram` e tabela `messaging_channels` foram removidos |
 | AI Chat interno (app) | **Descontinuado** — chat de IA embutido no app, edge functions `chat`/`ai-router`/`agent` e tabelas `chat_messages`/`ai_settings` foram removidos |
-| MCP Server (Supabase + IA) | Ativo em `mcp/` — único caminho de acesso externo de IA a dados financeiros |
-| WhatsApp | Planejado |
+| MCP Server (Supabase + IA) | Ativo em `mcp/` — único caminho de acesso de IA a dados financeiros, autenticado por API key |
 
-O MCP server em `mcp/src/index.ts` expõe ferramentas como `listar_lancamentos` para agentes de IA consumirem dados financeiros via service role key. Não há mais nenhum agente/chat de IA rodando dentro do app — qualquer integração de IA deve consumir dados via MCP externo.
+O MCP server em `mcp/src/index.ts` expõe ferramentas como `listar_lancamentos` para agentes de IA consumirem dados financeiros via service role key. Não há mais nenhum agente/chat de IA rodando dentro do app, nem canal alternativo (Telegram ou outro) de acesso — qualquer integração de IA deve consumir dados exclusivamente via MCP externo, autenticado por API key.
 
 ---
 
