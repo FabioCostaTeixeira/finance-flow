@@ -61,7 +61,9 @@ export function useLancamentos(tipo?: 'receita' | 'despesa') {
       let query = supabase
         .from('lancamentos')
         .select(`
-          *,
+          id, data_vencimento, cliente_credor, valor, valor_pago, banco_id, status, tipo,
+          categoria_id, recorrencia_id, parcela_atual, total_parcelas, observacao,
+          data_pagamento, transferencia_vinculo_id, frequencia, created_at, updated_at,
           categorias ( id, nome, categoria_pai_id ),
           bancos ( id, nome )
         `)

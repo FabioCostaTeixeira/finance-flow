@@ -2,27 +2,38 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { TenantProvider, useTenant } from "@/contexts/TenantContext";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AlertasNotificacao } from "@/components/AlertasNotificacao";
 import Auth from "./pages/Auth";
-import Receitas from "./pages/Receitas";
-import Despesas from "./pages/Despesas";
-import Categorias from "./pages/Categorias";
-import Bancos from "./pages/Bancos";
-import FluxoCaixa from "./pages/FluxoCaixa";
-import ApiKeys from "./pages/ApiKeys";
-import ApiDocumentation from "./pages/ApiDocumentation";
-import Usuarios from "./pages/Usuarios";
-import TelegramBot from "./pages/TelegramBot";
-import NotFound from "./pages/NotFound";
-import { OperatorGuard } from "./pages/operador/OperatorGuard";
-import OperatorDashboard from "./pages/operador/OperatorDashboard";
-import OperatorTenantDetail from "./pages/operador/OperatorTenantDetail";
 import { Loader2 } from "lucide-react";
+
+// Rotas carregadas sob demanda (code-splitting): reduz o chunk inicial,
+// já que a maioria dessas telas não é acessada em toda sessão.
+const Receitas = lazy(() => import("./pages/Receitas"));
+const Despesas = lazy(() => import("./pages/Despesas"));
+const Categorias = lazy(() => import("./pages/Categorias"));
+const Bancos = lazy(() => import("./pages/Bancos"));
+const FluxoCaixa = lazy(() => import("./pages/FluxoCaixa"));
+const ApiKeys = lazy(() => import("./pages/ApiKeys"));
+const ApiDocumentation = lazy(() => import("./pages/ApiDocumentation"));
+const Usuarios = lazy(() => import("./pages/Usuarios"));
+const TelegramBot = lazy(() => import("./pages/TelegramBot"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const OperatorGuard = lazy(() => import("./pages/operador/OperatorGuard").then((m) => ({ default: m.OperatorGuard })));
+const OperatorDashboard = lazy(() => import("./pages/operador/OperatorDashboard"));
+const OperatorTenantDetail = lazy(() => import("./pages/operador/OperatorTenantDetail"));
+
+function RouteFallback() {
+  return (
+    <div className="min-h-screen w-full flex items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+}
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -102,6 +113,7 @@ function AppRoutes() {
   }
 
   return (
+    <Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route path="/auth" element={user ? <Navigate to="/receitas" replace /> : <Auth />} />
       <Route path="/" element={<Navigate to={user ? "/receitas" : "/auth"} replace />} />
@@ -127,11 +139,23 @@ function AppRoutes() {
       <Route path="/operador/tenants/:tenantId" element={<OperatorGuard><OperatorTenantDetail /></OperatorGuard>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </Suspense>
   );
 }
 
 const App = () => {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        // Dados financeiros não mudam a cada segundo: evita refetch agressivo
+        // a cada foco de janela/troca de aba, sem deixar de refazer a query
+        // quando o usuário navega de volta depois de um tempo (mutations locais
+        // continuam invalidando via queryClient.invalidateQueries normalmente).
+        staleTime: 1000 * 60, // 1 minuto
+        gcTime: 1000 * 60 * 10, // 10 minutos
+      },
+    },
+  }));
   return (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
