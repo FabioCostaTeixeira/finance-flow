@@ -143,30 +143,33 @@ export type Database = {
       api_keys: {
         Row: {
           ativa: boolean
-          chave: string
           created_at: string
+          hash: string
           id: string
           nome: string
+          prefixo: string
           tenant_id: string
           ultimo_acesso: string | null
           updated_at: string
         }
         Insert: {
           ativa?: boolean
-          chave: string
           created_at?: string
+          hash: string
           id?: string
           nome: string
+          prefixo: string
           tenant_id: string
           ultimo_acesso?: string | null
           updated_at?: string
         }
         Update: {
           ativa?: boolean
-          chave?: string
           created_at?: string
+          hash?: string
           id?: string
           nome?: string
+          prefixo?: string
           tenant_id?: string
           ultimo_acesso?: string | null
           updated_at?: string
@@ -174,6 +177,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "api_keys_tenant_fk"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_log: {
+        Row: {
+          antes: Json | null
+          created_at: string
+          depois: Json | null
+          id: number
+          operacao: string
+          registro_id: string | null
+          tabela: string
+          tenant_id: string
+          user_id: string | null
+        }
+        Insert: {
+          antes?: Json | null
+          created_at?: string
+          depois?: Json | null
+          id?: number
+          operacao: string
+          registro_id?: string | null
+          tabela: string
+          tenant_id: string
+          user_id?: string | null
+        }
+        Update: {
+          antes?: Json | null
+          created_at?: string
+          depois?: Json | null
+          id?: number
+          operacao?: string
+          registro_id?: string | null
+          tabela?: string
+          tenant_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -669,27 +716,6 @@ export type Database = {
           },
         ]
       }
-      user_roles: {
-        Row: {
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       lancamentos_bi: {
@@ -733,22 +759,17 @@ export type Database = {
           total_saidas: number
         }[]
       }
-      get_user_role: {
-        Args: { _user_id: string }
-        Returns: Database["public"]["Enums"]["app_role"]
-      }
-      has_permission: {
-        Args: { _module_key: string; _user_id: string }
-        Returns: boolean
-      }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
+      get_fluxo_caixa: {
+        Args: { _data_fim?: string; _data_inicio?: string; _tenant: string }
+        Returns: {
+          entradas: number
+          mes: string
+          saidas: number
+          saldo: number
+        }[]
       }
       is_tenant_admin: { Args: { _tenant: string }; Returns: boolean }
+      me: { Args: never; Returns: Json }
       modulo_do_lancamento: {
         Args: { _tipo: Database["public"]["Enums"]["tipo_lancamento"] }
         Returns: string
