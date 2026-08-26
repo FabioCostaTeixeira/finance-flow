@@ -1,7 +1,14 @@
 REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM anon, public;
 REVOKE EXECUTE ON FUNCTION public.set_chat_message_user_id() FROM anon, public;
 REVOKE EXECUTE ON FUNCTION public.audit_lancamentos() FROM anon, public;
-DROP FUNCTION IF EXISTS public.rls_auto_enable();
+-- public.rls_auto_enable() NÃO é dropada aqui: não é uma função nossa, é um
+-- helper gerenciado pela própria Supabase (liga RLS automaticamente em toda
+-- tabela nova criada em public), preso a um event trigger ("ensure_rls") que
+-- só existe em produção — event triggers são objetos de cluster, como roles,
+-- e por isso `supabase db pull` nunca captura a definição desse trigger, só
+-- a da função. Tentar dropar a função quebra o push em produção (a função
+-- tem uma dependência viva) e, mesmo que não quebrasse, dropar removeria uma
+-- rede de segurança útil (defesa em profundidade) sem necessidade.
 DROP FUNCTION IF EXISTS public.get_user_role(uuid);
 DROP FUNCTION IF EXISTS public.has_permission(uuid, text);
 
