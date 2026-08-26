@@ -2,13 +2,15 @@
 
 Status: catálogo de planejamento. Nenhuma ferramenta deste documento está publicada em MCP hoje.
 
-Fonte executável: `mcp/src/contracts/tools.ts` (`MCP_TOOL_CONTRACT_VERSION = 1.0.0`). `tools/list` só pode usar `PUBLIC_MCP_TOOL_DEFINITIONS`; uma ferramenta só entra ali quando seu status é `connected`, seu nome aparece em `CONNECTED_MCP_HANDLERS` e seu teste passa. O catálogo atual mantém todas como `planned`, portanto a lista pública é vazia. Isto remove as 20 declarações antigas que eram anunciadas, mas bloqueadas antes do `switch` por falta de tenant confiável.
+Fonte executável: `mcp/src/contracts/tools.ts` (`MCP_TOOL_CONTRACT_VERSION = 1.1.0`). Cada uma das 79 entradas tem JSON Schema canônico: tipo, formato (`uuid`, `date`, `date-time`, `decimal`, `sha256`), enum, regex decimal, limites de texto/número/array (`minItems`/`maxItems`), `required` e `additionalProperties: false`; sucesso e erro também são schemas estruturados. Cada entrada inclui exemplos concretos de entrada e saída, validados contra o schema. `tools/list` só pode usar `PUBLIC_MCP_TOOL_DEFINITIONS`, que converte esse schema em `inputSchema`; não existe schema vazio/de fachada.
+
+Uma ferramenta entra em `tools/list` somente com `status: connected` e handler real em `CONNECTED_MCP_HANDLERS`. Esse registro aceita apenas funções `McpToolHandler`, jamais booleanos/marcadores, e `tools/call` consulta o mesmo registro antes de despachar. O catálogo atual mantém todas como `planned`, logo a lista pública é vazia até haver contexto autenticado, handler e teste.
 
 ## Contrato comum HTTP e MCP
 
-Cada ferramenta usa `POST /mcp/v1/tools/{nome}` quando implementada. Headers obrigatórios: `X-API-Key` e `X-Request-Id`; a chave resolve tenant, ator e escopos. `tenant_id`, ator e escopos nunca são aceitos no corpo. Sucesso: `{ request_id, data }`. Falha: `{ request_id, error: { code, message } }`; nunca inclui SQL, stack, nomes internos, segredos ou dados de outro tenant. MCP preserva mesma semântica em `tools/call`.
+Cada ferramenta usa `POST /mcp/v1/tools/{nome}` quando implementada. Todas exigem `X-API-Key` e `X-Request-Id`; toda escrita também exige `Idempotency-Key`. A chave resolve tenant, ator e escopos. `tenant_id`, ator e escopos nunca são aceitos no corpo. Sucesso: `{ request_id, data }`. Falha: `{ request_id, error: { code, message } }`, com código estável; nunca inclui SQL, stack, nomes internos, segredos ou dados de outro tenant. MCP preserva mesma semântica em `tools/call`.
 
-Leituras usam cursor opaco estável (`cursor`, `limit`, máximo 100 quando paginadas), e retornam `next_cursor` quando houver mais dados. Escritas exigem `Idempotency-Key`, `expected_version`, confirmação vinculada ao payload e à versão, e aceitam `dry_run`; cada resposta define `request_id`, efeitos e regras de retry. O catálogo declara testes de schema, erro estável e isolamento com dois tenants; escritas acrescentam idempotência, conflito de versão, confirmação e auditoria. Valores monetários são strings/decimal canônico na implementação, nunca `number` JavaScript para cálculo financeiro.
+Leituras usam cursor opaco estável (`cursor`, `limit`, máximo 100 quando paginadas), e retornam `next_cursor` quando houver mais dados (string vazia significa fim). Escritas idempotentes expõem `dry_run`; mutações de recurso existente também exigem `expected_version`; operações que consomem confirmação exigem `confirmation_token`. `preparar_operacao` produz o token e não o recebe. Discovery, consultas e `simular_lote` são leituras e não recebem controles de escrita. Cada resposta define `request_id`, efeitos e retry. Valores monetários são strings/decimal canônico, nunca `number` JavaScript para cálculo financeiro.
 
 ## Catálogo completo v1 (planejado, não público)
 

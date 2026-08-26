@@ -6,7 +6,7 @@ import {
   type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { PUBLIC_MCP_TOOL_DEFINITIONS } from "./contracts/tools.js";
+import { CONNECTED_MCP_HANDLERS, PUBLIC_MCP_TOOL_DEFINITIONS } from "./contracts/tools.js";
 
 // ---------------------------------------------------------------------------
 // Supabase client (configured via environment variables)
@@ -843,7 +843,7 @@ const server = new Server(
 );
 
 // O catálogo é a fonte de verdade: handler não conectado/testado nunca é anunciado.
-server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: PUBLIC_MCP_TOOL_DEFINITIONS as Tool[] }));
+server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: PUBLIC_MCP_TOOL_DEFINITIONS as unknown as Tool[] }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args = {} } = request.params;
@@ -852,32 +852,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   // O MCP não recebe uma sessão de usuário/tenant confiável no transporte
   // stdio. Bloqueia operações privilegiadas até a próxima task introduzir
   // autenticação por API key e escopo obrigatório em todas as ferramentas.
-  return errorResult(`MCP indisponível sem contexto de tenant para a ferramenta: ${name}`);
-
-  switch (name) {
-    case "listar_lancamentos":      return handleListarLancamentos(a);
-    case "criar_lancamento":        return handleCriarLancamento(a);
-    case "atualizar_lancamento":    return handleAtualizarLancamento(a);
-    case "excluir_lancamento":      return handleExcluirLancamento(a);
-    case "baixar_lancamento":       return handleBaixarLancamento(a);
-    case "transferir_entre_contas": return handleTransferirEntreContas(a);
-    case "consultar_saldo":         return handleConsultarSaldo(a);
-    case "executar_sql":            return handleExecutarSQL(a);
-    case "listar_bancos":               return handleListarBancos();
-    case "listar_categorias":           return handleListarCategorias(a);
-    case "consultar_lancamentos_bi":    return handleConsultarLancamentosBi(a);
-    case "relatorio_fluxo_caixa":       return handleRelatorioFluxoCaixa(a);
-    case "relatorio_por_categoria":     return handleRelatorioPorCategoria(a);
-    case "relatorio_inadimplencia":     return handleRelatorioInadimplencia(a);
-    case "relatorio_kpi":               return handleRelatorioKpi();
-    case "top_clientes_credores":       return handleTopClientesCredores(a);
-    case "sugerir_categoria":           return handleSugerirCategoria(a);
-    case "listar_auditoria":            return handleListarAuditoria(a);
-    case "projetar_fluxo_caixa":        return handleProjetarFluxoCaixa(a);
-    case "comparar_periodos":           return handleCompararPeriodos(a);
-    default:
-      return errorResult(`Tool desconhecida: ${name}`);
-  }
+  const handler = CONNECTED_MCP_HANDLERS[name];
+  if (!handler) return errorResult(`MCP indisponível sem contexto de tenant para a ferramenta: ${name}`);
+  return handler(a) as Promise<ToolResult>;
 });
 
 // ---------------------------------------------------------------------------
