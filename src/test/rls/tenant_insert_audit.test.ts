@@ -15,10 +15,8 @@ describe("inserts explícitos e auditoria por tenant", () => {
   });
   afterAll(() => cleanup(admin, [userA], [tenantA, tenantB]));
 
-  it("recusa plantar chat_messages e messaging_channels em tenant alheio", async () => {
-    const chat = await clientA.from("chat_messages").insert({ tenant_id: tenantB, user_id: userA, role: "user", content: "invasão" });
+  it("recusa plantar messaging_channels em tenant alheio", async () => {
     const channel = await clientA.from("messaging_channels").insert({ tenant_id: tenantB, user_id: userA, channel_type: "telegram", status: "pending" });
-    expect(chat.error).not.toBeNull();
     expect(channel.error).not.toBeNull();
   });
 

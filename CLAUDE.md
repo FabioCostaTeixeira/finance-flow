@@ -1,6 +1,6 @@
 # Finance Flow — CLAUDE.md
 
-Sistema de gestão financeira pessoal/empresarial com suporte a lançamentos, fluxo de caixa, categorias hierárquicas, integrações com IA e Telegram, e controle de acesso por roles.
+Sistema de gestão financeira pessoal/empresarial com suporte a lançamentos, fluxo de caixa, categorias hierárquicas, integração com Telegram, e controle de acesso por roles. **A IA embutida no app foi descontinuada** — todo acesso de IA a dados financeiros é feito externamente via servidor MCP (`mcp/`).
 
 ---
 
@@ -63,7 +63,7 @@ finance-flow/
 │   │       └── types.ts   # tipos gerados automaticamente (não editar)
 │   ├── lib/               # utilitários (datas, recorrência, status)
 │   └── pages/             # uma página por rota
-├── mcp/                   # servidor MCP para integração com IA
+├── mcp/                   # servidor MCP externo — único caminho de acesso de IA a dados financeiros
 │   └── src/index.ts
 └── public/
 ```
@@ -80,9 +80,7 @@ finance-flow/
 | `FluxoCaixa` | Visão consolidada de entradas e saídas |
 | `Bancos` | Cadastro de contas bancárias |
 | `Categorias` | Categorias com hierarquia pai/filho |
-| `Insights` | Gráficos e análises financeiras |
 | `TelegramBot` | Configuração da integração Telegram |
-| `AISettings` | Configuração de IA (provider, model, API key) |
 | `ApiKeys` | Gerenciamento de chaves de API externas |
 | `Usuarios` | Gerenciamento de permissões de usuários |
 
@@ -97,10 +95,10 @@ Tabelas principais:
 - **`tenants`**, **`tenant_members`**, **`platform_operators`** — organizações, papéis por organização e operadores isolados
 - **`audit_log`** — trilha de alterações por tenant
 - **`profiles`** — dados de perfil dos usuários
-- **`ai_settings`** — configuração global de IA
 - **`api_keys`** — chaves de acesso externo
 - **`api_access_logs`** — log de acessos por API key
-- **`chat_messages`** — histórico do chat com IA
+- **`messaging_channels`** — pareamento de canais de mensageria (Telegram)
+- **`agent_memory`** — memória usada pelo servidor MCP externo (`mcp/`), não pelo frontend
 
 Enums relevantes:
 - `tipo_lancamento`: `receita | despesa`
@@ -129,11 +127,11 @@ O sistema tem três roles por tenant, em `tenant_members.role`, com autorizaçã
 | Integração | Status |
 |---|---|
 | Telegram Bot | Em validação |
-| AI Chat (via `ai_settings`) | Em validação |
-| MCP Server (Supabase + IA) | Ativo em `mcp/` |
+| AI Chat interno (app) | **Descontinuado** — chat de IA embutido no app, edge functions `chat`/`ai-router`/`agent` e tabelas `chat_messages`/`ai_settings` foram removidos |
+| MCP Server (Supabase + IA) | Ativo em `mcp/` — único caminho de acesso externo de IA a dados financeiros |
 | WhatsApp | Planejado |
 
-O MCP server em `mcp/src/index.ts` expõe ferramentas como `listar_lancamentos` para agentes de IA consumirem dados financeiros via service role key.
+O MCP server em `mcp/src/index.ts` expõe ferramentas como `listar_lancamentos` para agentes de IA consumirem dados financeiros via service role key. Não há mais nenhum agente/chat de IA rodando dentro do app — qualquer integração de IA deve consumir dados via MCP externo.
 
 ---
 

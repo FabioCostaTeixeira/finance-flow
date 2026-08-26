@@ -28,7 +28,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/insights');
+      navigate('/receitas');
     }
   }, [user, navigate]);
 
@@ -82,7 +82,7 @@ export default function Auth() {
         description: 'Login realizado com sucesso',
       });
       
-      navigate('/insights');
+      navigate('/receitas');
     } catch (err) {
       toast({
         title: 'Erro',

@@ -58,50 +58,6 @@ export type Database = {
         }
         Relationships: []
       }
-      ai_settings: {
-        Row: {
-          api_key: string | null
-          enabled: boolean
-          id: number
-          model: string
-          provider: string
-          system_prompt_override: string | null
-          tenant_id: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          api_key?: string | null
-          enabled?: boolean
-          id?: number
-          model?: string
-          provider?: string
-          system_prompt_override?: string | null
-          tenant_id: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          api_key?: string | null
-          enabled?: boolean
-          id?: number
-          model?: string
-          provider?: string
-          system_prompt_override?: string | null
-          tenant_id?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ai_settings_tenant_fk"
-            columns: ["tenant_id"]
-            isOneToOne: true
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       api_access_logs: {
         Row: {
           api_key_id: string
@@ -301,41 +257,6 @@ export type Database = {
           },
           {
             foreignKeyName: "categorias_tenant_fk"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      chat_messages: {
-        Row: {
-          content: string
-          created_at: string | null
-          id: string
-          role: string
-          tenant_id: string
-          user_id: string | null
-        }
-        Insert: {
-          content: string
-          created_at?: string | null
-          id?: string
-          role: string
-          tenant_id: string
-          user_id?: string | null
-        }
-        Update: {
-          content?: string
-          created_at?: string | null
-          id?: string
-          role?: string
-          tenant_id?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "chat_messages_tenant_fk"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -744,9 +665,8 @@ export type Database = {
         Args: { _module: string; _tenant: string }
         Returns: boolean
       }
-      execute_readonly_query: { Args: { query_text: string }; Returns: Json }
       get_bancos_com_saldos: {
-        Args: { data_fim?: string; data_inicio?: string }
+        Args: { _data_fim?: string; _data_inicio?: string; _tenant: string }
         Returns: {
           banco_id: string
           banco_nome: string

@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTenant } from '@/contexts/TenantContext';
 
 export const ALL_MODULES = [
-  { key: 'insights', label: 'Insights IA', parent: null },
   { key: 'receitas', label: 'Receitas', parent: null },
   { key: 'despesas', label: 'Despesas', parent: null },
   { key: 'categorias', label: 'Categorias', parent: null },
@@ -12,7 +11,6 @@ export const ALL_MODULES = [
   { key: 'api', label: 'API', parent: null },
   { key: 'api-docs', label: 'Documentação API', parent: 'api' },
   { key: 'telegram', label: 'Bot Telegram', parent: null },
-  { key: 'ai-settings', label: 'Configurações de IA', parent: null },
   { key: 'usuarios', label: 'Usuários', parent: null },
 ] as const;
 
@@ -20,7 +18,6 @@ export type ModuleKey = typeof ALL_MODULES[number]['key'];
 
 // Map route paths to module keys
 export const ROUTE_TO_MODULE: Record<string, ModuleKey> = {
-  '/insights': 'insights',
   '/receitas': 'receitas',
   '/despesas': 'despesas',
   '/categorias': 'categorias',
@@ -29,7 +26,6 @@ export const ROUTE_TO_MODULE: Record<string, ModuleKey> = {
   '/api': 'api',
   '/api/docs': 'api-docs',
   '/telegram': 'telegram',
-  '/ai-settings': 'ai-settings',
   '/usuarios': 'usuarios',
 };
 

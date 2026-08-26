@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Brain,
   TrendingUp,
   TrendingDown,
   Tags,
@@ -16,7 +15,6 @@ import {
   Menu,
   X,
   Send,
-  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,7 +26,6 @@ import logo from '@/assets/logo.jpg';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 const menuItems = [
-  { path: '/insights', label: 'Insights IA', icon: Brain },
   { path: '/receitas', label: 'Receitas', icon: TrendingUp },
   { path: '/despesas', label: 'Despesas', icon: TrendingDown },
   { path: '/categorias', label: 'Categorias', icon: Tags },
@@ -40,7 +37,7 @@ const menuItems = [
 
 function buildMenuItems(role: string | null, hasModule: (key:string)=>boolean) {
   const base = role === 'master'
-    ? [...menuItems, { path: '/ai-settings', label: 'Config. de IA', icon: Settings }, { path: '/usuarios', label: 'Usuários', icon: Users }]
+    ? [...menuItems, { path: '/usuarios', label: 'Usuários', icon: Users }]
     : menuItems;
   return base.filter(item => {
     const moduleKey = ROUTE_TO_MODULE[item.path];

@@ -57,8 +57,9 @@ export function useBancosComSaldos(startDate?: Date, endDate?: Date) {
     queryKey, enabled: !!activeTenant,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_bancos_com_saldos', {
-        data_inicio: startDate ? toISODateLocal(startDate) : undefined,
-        data_fim: endDate ? toISODateLocal(endDate) : undefined,
+        _tenant: activeTenant!.id,
+        _data_inicio: startDate ? toISODateLocal(startDate) : undefined,
+        _data_fim: endDate ? toISODateLocal(endDate) : undefined,
       });
 
       if (error) throw error;

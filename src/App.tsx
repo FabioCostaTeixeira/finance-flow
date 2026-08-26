@@ -9,7 +9,6 @@ import { TenantProvider, useTenant } from "@/contexts/TenantContext";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AlertasNotificacao } from "@/components/AlertasNotificacao";
 import Auth from "./pages/Auth";
-import Insights from "./pages/Insights";
 import Receitas from "./pages/Receitas";
 import Despesas from "./pages/Despesas";
 import Categorias from "./pages/Categorias";
@@ -18,7 +17,6 @@ import FluxoCaixa from "./pages/FluxoCaixa";
 import ApiKeys from "./pages/ApiKeys";
 import ApiDocumentation from "./pages/ApiDocumentation";
 import Usuarios from "./pages/Usuarios";
-import AISettings from "./pages/AISettings";
 import TelegramBot from "./pages/TelegramBot";
 import NotFound from "./pages/NotFound";
 import { OperatorGuard } from "./pages/operador/OperatorGuard";
@@ -67,7 +65,7 @@ function MasterRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (role !== 'master') {
-    return <Navigate to="/insights" replace />;
+    return <Navigate to="/receitas" replace />;
   }
 
   return <>{children}</>;
@@ -86,7 +84,7 @@ function PermissionRoute({ moduleKey, children }: { moduleKey: string; children:
   }
 
   if (!hasModule(moduleKey)) {
-    return <Navigate to="/insights" replace />;
+    return <Navigate to="/receitas" replace />;
   }
 
   return <>{children}</>;
@@ -105,9 +103,8 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/auth" element={user ? <Navigate to="/insights" replace /> : <Auth />} />
-      <Route path="/" element={<Navigate to={user ? "/insights" : "/auth"} replace />} />
-      <Route path="/insights" element={<ProtectedLayout><PermissionRoute moduleKey="insights"><Insights /></PermissionRoute></ProtectedLayout>} />
+      <Route path="/auth" element={user ? <Navigate to="/receitas" replace /> : <Auth />} />
+      <Route path="/" element={<Navigate to={user ? "/receitas" : "/auth"} replace />} />
       <Route path="/receitas" element={<ProtectedLayout><PermissionRoute moduleKey="receitas"><Receitas /></PermissionRoute></ProtectedLayout>} />
       <Route path="/despesas" element={<ProtectedLayout><PermissionRoute moduleKey="despesas"><Despesas /></PermissionRoute></ProtectedLayout>} />
       <Route path="/categorias" element={<ProtectedLayout><PermissionRoute moduleKey="categorias"><Categorias /></PermissionRoute></ProtectedLayout>} />
@@ -116,8 +113,7 @@ function AppRoutes() {
       <Route path="/api" element={<ProtectedLayout><PermissionRoute moduleKey="api"><ApiKeys /></PermissionRoute></ProtectedLayout>} />
       <Route path="/api/docs" element={<ProtectedLayout><PermissionRoute moduleKey="api-docs"><ApiDocumentation /></PermissionRoute></ProtectedLayout>} />
       <Route path="/telegram" element={<ProtectedLayout><PermissionRoute moduleKey="telegram"><TelegramBot /></PermissionRoute></ProtectedLayout>} />
-      <Route path="/ai-settings" element={<ProtectedLayout><MasterRoute><AISettings /></MasterRoute></ProtectedLayout>} />
-      <Route 
+      <Route
         path="/usuarios" 
         element={
           <ProtectedLayout>
