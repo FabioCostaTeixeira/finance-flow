@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeftRight, TrendingUp, TrendingDown } from 'lucide-react';
@@ -7,7 +8,9 @@ import { format, parseISO, startOfMonth, endOfMonth, isAfter, isBefore, startOfD
 import { ptBR } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
-import { useLancamentos, LancamentoExtendido } from '@/hooks/useLancamentos';
+import { LancamentoExtendido } from '@/hooks/useLancamentos';
+import { supabase } from '@/integrations/supabase/client';
+import { useTenant } from '@/contexts/TenantContext';
 import { useBancos } from '@/hooks/useBancos';
 import { formatCurrency } from '@/lib/recurrence';
 import { cn } from '@/lib/utils';
@@ -44,6 +47,7 @@ export default function FluxoCaixaPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const bancoIdFromUrl = searchParams.get('bancoId');
+  const { activeTenant } = useTenant();
   
   const [date, setDate] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
@@ -54,7 +58,42 @@ export default function FluxoCaixaPage() {
   const [despesaFormOpen, setDespesaFormOpen] = useState(false);
   const [transferenciaOpen, setTransferenciaOpen] = useState(false);
 
-  const { data: lancamentos = [], isLoading } = useLancamentos();
+  const { data: fluxo = [], isLoading } = useQuery({
+    queryKey: ['fluxo-caixa', activeTenant?.id, date?.from?.toISOString(), date?.to?.toISOString()],
+    enabled: !!activeTenant,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_fluxo_caixa', {
+        _tenant: activeTenant!.id,
+        _data_inicio: date?.from ? format(date.from, 'yyyy-MM-dd') : null,
+        _data_fim: date?.to ? format(date.to, 'yyyy-MM-dd') : null,
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const lancamentos: LancamentoExtendido[] = fluxo.map((mes) => ({
+    id: `fluxo-${mes.mes}`,
+    tenant_id: activeTenant!.id,
+    tipo: 'receita',
+    status: 'recebido',
+    cliente_credor: `Resumo de ${mes.mes}`,
+    valor: Number(mes.entradas) + Number(mes.saidas),
+    valor_pago: Number(mes.entradas),
+    banco_id: null,
+    categoria_id: null,
+    recorrencia_id: null,
+    parcela_atual: 1,
+    total_parcelas: 1,
+    observacao: null,
+    transferencia_vinculo_id: null,
+    frequencia: null,
+    created_at: mes.mes,
+    updated_at: mes.mes,
+    data_pagamento: mes.mes,
+    data_vencimento: mes.mes,
+    bancos: undefined,
+    categorias: undefined,
+  } as LancamentoExtendido));
   const { data: bancos = [] } = useBancos();
 
   const filteredLancamentos = useMemo(() => {

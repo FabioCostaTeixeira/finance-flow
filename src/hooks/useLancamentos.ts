@@ -6,6 +6,7 @@ import { toISODateLocal } from '@/lib/date';
 import { Banco } from './useBancos';
 import { StatusLancamento } from '@/lib/statusUtils';
 import type { LancamentoInsertWithFrequencia, LancamentoRowWithFrequencia } from '@/integrations/supabase/types-extended';
+import { useTenant } from '@/contexts/TenantContext';
 
 export interface Lancamento {
   id: string;
@@ -53,8 +54,9 @@ export interface CreateLancamentoInput {
 }
 
 export function useLancamentos(tipo?: 'receita' | 'despesa') {
+  const { activeTenant } = useTenant();
   return useQuery({
-    queryKey: ['lancamentos', tipo],
+    queryKey: ['lancamentos', activeTenant?.id, tipo], enabled: !!activeTenant,
     queryFn: async () => {
       let query = supabase
         .from('lancamentos')
@@ -79,9 +81,11 @@ export function useLancamentos(tipo?: 'receita' | 'despesa') {
 
 export function useCreateLancamento() {
   const queryClient = useQueryClient();
+  const { activeTenant } = useTenant();
 
   return useMutation({
     mutationFn: async (input: CreateLancamentoInput) => {
+      if (!activeTenant) throw new Error('Nenhuma organização ativa');
       const baseStatus: 'a_receber' | 'a_pagar' = input.tipo === 'receita' ? 'a_receber' : 'a_pagar';
 
       if (input.recorrente && input.frequencia) {
@@ -109,6 +113,7 @@ export function useCreateLancamento() {
           parcela_atual: parcela.parcela_atual,
           total_parcelas: isInfinite ? 0 : parcela.total_parcelas,
           frequencia: input.frequencia,
+          tenant_id: activeTenant.id,
         }));
 
         const { data, error } = await supabase
@@ -136,6 +141,7 @@ export function useCreateLancamento() {
           observacao: input.observacao || null,
           parcela_atual: 1,
           total_parcelas: 1,
+          tenant_id: activeTenant.id,
         };
 
         // Se marcado como quitado (pago/recebido), adicionar valor_pago e data_pagamento
@@ -176,6 +182,7 @@ function proximaData(dataStr: string, frequencia: string): Date {
 
 export function useBaixarLancamento() {
   const queryClient = useQueryClient();
+  const { activeTenant } = useTenant();
 
   return useMutation({
     mutationFn: async ({
@@ -187,6 +194,7 @@ export function useBaixarLancamento() {
       valorPago: number;
       dataPagamento: Date;
     }) => {
+      if (!activeTenant) throw new Error('Nenhuma organização ativa');
       // Busca o lançamento atual
       const { data: lancamentoRaw, error: fetchError } = await supabase
         .from('lancamentos')
@@ -254,6 +262,7 @@ export function useBaixarLancamento() {
             parcela_atual: (ultimaParcela.parcela_atual || 0) + 1,
             total_parcelas: 0,
             frequencia: freq,
+            tenant_id: activeTenant.id,
           } as LancamentoInsertWithFrequencia);
         }
       }

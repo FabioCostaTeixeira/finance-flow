@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenant } from '@/contexts/TenantContext';
 
 export interface MessagingChannel {
   id: string;
@@ -15,8 +16,9 @@ export interface MessagingChannel {
 }
 
 export function useMyChannels() {
+  const { activeTenant } = useTenant();
   return useQuery({
-    queryKey: ['my-messaging-channels'],
+    queryKey: ['my-messaging-channels', activeTenant?.id], enabled: !!activeTenant,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];

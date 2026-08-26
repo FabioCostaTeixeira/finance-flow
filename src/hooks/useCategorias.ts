@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizarTexto, fuzzySearch } from '@/lib/recurrence';
+import { useTenant } from '@/contexts/TenantContext';
 
 export interface Categoria {
   id: string;
@@ -13,8 +14,9 @@ export interface Categoria {
 }
 
 export function useCategorias(tipo?: 'receita' | 'despesa') {
+  const { activeTenant } = useTenant();
   return useQuery({
-    queryKey: ['categorias', tipo],
+    queryKey: ['categorias', activeTenant?.id, tipo], enabled: !!activeTenant,
     queryFn: async () => {
       let query = supabase
         .from('categorias')
@@ -50,9 +52,11 @@ export function useCategoriasWithSearch(tipo: 'receita' | 'despesa', searchQuery
 
 export function useCreateCategoria() {
   const queryClient = useQueryClient();
+  const { activeTenant } = useTenant();
 
   return useMutation({
     mutationFn: async (categoria: { nome: string; tipo: 'receita' | 'despesa'; categoria_pai_id?: string }) => {
+      if (!activeTenant) throw new Error('Nenhuma organização ativa');
       const { data, error } = await supabase
         .from('categorias')
         .insert({
@@ -60,6 +64,7 @@ export function useCreateCategoria() {
           nome_normalizado: normalizarTexto(categoria.nome),
           tipo: categoria.tipo,
           categoria_pai_id: categoria.categoria_pai_id || null,
+          tenant_id: activeTenant.id,
         })
         .select()
         .single();

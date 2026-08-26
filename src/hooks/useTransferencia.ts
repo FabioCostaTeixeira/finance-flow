@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toISODateLocal } from '@/lib/date';
+import { useTenant } from '@/contexts/TenantContext';
 
 export interface CreateTransferenciaInput {
   data: Date;
@@ -19,9 +20,11 @@ export interface UpdateTransferenciaInput {
 
 export function useCreateTransferencia() {
   const queryClient = useQueryClient();
+  const { activeTenant } = useTenant();
 
   return useMutation({
     mutationFn: async (input: CreateTransferenciaInput) => {
+      if (!activeTenant) throw new Error('Nenhuma organização ativa');
       const dataFormatada = toISODateLocal(input.data);
       const vinculoId = crypto.randomUUID();
 
@@ -56,6 +59,7 @@ export function useCreateTransferencia() {
           parcela_atual: 1,
           total_parcelas: 1,
           transferencia_vinculo_id: vinculoId,
+          tenant_id: activeTenant.id,
         });
 
       if (errorSaida) throw errorSaida;
@@ -75,6 +79,7 @@ export function useCreateTransferencia() {
           parcela_atual: 1,
           total_parcelas: 1,
           transferencia_vinculo_id: vinculoId,
+          tenant_id: activeTenant.id,
         });
 
       if (errorEntrada) throw errorEntrada;

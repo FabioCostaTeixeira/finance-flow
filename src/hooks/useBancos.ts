@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toISODateLocal } from '@/lib/date';
+import { useTenant } from '@/contexts/TenantContext';
 
 export interface Banco {
   id: string;
@@ -20,8 +21,9 @@ export interface BancoComSaldo extends Banco {
 
 // Hook to get simple list of banks (for dropdowns)
 export function useBancos() {
+  const { activeTenant } = useTenant();
   return useQuery({
-    queryKey: ['bancos'],
+    queryKey: ['bancos', activeTenant?.id], enabled: !!activeTenant,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('bancos')
@@ -48,10 +50,11 @@ export interface BancoComSaldoRPC {
 
 // Hook to get banks with their calculated balances
 export function useBancosComSaldos(startDate?: Date, endDate?: Date) {
-  const queryKey = ['bancosComSaldos', startDate, endDate];
+  const { activeTenant } = useTenant();
+  const queryKey = ['bancosComSaldos', activeTenant?.id, startDate, endDate];
 
   return useQuery({
-    queryKey,
+    queryKey, enabled: !!activeTenant,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_bancos_com_saldos', {
         data_inicio: startDate ? toISODateLocal(startDate) : undefined,
@@ -80,11 +83,13 @@ export function useBancosComSaldos(startDate?: Date, endDate?: Date) {
 
 export function useCreateBanco() {
   const queryClient = useQueryClient();
+  const { activeTenant } = useTenant();
   return useMutation({
     mutationFn: async (nome: string) => {
+      if (!activeTenant) throw new Error('Nenhuma organização ativa');
       const { data, error } = await supabase
         .from('bancos')
-        .insert({ nome })
+        .insert({ nome, tenant_id: activeTenant.id })
         .select()
         .single();
       if (error) throw error;

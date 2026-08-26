@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { subDays } from 'date-fns';
+import { useTenant } from '@/contexts/TenantContext';
 
 type StreamMsg = { role: 'user' | 'assistant'; content: string };
 
@@ -14,8 +15,9 @@ export interface ChatMessage {
 }
 
 export function useChatMessages() {
+  const { activeTenant } = useTenant();
   return useQuery({
-    queryKey: ['chat-messages'],
+    queryKey: ['chat-messages', activeTenant?.id], enabled: !!activeTenant,
     queryFn: async () => {
       // Busca mensagens dos últimos 30 dias
       const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
@@ -34,12 +36,14 @@ export function useChatMessages() {
 
 export function useAddChatMessage() {
   const queryClient = useQueryClient();
+  const { activeTenant } = useTenant();
 
   return useMutation({
     mutationFn: async (message: { role: 'user' | 'assistant'; content: string }) => {
+      if (!activeTenant) throw new Error('Nenhuma organização ativa');
       const { data, error } = await supabase
         .from('chat_messages')
-        .insert(message)
+        .insert({ ...message, tenant_id: activeTenant.id })
         .select()
         .single();
 

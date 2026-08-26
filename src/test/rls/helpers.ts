@@ -27,13 +27,13 @@ export async function createUserClient(
 
 export async function seedTenant(admin: SupabaseClient, nome: string) {
   const slug = `${nome.toLowerCase().replace(/\s+/g, "-")}-${randomUUID().slice(0, 8)}`;
-  const { data, error } = await admin
-    .from("tenants")
-    .insert({ nome, slug })
-    .select("id")
-    .single();
-  if (error) throw new Error(`Falha ao criar tenant: ${error.message}`);
-  return { tenantId: data.id as string };
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { data, error } = await admin.from("tenants").insert({ nome, slug }).select("id").single();
+    if (!error) return { tenantId: data.id as string };
+    if (error.code !== "PGRST002" || attempt === 4) throw new Error(`Falha ao criar tenant: ${error.message} [${error.code ?? ''}] ${error.details ?? ''}`);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  throw new Error("Falha ao criar tenant: retries esgotados");
 }
 
 export async function createMember(
@@ -75,7 +75,7 @@ export async function createOperator(admin: SupabaseClient, email: string) {
     .insert({ user_id: userId });
   if (opError) throw new Error(`Falha ao registrar operador: ${opError.message}`);
 
-  return { userId, password };
+  return { userId, password, email };
 }
 
 export async function cleanup(

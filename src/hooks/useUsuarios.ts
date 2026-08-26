@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenant } from '@/contexts/TenantContext';
 
 export type Profile = {
   id: string;
@@ -15,8 +16,9 @@ export type UserRole = {
 };
 
 export function useProfiles() {
+  const { activeTenant } = useTenant();
   return useQuery({
-    queryKey: ['profiles'],
+    queryKey: ['profiles', activeTenant?.id], enabled: !!activeTenant,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
@@ -29,12 +31,13 @@ export function useProfiles() {
 }
 
 export function useUserRoles() {
+  const { activeTenant } = useTenant();
   return useQuery({
-    queryKey: ['user_roles'],
+    queryKey: ['tenant_members', activeTenant?.id], enabled: !!activeTenant,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
+        .from('tenant_members')
+        .select('user_id, role').eq('tenant_id', activeTenant!.id);
       if (error) throw error;
       return data as UserRole[];
     },
@@ -43,9 +46,11 @@ export function useUserRoles() {
 
 export function useCreateUsuario() {
   const queryClient = useQueryClient();
+  const { activeTenant } = useTenant();
   return useMutation({
     mutationFn: async (userData: { email: string; password: string; nome: string; role: 'admin' | 'user' }) => {
-      const { data, error } = await supabase.functions.invoke('create-user', { body: userData });
+      if (!activeTenant) throw new Error('Nenhuma organização ativa');
+      const { data, error } = await supabase.functions.invoke('create-user', { body: { ...userData, tenantId: activeTenant.id } });
       if (error) throw error;
       if (data.error) throw new Error(data.error);
       return data;
@@ -59,9 +64,11 @@ export function useCreateUsuario() {
 
 export function useDeleteUsuario() {
   const queryClient = useQueryClient();
+  const { activeTenant } = useTenant();
   return useMutation({
     mutationFn: async (userId: string) => {
-      const { data, error } = await supabase.functions.invoke('delete-user', { body: { userId } });
+      if (!activeTenant) throw new Error('Nenhuma organização ativa');
+      const { data, error } = await supabase.functions.invoke('delete-user', { body: { userId, tenantId: activeTenant.id } });
       if (error) throw error;
       if (data.error) throw new Error(data.error);
       return data;

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenant } from '@/contexts/TenantContext';
 
 export const ALL_MODULES = [
   { key: 'insights', label: 'Insights IA', parent: null },
@@ -41,12 +42,13 @@ type Permission = {
 
 // Fetch permissions for all users (master view)
 export function useAllPermissions() {
+  const { activeTenant } = useTenant();
   return useQuery({
-    queryKey: ['user_permissions_all'],
+    queryKey: ['user_permissions_all', activeTenant?.id], enabled: !!activeTenant,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('user_permissions')
-        .select('*');
+        .select('*').eq('tenant_id', activeTenant!.id);
       if (error) throw error;
       return data as Permission[];
     },
@@ -56,15 +58,16 @@ export function useAllPermissions() {
 
 // Fetch permissions for the current user
 export function useMyPermissions() {
+  const { activeTenant } = useTenant();
   return useQuery({
-    queryKey: ['user_permissions_mine'],
+    queryKey: ['user_permissions_mine', activeTenant?.id], enabled: !!activeTenant,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
       const { data, error } = await supabase
         .from('user_permissions')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id).eq('tenant_id', activeTenant!.id);
       if (error) throw error;
       return data as Permission[];
     },
@@ -75,13 +78,15 @@ export function useMyPermissions() {
 // Toggle a permission (upsert)
 export function useTogglePermission() {
   const queryClient = useQueryClient();
+  const { activeTenant } = useTenant();
 
   return useMutation({
     mutationFn: async ({ userId, moduleKey, allowed }: { userId: string; moduleKey: string; allowed: boolean }) => {
+      if (!activeTenant) throw new Error('Nenhuma organização ativa');
       const { data, error } = await supabase
         .from('user_permissions')
         .upsert(
-          { user_id: userId, module_key: moduleKey, allowed },
+          { tenant_id: activeTenant.id, user_id: userId, module_key: moduleKey, allowed },
           { onConflict: 'tenant_id,user_id,module_key' }
         )
         .select()
