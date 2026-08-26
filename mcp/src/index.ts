@@ -6,6 +6,7 @@ import {
   type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { PUBLIC_MCP_TOOL_DEFINITIONS } from "./contracts/tools.js";
 
 // ---------------------------------------------------------------------------
 // Supabase client (configured via environment variables)
@@ -841,7 +842,8 @@ const server = new Server(
   { capabilities: { tools: {} } },
 );
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
+// O catálogo é a fonte de verdade: handler não conectado/testado nunca é anunciado.
+server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: PUBLIC_MCP_TOOL_DEFINITIONS as Tool[] }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args = {} } = request.params;
