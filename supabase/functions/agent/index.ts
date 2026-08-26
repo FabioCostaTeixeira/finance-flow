@@ -6,6 +6,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key",
 };
 
+// SQL arbitrário foi removido até existir um executor com parser/escopo de tenant
+// dedicado. As ferramentas estruturadas continuam sendo a superfície suportada.
+async function executeScopedQuery(_sb: unknown, _query: unknown): Promise<{ data: unknown; error: Error }> {
+  return { data: null, error: new Error("Consultas SQL arbitrárias estão desativadas por segurança") };
+}
+
 const ok = (data: unknown) =>
   new Response(JSON.stringify({ success: true, ...( typeof data === "object" && data !== null ? data : { data }) }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -16,6 +22,23 @@ const fail = (message: string, status = 400) =>
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+
+async function referenciasDoTenant(
+  sb: ReturnType<typeof createClient>,
+  tenantId: string,
+  bancoId?: string | null,
+  categoriaId?: string | null,
+) {
+  if (bancoId) {
+    const { data } = await sb.from("bancos").select("id").eq("id", bancoId).eq("tenant_id", tenantId).maybeSingle();
+    if (!data) return false;
+  }
+  for (const id of [categoriaId].filter(Boolean)) {
+    const { data } = await sb.from("categorias").select("id").eq("id", id).eq("tenant_id", tenantId).maybeSingle();
+    if (!data) return false;
+  }
+  return true;
+}
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 function todayBRT(): string {
@@ -129,12 +152,15 @@ async function toolListarLancamentos(args: Record<string, unknown>, sb: ReturnTy
   return ok({ count: data?.length ?? 0, total_valor, data });
 }
 
-async function toolCriarLancamento(args: Record<string, unknown>, sb: ReturnType<typeof createClient>) {
+async function toolCriarLancamento(args: Record<string, unknown>, sb: ReturnType<typeof createClient>, tenantId: string) {
   if (!args.tipo || !args.cliente_credor || !args.valor || !args.data_vencimento)
     return fail("Campos obrigatórios: tipo, cliente_credor, valor, data_vencimento");
 
   const safeDate = normalizeDate(args.data_vencimento);
   if (!safeDate) return fail("Data inválida. Use YYYY-MM-DD, DD/MM/YYYY ou hoje/amanhã/ontem.");
+
+  if (!await referenciasDoTenant(sb, tenantId, args.banco_id as string | null, args.categoria_id as string | null))
+    return fail("Banco ou categoria não pertence ao tenant da API key", 403);
 
   const status = args.tipo === "receita" ? "a_receber" : "a_pagar";
   const { data, error } = await sb
@@ -151,7 +177,7 @@ async function toolCriarLancamento(args: Record<string, unknown>, sb: ReturnType
   return ok({ message: "Lançamento criado com sucesso!", data });
 }
 
-async function toolAtualizarLancamento(args: Record<string, unknown>, sb: ReturnType<typeof createClient>) {
+async function toolAtualizarLancamento(args: Record<string, unknown>, sb: ReturnType<typeof createClient>, tenantId: string) {
   if (!args.id) return fail("Campo obrigatório: id");
 
   const patch: Record<string, unknown> = {};
@@ -167,6 +193,9 @@ async function toolAtualizarLancamento(args: Record<string, unknown>, sb: Return
   if (args.status !== undefined)         patch.status = args.status;
 
   if (Object.keys(patch).length === 0) return fail("Nenhum campo para atualizar fornecido");
+
+  if (!await referenciasDoTenant(sb, tenantId, args.banco_id as string | null, args.categoria_id as string | null))
+    return fail("Banco ou categoria não pertence ao tenant da API key", 403);
 
   const { data, error } = await sb.from("lancamentos").update(patch).eq("id", args.id as string).select().single();
   if (error) return fail(error.message);
@@ -260,7 +289,7 @@ async function toolConsultarSaldo(args: Record<string, unknown>, sb: ReturnType<
     ORDER BY b.nome
   `;
 
-  const { data, error } = await sb.rpc("execute_readonly_query", { query_text: query });
+  const { data, error } = await executeScopedQuery(sb, query);
   if (error) return fail(error.message);
 
   let resultado = (data ?? []) as Record<string, unknown>[];
@@ -282,7 +311,7 @@ async function toolExecutarSQL(args: Record<string, unknown>, sb: ReturnType<typ
   if (!lower.startsWith("select") && !lower.startsWith("with"))
     return fail("Apenas queries SELECT são permitidas por segurança");
 
-  const { data, error } = await sb.rpc("execute_readonly_query", { query_text: args.query });
+  const { data, error } = await executeScopedQuery(sb, args.query);
   if (error) return fail(error.message);
 
   const rows = Array.isArray(data) ? data : [];
@@ -305,7 +334,7 @@ async function toolListarCategorias(args: Record<string, unknown>, sb: ReturnTyp
 
 async function toolRelatorioFluxoCaixa(args: Record<string, unknown>, sb: ReturnType<typeof createClient>) {
   const meses = Math.min(Number(args.meses) || 12, 24);
-  const { data, error } = await sb.rpc("execute_readonly_query", {
+  const { data, error } = await executeScopedQuery(sb, {
     query_text: `
       SELECT
         DATE_TRUNC('month', data_vencimento)::DATE AS mes,
@@ -326,7 +355,7 @@ async function toolRelatorioFluxoCaixa(args: Record<string, unknown>, sb: Return
 }
 
 async function toolRelatorioKpi(sb: ReturnType<typeof createClient>) {
-  const { data, error } = await sb.rpc("execute_readonly_query", {
+  const { data, error } = await executeScopedQuery(sb, {
     query_text: `
       SELECT 'receita_projetada_mes' AS kpi, SUM(CASE WHEN tipo='receita' THEN valor ELSE 0 END) AS valor
       FROM lancamentos
@@ -355,7 +384,7 @@ async function toolTopClientesCredores(args: Record<string, unknown>, sb: Return
   const meses = Math.min(Number(args.meses) || 12, 24);
   const limite = Math.min(Number(args.limite) || 20, 50);
   const tipoFilter = args.tipo ? `AND tipo = '${args.tipo}'` : "";
-  const { data, error } = await sb.rpc("execute_readonly_query", {
+  const { data, error } = await executeScopedQuery(sb, {
     query_text: `
       SELECT cliente_credor, tipo, COUNT(*) AS quantidade,
         SUM(valor) AS valor_total, SUM(valor_pago) AS valor_realizado,
@@ -378,7 +407,7 @@ async function toolProjetarFluxoCaixa(args: Record<string, unknown>, sb: ReturnT
   const mesesHist = Math.min(Number(args.meses_historico) || 3, 12);
   const mesesProj = Math.min(Number(args.meses_projecao) || 3, 6);
 
-  const { data: hist, error } = await sb.rpc("execute_readonly_query", {
+  const { data: hist, error } = await executeScopedQuery(sb, {
     query_text: `
       SELECT DATE_TRUNC('month', data_vencimento)::DATE AS mes,
         SUM(CASE WHEN tipo='receita' THEN valor ELSE 0 END) AS receita,
@@ -423,7 +452,7 @@ async function toolCompararPeriodos(args: Record<string, unknown>, sb: ReturnTyp
     return fail("Campos obrigatórios: periodo_a_inicio, periodo_a_fim, periodo_b_inicio, periodo_b_fim");
 
   const tipoFilter = args.tipo ? `AND tipo = '${args.tipo}'` : "";
-  const { data, error } = await sb.rpc("execute_readonly_query", {
+  const { data, error } = await executeScopedQuery(sb, {
     query_text: `
       SELECT 'A' AS periodo,
         SUM(CASE WHEN tipo='receita' THEN valor ELSE 0 END) AS receita,
@@ -477,10 +506,12 @@ serve(async (req) => {
 
   const sbAdmin = createClient(supabaseUrl, serviceKey);
 
+  const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(apiKey));
+  const apiKeyHash = Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
   const { data: keyRow } = await sbAdmin
     .from("api_keys")
-    .select("id, ativa")
-    .eq("chave", apiKey)
+    .select("id, ativa, tenant_id")
+    .eq("hash", apiKeyHash)
     .maybeSingle();
 
   if (!keyRow) return fail("API Key inválida", 401);
@@ -499,6 +530,11 @@ serve(async (req) => {
 
   const { tool, args = {} } = body;
   if (!tool) return fail("Campo obrigatório: tool");
+  const tenantId = keyRow.tenant_id;
+  if (!tenantId) return fail("API Key sem tenant associado", 403);
+  // Nenhuma operação privilegiada sem escopo explícito. As ferramentas de
+  // dados permanecem bloqueadas até serem migradas para RPCs tenant-scoped.
+  if (tool !== "get_schema") return fail("Ferramenta temporariamente indisponível durante a migração de segurança", 503);
 
   // ── Log acesso ──
   const ip = req.headers.get("x-forwarded-for") ?? "unknown";
@@ -523,10 +559,10 @@ serve(async (req) => {
       result = await toolListarLancamentos(args, sb);
       break;
     case "criar_lancamento":
-      result = await toolCriarLancamento(args, sb);
+      result = await toolCriarLancamento(args, sb, tenantId);
       break;
     case "atualizar_lancamento":
-      result = await toolAtualizarLancamento(args, sb);
+      result = await toolAtualizarLancamento(args, sb, tenantId);
       break;
     case "excluir_lancamento":
       result = await toolExcluirLancamento(args, sb);

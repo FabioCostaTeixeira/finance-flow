@@ -20,6 +20,10 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+function executeReadOnlyDisabled(_args: unknown): { data: null; error: Error } {
+  return { data: null, error: new Error("Consultas SQL arbitrárias estão desativadas por segurança") };
+}
+
 // ---------------------------------------------------------------------------
 // Date helpers
 // ---------------------------------------------------------------------------
@@ -492,11 +496,7 @@ async function handleExecutarSQL(args: Record<string, unknown>): Promise<ToolRes
     return errorResult("Apenas queries SELECT são permitidas");
   }
 
-  const { data, error } = await supabase.rpc("execute_readonly_query", { query_text: args.query });
-  if (error) return errorResult(error.message);
-
-  const rows = Array.isArray(data) ? data : [];
-  return textResult({ success: true, count: rows.length, data: rows });
+  return errorResult("Consultas SQL arbitrárias estão desativadas por segurança");
 }
 
 async function handleListarBancos(): Promise<ToolResult> {
@@ -530,7 +530,7 @@ async function handleConsultarLancamentosBi(args: Record<string, unknown>): Prom
 
 async function handleRelatorioFluxoCaixa(args: Record<string, unknown>): Promise<ToolResult> {
   const meses = Math.min(Number(args.meses) || 12, 24);
-  const { data, error } = await supabase.rpc("execute_readonly_query", {
+  const { data, error } = executeReadOnlyDisabled({
     query_text: `
       SELECT
         DATE_TRUNC('month', data_vencimento)::DATE AS mes,
@@ -552,7 +552,7 @@ async function handleRelatorioFluxoCaixa(args: Record<string, unknown>): Promise
 async function handleRelatorioPorCategoria(args: Record<string, unknown>): Promise<ToolResult> {
   const meses = Math.min(Number(args.meses) || 12, 24);
   const tipoFilter = args.tipo ? `AND l.tipo = '${args.tipo}'` : "";
-  const { data, error } = await supabase.rpc("execute_readonly_query", {
+  const { data, error } = executeReadOnlyDisabled({
     query_text: `
       SELECT
         c.nome AS categoria,
@@ -578,7 +578,7 @@ async function handleRelatorioPorCategoria(args: Record<string, unknown>): Promi
 
 async function handleRelatorioInadimplencia(args: Record<string, unknown>): Promise<ToolResult> {
   const meses = Math.min(Number(args.meses) || 12, 24);
-  const { data, error } = await supabase.rpc("execute_readonly_query", {
+  const { data, error } = executeReadOnlyDisabled({
     query_text: `
       SELECT
         c.nome AS categoria,
@@ -602,7 +602,7 @@ async function handleRelatorioInadimplencia(args: Record<string, unknown>): Prom
 }
 
 async function handleRelatorioKpi(): Promise<ToolResult> {
-  const { data, error } = await supabase.rpc("execute_readonly_query", {
+  const { data, error } = executeReadOnlyDisabled({
     query_text: `
       SELECT 'Receita Projetada (Mês)' AS kpi,
              SUM(CASE WHEN tipo='receita' THEN valor ELSE 0 END)::TEXT AS valor, 'BRL' AS moeda
@@ -712,7 +712,7 @@ async function handleProjetarFluxoCaixa(args: Record<string, unknown>): Promise<
   const mesesHist = Math.min(Number(args.meses_historico) || 3, 12);
   const mesesProj = Math.min(Number(args.meses_projecao) || 3, 6);
 
-  const { data: historico, error } = await supabase.rpc("execute_readonly_query", {
+  const { data: historico, error } = executeReadOnlyDisabled({
     query_text: `
       SELECT
         DATE_TRUNC('month', data_vencimento)::DATE AS mes,
@@ -764,7 +764,7 @@ async function handleCompararPeriodos(args: Record<string, unknown>): Promise<To
 
   const tipoFilter = args.tipo ? `AND tipo = '${args.tipo}'` : "";
 
-  const { data, error } = await supabase.rpc("execute_readonly_query", {
+  const { data, error } = executeReadOnlyDisabled({
     query_text: `
       SELECT
         'A' AS periodo,
@@ -811,7 +811,7 @@ async function handleTopClientesCredores(args: Record<string, unknown>): Promise
   const meses = Math.min(Number(args.meses) || 12, 24);
   const limite = Math.min(Number(args.limite) || 20, 50);
   const tipoFilter = args.tipo ? `AND tipo = '${args.tipo}'` : "";
-  const { data, error } = await supabase.rpc("execute_readonly_query", {
+  const { data, error } = executeReadOnlyDisabled({
     query_text: `
       SELECT
         cliente_credor,
@@ -846,6 +846,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }))
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args = {} } = request.params;
   const a = args as Record<string, unknown>;
+
+  // O MCP não recebe uma sessão de usuário/tenant confiável no transporte
+  // stdio. Bloqueia operações privilegiadas até a próxima task introduzir
+  // autenticação por API key e escopo obrigatório em todas as ferramentas.
+  return errorResult(`MCP indisponível sem contexto de tenant para a ferramenta: ${name}`);
 
   switch (name) {
     case "listar_lancamentos":      return handleListarLancamentos(a);

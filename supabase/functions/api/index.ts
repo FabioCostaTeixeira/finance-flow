@@ -1,16 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(null), "Content-Type": "application/json" },
   });
 
 // ============ Helpers ============
@@ -31,6 +27,21 @@ function toISODate(d: Date | string): string {
 function normalizar(texto: string): string {
   return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
+function semTenantDoPayload(body: Record<string, unknown>) {
+  const { tenant_id: _ignorado, ...rest } = body;
+  return rest;
+}
+async function referenciasDoTenant(supabase: any, tenantId: string, bancoId?: string | null, categoriaId?: string | null, categoriaPaiId?: string | null) {
+  if (bancoId) {
+    const { data } = await supabase.from("bancos").select("id").eq("id", bancoId).eq("tenant_id", tenantId).maybeSingle();
+    if (!data) return false;
+  }
+  for (const id of [categoriaId, categoriaPaiId].filter(Boolean)) {
+    const { data } = await supabase.from("categorias").select("id").eq("id", id).eq("tenant_id", tenantId).maybeSingle();
+    if (!data) return false;
+  }
+  return true;
+}
 function calcularRecorrencia(dataInicio: Date, frequencia: string, qtd: number) {
   const parcelas: { data_vencimento: Date; parcela_atual: number; total_parcelas: number }[] = [];
   let dataAtual = new Date(dataInicio);
@@ -47,8 +58,9 @@ function calcularRecorrencia(dataInicio: Date, frequencia: string, qtd: number) 
 }
 
 serve(async (req) => {
+  const cors = corsHeaders(req.headers.get("origin"));
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: cors });
   }
 
   try {
@@ -64,12 +76,15 @@ serve(async (req) => {
 
     const { data: keyData, error: keyError } = await supabase
       .from("api_keys")
-      .select("id, ativa")
-      .eq("chave", apiKey)
+      .select("id, ativa, tenant_id")
+      .eq("hash", Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(apiKey)))).map(b=>b.toString(16).padStart(2,"0")).join(""))
       .single();
 
     if (keyError || !keyData) return json({ error: "Invalid API key" }, 401);
     if (!keyData.ativa) return json({ error: "API key is inactive" }, 403);
+    const tenantId = keyData.tenant_id;
+    const { count } = await supabase.from("api_access_logs").select("id", { count: "exact", head: true }).eq("api_key_id", keyData.id).gte("created_at", new Date(Date.now()-60000).toISOString());
+    if ((count ?? 0) >= 100) return json({ error: "Rate limit exceeded. Max 100 requests per minute." }, 429);
 
     // ============ Routing ============
     const url = new URL(req.url);
@@ -112,7 +127,7 @@ serve(async (req) => {
             await logAndReturn({ error: "valor_pago is required and must be > 0" }, 400);
           } else {
             const { data: lanc, error: fetchErr } = await supabase
-              .from("lancamentos").select("*").eq("id", id).single();
+              .from("lancamentos").select("*").eq("id", id).eq("tenant_id", keyData.tenant_id).single();
             if (fetchErr || !lanc) {
               await logAndReturn({ error: "Lançamento not found" }, 404);
             } else {
@@ -128,14 +143,14 @@ serve(async (req) => {
               const { data, error } = await supabase
                 .from("lancamentos")
                 .update({ valor_pago: novoValorPago, status: novoStatus, data_pagamento: dataPagamento })
-                .eq("id", id).select().single();
+                .eq("id", id).eq("tenant_id", tenantId).select().single();
               if (error) throw error;
 
               // Recorrência infinita: gerar próxima parcela
               if (lanc.total_parcelas === 0 && lanc.recorrencia_id &&
                   (novoStatus === "recebido" || novoStatus === "pago")) {
                 const { data: ultima } = await supabase
-                  .from("lancamentos").select("*")
+              .from("lancamentos").select("*").eq("tenant_id", keyData.tenant_id)
                   .eq("recorrencia_id", lanc.recorrencia_id)
                   .order("data_vencimento", { ascending: false }).limit(1).single();
                 if (ultima) {
@@ -160,6 +175,7 @@ serve(async (req) => {
                     parcela_atual: (ultima.parcela_atual || 0) + 1,
                     total_parcelas: 0,
                     frequencia: freq,
+                    tenant_id: tenantId,
                   });
                 }
               }
@@ -170,32 +186,36 @@ serve(async (req) => {
           const { data, error } = await supabase
             .from("lancamentos")
             .select("*, categorias(id,nome,categoria_pai_id), bancos(id,nome)")
-            .eq("id", id).single();
+            .eq("id", id).eq("tenant_id", keyData.tenant_id).single();
           if (error) await logAndReturn({ error: "Not found" }, 404);
           else await logAndReturn(data);
         } else if (id && (method === "PUT" || method === "PATCH")) {
-          const { data, error } = await supabase
-            .from("lancamentos").update(body).eq("id", id).select().single();
-          if (error) throw error;
-          await logAndReturn(data);
+          if (!await referenciasDoTenant(supabase, tenantId, body.banco_id, body.categoria_id)) {
+            await logAndReturn({ error: "Banco ou categoria não pertence ao tenant da API key" }, 403);
+          } else {
+            const { data, error } = await supabase
+              .from("lancamentos").update(semTenantDoPayload(body)).eq("id", id).eq("tenant_id", tenantId).select().single();
+            if (error) throw error;
+            await logAndReturn(data);
+          }
         } else if (id && method === "DELETE") {
           // ?recorrencia=true → deleta toda a série
           const deleteAll = url.searchParams.get("recorrencia") === "true";
           if (deleteAll) {
             const { data: lanc } = await supabase
-              .from("lancamentos").select("recorrencia_id").eq("id", id).single();
+              .from("lancamentos").select("recorrencia_id").eq("id", id).eq("tenant_id", keyData.tenant_id).single();
             if (lanc?.recorrencia_id) {
               const { error } = await supabase
-                .from("lancamentos").delete().eq("recorrencia_id", lanc.recorrencia_id);
+                .from("lancamentos").delete().eq("recorrencia_id", lanc.recorrencia_id).eq("tenant_id", tenantId);
               if (error) throw error;
               await logAndReturn({ success: true, deleted: "series" });
             } else {
-              const { error } = await supabase.from("lancamentos").delete().eq("id", id);
+              const { error } = await supabase.from("lancamentos").delete().eq("id", id).eq("tenant_id", tenantId);
               if (error) throw error;
               await logAndReturn({ success: true, deleted: "single" });
             }
           } else {
-            const { error } = await supabase.from("lancamentos").delete().eq("id", id);
+            const { error } = await supabase.from("lancamentos").delete().eq("id", id).eq("tenant_id", tenantId);
             if (error) throw error;
             await logAndReturn({ success: true });
           }
@@ -209,8 +229,9 @@ serve(async (req) => {
             await logAndReturn({ error: "cliente_credor, valor and data_vencimento are required" }, 400);
           } else {
             const baseStatus = tipo === "receita" ? "a_receber" : "a_pagar";
-
-            if (recorrente && frequencia) {
+            if (!await referenciasDoTenant(supabase, tenantId, rest.banco_id, rest.categoria_id)) {
+              await logAndReturn({ error: "Banco ou categoria não pertence ao tenant da API key" }, 403);
+            } else if (recorrente && frequencia) {
               const isInfinite = !qtd_parcelas || qtd_parcelas === 0;
               const qtd = isInfinite ? 12 : Number(qtd_parcelas);
               const recId = crypto.randomUUID();
@@ -228,12 +249,14 @@ serve(async (req) => {
                 parcela_atual: p.parcela_atual,
                 total_parcelas: isInfinite ? 0 : p.total_parcelas,
                 frequencia,
+                tenant_id: tenantId,
               }));
               const { data, error } = await supabase.from("lancamentos").insert(rows).select();
               if (error) throw error;
               await logAndReturn({ recorrencia_id: recId, lancamentos: data }, 201);
             } else {
               const insertData: Record<string, unknown> = {
+                tenant_id: tenantId,
                 data_vencimento: rest.data_vencimento,
                 cliente_credor: rest.cliente_credor,
                 valor: rest.valor,
@@ -258,7 +281,7 @@ serve(async (req) => {
           }
         } else if (method === "GET") {
           // List with optional filters
-          let query = supabase.from("lancamentos_bi").select("*");
+          let query = supabase.from("lancamentos_bi").select("*").eq("tenant_id", keyData.tenant_id);
           const tipo = url.searchParams.get("tipo");
           const status = url.searchParams.get("status");
           const dataInicio = url.searchParams.get("data_inicio");
@@ -293,20 +316,26 @@ serve(async (req) => {
                 banco_id: banco_origem_id, tipo: "despesa", status: "transferencia",
                 valor_pago: valor, data_pagamento: data,
                 transferencia_vinculo_id: vinculoId,
-                parcela_atual: 1, total_parcelas: 1,
+                parcela_atual: 1, total_parcelas: 1, tenant_id: tenantId,
               },
               {
                 data_vencimento: data, cliente_credor: desc, valor,
                 banco_id: banco_destino_id, tipo: "receita", status: "transferencia",
                 valor_pago: valor, data_pagamento: data,
                 transferencia_vinculo_id: vinculoId,
-                parcela_atual: 1, total_parcelas: 1,
+                parcela_atual: 1, total_parcelas: 1, tenant_id: tenantId,
               },
             ];
-            const { data: created, error } = await supabase
-              .from("lancamentos").insert(rows).select();
-            if (error) throw error;
-            await logAndReturn({ transferencia_vinculo_id: vinculoId, lancamentos: created }, 201);
+            const { data: bancosValidos } = await supabase.from("bancos")
+              .select("id").in("id", [banco_origem_id, banco_destino_id]).eq("tenant_id", tenantId);
+            if (!bancosValidos || bancosValidos.length !== 2) {
+              await logAndReturn({ error: "Os bancos devem pertencer ao tenant da API key" }, 403);
+            } else {
+              const { data: created, error } = await supabase
+                .from("lancamentos").insert(rows).select();
+              if (error) throw error;
+              await logAndReturn({ transferencia_vinculo_id: vinculoId, lancamentos: created }, 201);
+            }
           }
         } else if (id && (method === "PUT" || method === "PATCH")) {
           // Update both linked rows
@@ -317,18 +346,18 @@ serve(async (req) => {
           if (descricao) update.cliente_credor = descricao;
           const { data: updated, error } = await supabase
             .from("lancamentos").update(update)
-            .eq("transferencia_vinculo_id", id).select();
+            .eq("transferencia_vinculo_id", id).eq("tenant_id", tenantId).select();
           if (error) throw error;
           await logAndReturn(updated);
         } else if (id && method === "DELETE") {
           const { error } = await supabase
-            .from("lancamentos").delete().eq("transferencia_vinculo_id", id);
+            .from("lancamentos").delete().eq("transferencia_vinculo_id", id).eq("tenant_id", tenantId);
           if (error) throw error;
           await logAndReturn({ success: true });
         } else if (method === "GET") {
           const { data, error } = await supabase
             .from("lancamentos").select("*")
-            .eq("status", "transferencia")
+            .eq("status", "transferencia").eq("tenant_id", tenantId)
             .order("data_vencimento", { ascending: false });
           if (error) throw error;
           await logAndReturn(data);
@@ -341,35 +370,42 @@ serve(async (req) => {
       else if (resource === "categorias") {
         if (id && method === "GET") {
           const { data, error } = await supabase
-            .from("categorias").select("*").eq("id", id).single();
+            .from("categorias").select("*").eq("id", id).eq("tenant_id", tenantId).single();
           if (error) await logAndReturn({ error: "Not found" }, 404);
           else await logAndReturn(data);
         } else if (id && (method === "PUT" || method === "PATCH")) {
-          const update: Record<string, unknown> = { ...body };
+          const update: Record<string, unknown> = semTenantDoPayload(body);
           if (body.nome) update.nome_normalizado = normalizar(body.nome);
-          const { data, error } = await supabase
-            .from("categorias").update(update).eq("id", id).select().single();
-          if (error) throw error;
-          await logAndReturn(data);
+          if (!await referenciasDoTenant(supabase, tenantId, null, null, body.categoria_pai_id)) {
+            await logAndReturn({ error: "Categoria pai não pertence ao tenant da API key" }, 403);
+          } else {
+            const { data, error } = await supabase
+              .from("categorias").update(update).eq("id", id).eq("tenant_id", tenantId).select().single();
+            if (error) throw error;
+            await logAndReturn(data);
+          }
         } else if (id && method === "DELETE") {
-          const { error } = await supabase.from("categorias").delete().eq("id", id);
+          const { error } = await supabase.from("categorias").delete().eq("id", id).eq("tenant_id", tenantId);
           if (error) throw error;
           await logAndReturn({ success: true });
         } else if (method === "POST") {
           const { nome, tipo, categoria_pai_id } = body;
           if (!nome || !tipo) {
             await logAndReturn({ error: "nome and tipo are required" }, 400);
+          } else if (!await referenciasDoTenant(supabase, tenantId, null, null, categoria_pai_id)) {
+            await logAndReturn({ error: "Categoria pai não pertence ao tenant da API key" }, 403);
           } else {
             const { data, error } = await supabase.from("categorias").insert({
               nome, tipo,
               nome_normalizado: normalizar(nome),
               categoria_pai_id: categoria_pai_id || null,
+              tenant_id: tenantId,
             }).select().single();
             if (error) throw error;
             await logAndReturn(data, 201);
           }
         } else if (method === "GET") {
-          let q = supabase.from("categorias").select("*").order("nome");
+          let q = supabase.from("categorias").select("*").eq("tenant_id", keyData.tenant_id).order("nome");
           const tipo = url.searchParams.get("tipo");
           const apenasSubcategorias = url.searchParams.get("subcategorias") === "true";
           const apenasPais = url.searchParams.get("pais") === "true";
@@ -388,23 +424,23 @@ serve(async (req) => {
       else if (resource === "bancos") {
         if (id && method === "GET") {
           const { data, error } = await supabase
-            .from("bancos").select("*").eq("id", id).single();
+            .from("bancos").select("*").eq("id", id).eq("tenant_id", tenantId).single();
           if (error) await logAndReturn({ error: "Not found" }, 404);
           else await logAndReturn(data);
         } else if (id && (method === "PUT" || method === "PATCH")) {
           const { data, error } = await supabase
-            .from("bancos").update(body).eq("id", id).select().single();
+            .from("bancos").update(semTenantDoPayload(body)).eq("id", id).eq("tenant_id", tenantId).select().single();
           if (error) throw error;
           await logAndReturn(data);
         } else if (id && method === "DELETE") {
-          const { error } = await supabase.from("bancos").delete().eq("id", id);
+          const { error } = await supabase.from("bancos").delete().eq("id", id).eq("tenant_id", tenantId);
           if (error) throw error;
           await logAndReturn({ success: true });
         } else if (method === "POST") {
           if (!body.nome) await logAndReturn({ error: "nome is required" }, 400);
           else {
             const { data, error } = await supabase
-              .from("bancos").insert({ nome: body.nome }).select().single();
+              .from("bancos").insert({ nome: body.nome, tenant_id: tenantId }).select().single();
             if (error) throw error;
             await logAndReturn(data, 201);
           }
@@ -412,6 +448,7 @@ serve(async (req) => {
           // ?com_saldos=true → usa RPC
           if (url.searchParams.get("com_saldos") === "true") {
             const { data, error } = await supabase.rpc("get_bancos_com_saldos", {
+              _tenant: tenantId,
               data_inicio: url.searchParams.get("data_inicio") || undefined,
               data_fim: url.searchParams.get("data_fim") || undefined,
             });
@@ -419,7 +456,7 @@ serve(async (req) => {
             await logAndReturn(data);
           } else {
             const { data, error } = await supabase
-              .from("bancos").select("*").order("nome");
+              .from("bancos").select("*").eq("tenant_id", tenantId).order("nome");
             if (error) throw error;
             await logAndReturn(data);
           }
@@ -430,7 +467,7 @@ serve(async (req) => {
 
       // ===================== RESUMO =====================
       else if (resource === "resumo" && method === "GET") {
-        const { data: lancamentos, error } = await supabase.from("lancamentos").select("*");
+        const { data: lancamentos, error } = await supabase.from("lancamentos").select("*").eq("tenant_id", tenantId);
         if (error) throw error;
         const receitas = lancamentos?.filter((l: any) => l.tipo === "receita") || [];
         const despesas = lancamentos?.filter((l: any) => l.tipo === "despesa") || [];

@@ -1,11 +1,7 @@
 // Roteador unificado para múltiplos provedores de IA (Lovable AI, OpenAI, Anthropic, Google).
 // Lê config de public.ai_settings e encaminha o request mantendo formato OpenAI-compatible (com streaming SSE).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders as getCorsHeaders } from '../_shared/cors.ts';
 
 type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 
@@ -17,11 +13,15 @@ interface AISettings {
   enabled: boolean;
 }
 
-async function loadSettings(): Promise<AISettings> {
+async function loadSettings(token: string, tenantId: string): Promise<AISettings> {
   const url = Deno.env.get('SUPABASE_URL')!;
   const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const admin = createClient(url, key);
-  const { data, error } = await admin.from('ai_settings').select('*').eq('id', 1).single();
+  const { data: authData, error: authError } = await admin.auth.getUser(token);
+  if (authError || !authData.user) throw new Error('Não autorizado');
+  const { data: membership } = await admin.from('tenant_members').select('tenant_id').eq('tenant_id', tenantId).eq('user_id', authData.user.id).maybeSingle();
+  if (!membership) throw new Error('Usuário não pertence a esta organização');
+  const { data, error } = await admin.from('ai_settings').select('*').eq('tenant_id', tenantId).single();
   if (error || !data) throw new Error('AI settings not found');
   return data as AISettings;
 }
@@ -58,7 +58,7 @@ function endpointFor(provider: string): string {
  * Calls Anthropic and converts the streamed events to OpenAI-style SSE chunks
  * so that the frontend parser can stay unchanged.
  */
-async function streamAnthropic(messages: ChatMessage[], model: string, apiKey: string, system: string | null): Promise<Response> {
+async function streamAnthropic(messages: ChatMessage[], model: string, apiKey: string, system: string | null, corsHeaders: Record<string, string>): Promise<Response> {
   const sysParts = messages.filter((m) => m.role === 'system').map((m) => m.content);
   if (system) sysParts.unshift(system);
   const userMsgs = messages.filter((m) => m.role !== 'system').map((m) => ({ role: m.role, content: m.content }));
@@ -129,17 +129,22 @@ async function streamAnthropic(messages: ChatMessage[], model: string, apiKey: s
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get('origin'));
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, stream = true, tools, tool_choice } = await req.json();
+    const { messages, tenantId, stream = true, tools, tool_choice } = await req.json();
+    const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
+    if (!token || !tenantId) {
+      return new Response(JSON.stringify({ error: 'Authorization e tenantId são obrigatórios' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: 'messages must be an array' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const settings = await loadSettings();
+    const settings = await loadSettings(token, tenantId);
     if (!settings.enabled) {
       return new Response(JSON.stringify({ error: 'AI is disabled in settings' }), {
         status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -150,7 +155,7 @@ Deno.serve(async (req) => {
 
     // Anthropic uses a different request schema — handle separately.
     if (settings.provider === 'anthropic') {
-      return await streamAnthropic(messages, settings.model, apiKey, settings.system_prompt_override);
+      return await streamAnthropic(messages, settings.model, apiKey, settings.system_prompt_override, corsHeaders);
     }
 
     // Inject system prompt override if provided.

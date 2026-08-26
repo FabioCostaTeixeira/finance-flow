@@ -1,0 +1,2 @@
+const allowed=(Deno.env.get('ALLOWED_ORIGINS')??'').split(',').map(x=>x.trim()).filter(Boolean);
+export function corsHeaders(origin:string|null):Record<string,string>{const o=origin&&allowed.includes(origin)?origin:allowed[0]??'';return {'Access-Control-Allow-Origin':o,'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type, x-api-key','Access-Control-Allow-Methods':'GET, POST, PUT, PATCH, DELETE, OPTIONS','Vary':'Origin'};}

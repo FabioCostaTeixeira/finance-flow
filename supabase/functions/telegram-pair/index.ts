@@ -1,11 +1,7 @@
 // Gera um token de pareamento curto para o usuário vincular o Telegram dele.
 // Frontend chama essa função (com auth do usuário); ela cria/atualiza o registro em messaging_channels.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders as getCorsHeaders } from '../_shared/cors.ts';
 
 function generateToken(): string {
   // 8 caracteres alfanuméricos legíveis
@@ -16,6 +12,7 @@ function generateToken(): string {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get('origin'));
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
@@ -36,13 +33,18 @@ Deno.serve(async (req) => {
     }
 
     const userId = claimsData.claims.sub as string;
+    const { tenantId } = await req.clone().json().catch(() => ({ tenantId: null }));
+    if (!tenantId) return new Response(JSON.stringify({ error: 'tenantId é obrigatório' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     const admin = createClient(supabaseUrl, serviceKey);
+    const { data: membership } = await admin.from('tenant_members').select('tenant_id').eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle();
+    if (!membership) return new Response(JSON.stringify({ error: 'Usuário não pertence a esta organização' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     // Revoga pares pendentes anteriores deste usuário
     await admin
       .from('messaging_channels')
       .delete()
       .eq('user_id', userId)
+      .eq('tenant_id', tenantId)
       .eq('channel_type', 'telegram')
       .eq('status', 'pending');
 
@@ -53,6 +55,7 @@ Deno.serve(async (req) => {
       .from('messaging_channels')
       .insert({
         user_id: userId,
+        tenant_id: tenantId,
         channel_type: 'telegram',
           pairing_token: pairingToken,
         pairing_expires_at: expiresAt.toISOString(),

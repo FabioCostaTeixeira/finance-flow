@@ -2,11 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { addDays } from "https://esm.sh/date-fns@3.6.0";
 import { formatInTimeZone, fromZonedTime } from "https://esm.sh/date-fns-tz@3.0.0?deps=date-fns@3.6.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders as getCorsHeaders } from "../_shared/cors.ts";
 
 const throttle = (limit: number) => {
   let tokens = limit;
@@ -26,9 +22,9 @@ const throttle = (limit: number) => {
 };
 const aiThrottle = throttle(30);
 
-async function getAIConfig(supabase: any, fallbackKey: string | null) {
+async function getAIConfig(supabase: any, fallbackKey: string | null, tenantId: string) {
   try {
-    const { data } = await supabase.from("ai_settings").select("*").eq("id", 1).single();
+    const { data } = await supabase.from("ai_settings").select("*").eq("tenant_id", tenantId).single();
     if (!data || data.enabled === false) {
       if (!fallbackKey) throw new Error("AI is disabled and no fallback key configured");
       return { endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions", apiKey: fallbackKey, model: "google/gemini-3-flash-preview", systemOverride: null };
@@ -67,6 +63,7 @@ async function executeToolCall(
   lastUserMessage: string,
   bancos: any[],
   categorias: any[],
+  tenantId: string,
 ): Promise<{ tool_call_id: string; content: string }> {
   const tool_call_id = toolCall.id;
   const name = toolCall.function.name;
@@ -111,6 +108,7 @@ async function executeToolCall(
       const { data: novo, error: insertError } = await supabase
         .from("lancamentos")
         .insert({
+          tenant_id: tenantId,
           tipo: args.tipo,
           cliente_credor: args.cliente_credor,
           valor: args.valor,
@@ -152,7 +150,7 @@ async function executeToolCall(
       const { data: atualizado, error: updateError } = await supabase
         .from("lancamentos")
         .update(updateData)
-        .eq("id", args.id)
+        .eq("id", args.id).eq("tenant_id", tenantId)
         .select()
         .single();
 
@@ -163,10 +161,10 @@ async function executeToolCall(
     if (name === "excluir_lancamento") {
       if (!args.id) return fail("ID do lançamento é obrigatório para exclusão");
 
-      const { data: existente } = await supabase.from("lancamentos").select("*").eq("id", args.id).single();
+      const { data: existente } = await supabase.from("lancamentos").select("*").eq("id", args.id).eq("tenant_id", tenantId).single();
       if (!existente) return fail("Lançamento não encontrado");
 
-      const { error: deleteError } = await supabase.from("lancamentos").delete().eq("id", args.id);
+      const { error: deleteError } = await supabase.from("lancamentos").delete().eq("id", args.id).eq("tenant_id", tenantId);
       if (deleteError) return fail(`Erro ao excluir: ${deleteError.message}`);
 
       return ok(`Lançamento de ${existente.cliente_credor} - R$ ${Number(existente.valor).toFixed(2)} excluído com sucesso!`, existente);
@@ -177,7 +175,7 @@ async function executeToolCall(
         return fail("Dados obrigatórios faltando. Necessário: id, valor_pago, data_pagamento");
       }
 
-      const { data: lancamento, error: fetchError } = await supabase.from("lancamentos").select("*").eq("id", args.id).single();
+      const { data: lancamento, error: fetchError } = await supabase.from("lancamentos").select("*").eq("id", args.id).eq("tenant_id", tenantId).single();
       if (fetchError || !lancamento) return fail("Lançamento não encontrado");
 
       const valorTotal = Number(lancamento.valor);
@@ -191,7 +189,7 @@ async function executeToolCall(
       const { data: baixado, error: baixaError } = await supabase
         .from("lancamentos")
         .update({ valor_pago: novoValorPago, status: novoStatus, data_pagamento: normalizedPaymentDate })
-        .eq("id", args.id)
+        .eq("id", args.id).eq("tenant_id", tenantId)
         .select()
         .single();
 
@@ -214,13 +212,14 @@ async function executeToolCall(
 
       const normalizedDate = normalizeDateInput(args.data) || data_base;
 
-      const { data: bancoOrigem } = await supabase.from("bancos").select("nome").eq("id", args.banco_origem_id).single();
-      const { data: bancoDestino } = await supabase.from("bancos").select("nome").eq("id", args.banco_destino_id).single();
+      const { data: bancoOrigem } = await supabase.from("bancos").select("nome").eq("id", args.banco_origem_id).eq("tenant_id", tenantId).single();
+      const { data: bancoDestino } = await supabase.from("bancos").select("nome").eq("id", args.banco_destino_id).eq("tenant_id", tenantId).single();
       if (!bancoOrigem || !bancoDestino) return fail("Banco de origem ou destino não encontrado. Verifique os IDs.");
 
       const vinculoId = crypto.randomUUID();
 
       const { error: errorSaida } = await supabase.from("lancamentos").insert({
+        tenant_id: tenantId,
         data_vencimento: normalizedDate,
         cliente_credor: `Transferência para ${bancoDestino.nome}`,
         valor: args.valor,
@@ -236,6 +235,7 @@ async function executeToolCall(
       if (errorSaida) return fail(`Erro ao criar saída: ${errorSaida.message}`);
 
       const { error: errorEntrada } = await supabase.from("lancamentos").insert({
+        tenant_id: tenantId,
         data_vencimento: normalizedDate,
         cliente_credor: `Transferência de ${bancoOrigem.nome}`,
         valor: args.valor,
@@ -255,6 +255,7 @@ async function executeToolCall(
 
     if (name === "consultar_saldo") {
       const { data: saldos, error: saldosErr } = await supabase.rpc("get_bancos_com_saldos", {
+        _tenant: tenantId,
         data_inicio: args.data_inicio || null,
         data_fim: args.data_fim || null,
       });
@@ -272,6 +273,7 @@ async function executeToolCall(
       let q = supabase
         .from("lancamentos")
         .select("id, tipo, cliente_credor, valor, valor_pago, data_vencimento, data_pagamento, status, observacao, bancos(nome), categorias(nome)")
+        .eq("tenant_id", tenantId)
         .order("data_vencimento", { ascending: false })
         .limit(Math.min(Number(args.limite) || 20, 50));
 
@@ -307,12 +309,7 @@ async function executeToolCall(
         return fail("Apenas consultas SELECT são permitidas");
       }
 
-      const { data: sqlResult, error: sqlErr } = await supabase.rpc("execute_readonly_query", { query_text: args.query });
-      if (sqlErr) return fail(sqlErr.message);
-
-      const rows = Array.isArray(sqlResult) ? sqlResult : [];
-      // Limit rows for token budget
-      return ok(`Query OK. ${rows.length} linha(s).`, { count: rows.length, data: rows.slice(0, 20) });
+      return fail("execução de SQL arbitrário foi desativada; use as ferramentas com escopo do tenant");
     }
 
     if (name === "atualizar_em_massa") {
@@ -321,7 +318,7 @@ async function executeToolCall(
       }
 
       // Build filter query
-      let q = supabase.from("lancamentos").select("id, cliente_credor, valor, data_vencimento");
+      let q = supabase.from("lancamentos").select("id, cliente_credor, valor, data_vencimento").eq("tenant_id", tenantId);
       if (args.cliente_credor) q = q.ilike("cliente_credor", `%${args.cliente_credor}%`);
       if (args.data_a_partir) q = q.gte("data_vencimento", args.data_a_partir);
       if (args.data_ate) q = q.lte("data_vencimento", args.data_ate);
@@ -353,7 +350,7 @@ async function executeToolCall(
       const { error: updateErr } = await supabase
         .from("lancamentos")
         .update(updateData)
-        .in("id", ids);
+        .in("id", ids).eq("tenant_id", tenantId);
 
       if (updateErr) return fail(`Erro ao atualizar: ${updateErr.message}`);
 
@@ -372,12 +369,16 @@ async function executeToolCall(
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("origin"));
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, tenantId } = await req.json();
+    if (!tenantId || typeof tenantId !== "string") {
+      return new Response(JSON.stringify({ error: "tenantId é obrigatório" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || null;
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -393,13 +394,16 @@ serve(async (req) => {
       });
     }
 
-    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
-    const aiCfg = await getAIConfig(supabase, LOVABLE_API_KEY);
+    const admin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+    const { data: membership } = await admin.from("tenant_members").select("tenant_id").eq("user_id", user.id).eq("tenant_id", tenantId).maybeSingle();
+    if (!membership) return new Response(JSON.stringify({ error: "Usuário sem organização" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const aiCfg = await getAIConfig(admin, LOVABLE_API_KEY, tenantId);
+    const supabase = createClient(SUPABASE_URL!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: `Bearer ${token}` } } });
 
     // Lazy loading: only fetch lightweight reference data (bancos + categorias)
     const [bancosRes, categoriasRes] = await Promise.all([
-      supabase.from("bancos").select("*"),
-      supabase.from("categorias").select("*"),
+      supabase.from("bancos").select("*").eq("tenant_id", tenantId),
+      supabase.from("categorias").select("*").eq("tenant_id", tenantId),
     ]);
     const bancos = bancosRes.data || [];
     const categorias = categoriasRes.data || [];
@@ -690,7 +694,7 @@ Para edições em massa (recorrentes): use atualizar_em_massa com filtros. Alter
     const toolResults: any[] = [];
     for (const toolCall of choice.message.tool_calls) {
       const result = await executeToolCall(
-        toolCall, supabase, data_base, normalizeDateInput, lastUserMessage, bancos, categorias,
+        toolCall, supabase, data_base, normalizeDateInput, lastUserMessage, bancos, categorias, tenantId,
       );
       toolResults.push(result);
     }
