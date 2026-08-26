@@ -1,11 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useTenant } from '@/contexts/TenantContext';
 
 export interface ApiKey {
   id: string;
   nome: string;
-  chave: string;
+  hash: string;
+  prefixo: string;
+  tenant_id: string;
   ativa: boolean;
   ultimo_acesso: string | null;
   created_at: string;
@@ -23,8 +26,9 @@ export interface ApiAccessLog {
 }
 
 export function useApiKeys() {
+  const { activeTenant } = useTenant();
   return useQuery({
-    queryKey: ['api-keys'],
+    queryKey: ['api-keys', activeTenant?.id], enabled: !!activeTenant,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('api_keys')
@@ -39,8 +43,9 @@ export function useApiKeys() {
 }
 
 export function useApiAccessLogs(apiKeyId?: string) {
+  const { activeTenant } = useTenant();
   return useQuery({
-    queryKey: ['api-access-logs', apiKeyId],
+    queryKey: ['api-access-logs', activeTenant?.id, apiKeyId],
     queryFn: async () => {
       let query = supabase
         .from('api_access_logs')
@@ -63,19 +68,22 @@ export function useApiAccessLogs(apiKeyId?: string) {
 
 export function useCreateApiKey() {
   const queryClient = useQueryClient();
+  const { activeTenant } = useTenant();
 
   return useMutation({
     mutationFn: async (nome: string) => {
+      if (!activeTenant) throw new Error('Nenhuma organização ativa');
       const chave = `mk_${crypto.randomUUID().replace(/-/g, '')}`;
-      
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(chave));
+      const hash = Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
       const { data, error } = await supabase
         .from('api_keys')
-        .insert({ nome, chave })
+        .insert({ nome, hash, prefixo: chave.slice(0,11), tenant_id: activeTenant.id })
         .select()
         .single();
 
       if (error) throw error;
-      return data as ApiKey;
+      return { ...data as ApiKey, chaveEmClaro: chave };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['api-keys'] });

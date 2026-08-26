@@ -18,6 +18,7 @@ export default function ApiKeysPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
   const [selectedKeyId, setSelectedKeyId] = useState<string | null>(null);
+  const [createdKey, setCreatedKey] = useState<string | null>(null);
 
   const { data: apiKeys = [], isLoading } = useApiKeys();
   const { data: accessLogs = [] } = useApiAccessLogs(selectedKeyId || undefined);
@@ -27,7 +28,8 @@ export default function ApiKeysPage() {
 
   const handleCreate = async () => {
     if (!newKeyName.trim()) return;
-    await createKey.mutateAsync(newKeyName.trim());
+    const result = await createKey.mutateAsync(newKeyName.trim());
+    setCreatedKey(result.chaveEmClaro);
     setNewKeyName('');
     setIsCreateOpen(false);
   };
@@ -102,6 +104,18 @@ export default function ApiKeysPage() {
                 <Button onClick={handleCreate} disabled={!newKeyName.trim() || createKey.isPending}>
                   Criar Chave
                 </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={!!createdKey} onOpenChange={(open) => !open && setCreatedKey(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Chave criada</DialogTitle>
+                <DialogDescription>Copie agora. Esta chave não será exibida novamente.</DialogDescription>
+              </DialogHeader>
+              <code className="rounded bg-muted p-3 break-all">{createdKey}</code>
+              <DialogFooter>
+                <Button onClick={() => createdKey && copyToClipboard(createdKey)}>Copiar chave</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -181,7 +195,7 @@ export default function ApiKeysPage() {
                             
                             <div className="flex items-center gap-2 bg-muted/30 p-2 rounded-lg">
                               <code className="text-sm flex-1 font-mono text-foreground">
-                                {visibleKeys[key.id] ? key.chave : maskKey(key.chave)}
+                                {key.prefixo}••••••••
                               </code>
                               <Button
                                 variant="ghost"
@@ -193,7 +207,7 @@ export default function ApiKeysPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => copyToClipboard(key.chave)}
+                                onClick={() => copyToClipboard(key.prefixo)}
                               >
                                 <Copy className="w-4 h-4" />
                               </Button>
