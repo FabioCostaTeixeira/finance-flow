@@ -4,6 +4,12 @@ Status: catálogo de planejamento. Nenhuma ferramenta deste documento está publ
 
 Fonte executável: `mcp/src/contracts/tools.ts` (`MCP_TOOL_CONTRACT_VERSION = 1.1.0`). Cada uma das 79 entradas tem JSON Schema canônico: tipo, formato (`uuid`, `date`, `date-time`, `decimal`, `sha256`), enum, regex decimal, limites de texto/número/array (`minItems`/`maxItems`), `required` e `additionalProperties: false`; sucesso e erro também são schemas estruturados. Cada entrada inclui exemplos concretos de entrada e saída, validados contra o schema. `tools/list` só pode usar `PUBLIC_MCP_TOOL_DEFINITIONS`, que converte esse schema em `inputSchema`; não existe schema vazio/de fachada.
 
+## Validação Task 1 — 2026-08-26
+
+- Contratos reforçados: `get_schema` publica `properties`, `required`, formatos e limites; cadastros e anexos exigem campos de concorrência corretos; lote exige pelo menos um item, simulação vinculada, versão e idempotência por item.
+- Teste focado: `mcp/src/contracts/tools.test.ts`, 10/10 aprovados.
+- `cd mcp && npx tsc --noEmit`: permanecem somente cinco casts preexistentes em `src/index.ts` (linhas 550, 577, 732, 792 e 834). Não há erro novo de contratos, testes ou dispatcher.
+
 Uma ferramenta entra em `tools/list` somente com `status: connected` e handler real em `CONNECTED_MCP_HANDLERS`. Esse registro aceita apenas funções `McpToolHandler`, jamais booleanos/marcadores, e `tools/call` consulta o mesmo registro antes de despachar. O catálogo atual mantém todas como `planned`, logo a lista pública é vazia até haver contexto autenticado, handler e teste.
 
 ## Contrato comum HTTP e MCP

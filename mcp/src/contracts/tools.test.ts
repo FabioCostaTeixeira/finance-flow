@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   CONNECTED_MCP_HANDLERS,
@@ -26,13 +26,21 @@ type Schema = {
 };
 
 function expectExampleToMatchSchema(schema: Schema, value: unknown, path = "$"): void {
-  if (schema.enum) expect(value, `${path} enum`).toBeOneOf(schema.enum);
+  if (schema.enum) expect([...schema.enum], `${path} enum`).toContain(value);
   if (schema.type === "string") {
     expect(typeof value, `${path} type`).toBe("string");
     const text = value as string;
     if (schema.minLength !== undefined) expect(text.length, `${path} minLength`).toBeGreaterThanOrEqual(schema.minLength);
     if (schema.maxLength !== undefined) expect(text.length, `${path} maxLength`).toBeLessThanOrEqual(schema.maxLength);
     if (schema.pattern) expect(text, `${path} pattern`).toMatch(new RegExp(schema.pattern));
+    if (schema.format === "uuid") expect(text, `${path} uuid`).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    if (schema.format === "date") {
+      expect(text, `${path} date shape`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(Number.isNaN(Date.parse(`${text}T00:00:00.000Z`)), `${path} date`).toBe(false);
+    }
+    if (schema.format === "date-time") expect(Number.isNaN(Date.parse(text)), `${path} date-time`).toBe(false);
+    if (schema.format === "uri") expect(() => new URL(text), `${path} uri`).not.toThrow();
+    if (schema.format === "sha256") expect(text, `${path} sha256`).toMatch(/^[a-f0-9]{64}$/i);
     return;
   }
   if (schema.type === "integer") {
@@ -67,7 +75,8 @@ function expectExampleToMatchSchema(schema: Schema, value: unknown, path = "$"):
   if (schema.maximum !== undefined) expect(value as number, `${path} maximum`).toBeLessThanOrEqual(schema.maximum);
 }
 
-const mcpIndex = readFileSync(resolve(process.cwd(), "mcp/src/index.ts"), "utf8");
+const mcpIndex = readFileSync(fileURLToPath(new URL("../index.ts", import.meta.url)), "utf8");
+const tool = (name: string) => TOOL_CONTRACTS.find((contract) => contract.name === name)!;
 const EXPECTED_TOOL_NAMES = [
   "health_check", "get_capabilities", "get_schema", "get_current_context", "get_api_version",
   "listar_lancamentos", "obter_lancamento", "verificar_duplicidade", "criar_lancamento", "atualizar_lancamento", "cancelar_lancamento", "excluir_lancamento", "restaurar_lancamento",
@@ -114,6 +123,8 @@ describe("MCP tool contracts", () => {
     for (const tool of TOOL_CONTRACTS) {
       const inputFields = tool.input.properties;
       const isWrite = tool.mode === "write";
+      expect(tool.http.requiredHeaders).toContain("X-API-Key");
+      expect(tool.http.requiredHeaders).toContain("X-Request-Id");
       expect(tool.idempotency === "required").toBe(isWrite);
       expect(tool.http.requiredHeaders.includes("Idempotency-Key")).toBe(isWrite);
       expect(tool.mode === "read").toBe(tool.idempotency === "not-applicable");
@@ -163,6 +174,71 @@ describe("MCP tool contracts", () => {
       visit(tool.output.success);
       visit(tool.output.error);
     });
+  });
+
+  it("returns complete public tool schemas from get_schema", () => {
+    const data = tool("get_schema").output.success.properties.data!;
+    const schema = data.properties!.schema!;
+    const inputSchema = schema.properties!.input_schema!;
+    expect(inputSchema.type).toBe("object");
+    expect(inputSchema.properties!).toMatchObject({
+      type: { type: "string" },
+      format: { type: "string", enum: ["uuid", "date", "date-time", "decimal", "uri", "sha256"] },
+      properties: { type: "object" },
+      required: { type: "array" },
+      minimum: { type: "number" },
+      minLength: { type: "integer" },
+      maximum: { type: "number" },
+      maxItems: { type: "integer" },
+    });
+    expect(inputSchema.additionalProperties).toBe(false);
+  });
+
+  it("makes update and cadastro schemas exact", () => {
+    for (const name of ["atualizar_lancamento", "atualizar_recorrencia", "atualizar_banco", "atualizar_categoria", "atualizar_cliente_credor"]) {
+      expect(tool(name).input.required).toContain("patch");
+    }
+    expect(tool("mover_categoria").input.required).toContain("categoria_pai_id");
+    expect(tool("mesclar_clientes_credores").input.required).toContain("destino_id");
+
+    const controls = ["id", "expected_version", "confirmation_token", "dry_run"];
+    for (const name of ["atualizar_banco", "atualizar_categoria", "atualizar_cliente_credor"]) {
+      expect(Object.keys(tool(name).input.properties).sort()).toEqual([...controls, "patch"].sort());
+    }
+    expect(Object.keys(tool("mover_categoria").input.properties).sort()).toEqual([...controls, "categoria_pai_id"].sort());
+    expect(Object.keys(tool("mesclar_clientes_credores").input.properties).sort()).toEqual([...controls, "destino_id"].sort());
+
+    for (const name of ["arquivar_banco", "reativar_banco", "arquivar_categoria", "reativar_categoria", "arquivar_cliente_credor"]) {
+      const fields = tool(name).input.properties;
+      expect(Object.keys(fields).sort()).toEqual([...controls].sort());
+      expect(fields).not.toHaveProperty("patch");
+      expect(fields).not.toHaveProperty("destino_id");
+      expect(fields).not.toHaveProperty("categoria_pai_id");
+      expect(tool(name).input.additionalProperties).toBe(false);
+    }
+  });
+
+  it("binds batch execution to simulated, versioned and idempotent items", () => {
+    const simulation = tool("simular_lote");
+    const execute = tool("executar_lote");
+    const operation = execute.input.properties.operacoes.items!;
+
+    expect(simulation.input.properties.operacoes.minItems).toBe(1);
+    expect(execute.input.properties.operacoes.minItems).toBe(1);
+    expect(execute.input.required).toContain("simulacao_id");
+    expect(execute.input.properties.simulacao_id).toMatchObject({ type: "string", format: "uuid" });
+    expect(operation.additionalProperties).toBe(false);
+    expect(operation.required).toEqual(expect.arrayContaining(["tool", "target_id", "expected_version", "item_idempotency_key", "payload"]));
+    expect(operation.properties!.payload).toMatchObject({ type: "object", additionalProperties: false });
+    expect(execute.http.requiredHeaders).toContain("Idempotency-Key");
+    expect(execute.limits.maxBatchItems).toBe(250);
+  });
+
+  it("requires version protection for comprovante associations", () => {
+    for (const name of ["associar_comprovante_lancamento", "remover_associacao_comprovante"]) {
+      expect(tool(name).expectedVersion).toBe("required");
+      expect(tool(name).input.required).toContain("expected_version");
+    }
   });
 
   it("publishes only executable connected handlers and forwards full canonical inputSchema", () => {
