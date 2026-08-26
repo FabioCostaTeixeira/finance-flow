@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeftRight, TrendingUp, TrendingDown } from 'lucide-react';
@@ -8,9 +7,7 @@ import { format, parseISO, startOfMonth, endOfMonth, isAfter, isBefore, startOfD
 import { ptBR } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
-import { LancamentoExtendido } from '@/hooks/useLancamentos';
-import { supabase } from '@/integrations/supabase/client';
-import { useTenant } from '@/contexts/TenantContext';
+import { LancamentoExtendido, useLancamentos } from '@/hooks/useLancamentos';
 import { useBancos } from '@/hooks/useBancos';
 import { formatCurrency } from '@/lib/recurrence';
 import { cn } from '@/lib/utils';
@@ -47,8 +44,7 @@ export default function FluxoCaixaPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const bancoIdFromUrl = searchParams.get('bancoId');
-  const { activeTenant } = useTenant();
-  
+
   const [date, setDate] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
@@ -58,42 +54,10 @@ export default function FluxoCaixaPage() {
   const [despesaFormOpen, setDespesaFormOpen] = useState(false);
   const [transferenciaOpen, setTransferenciaOpen] = useState(false);
 
-  const { data: fluxo = [], isLoading } = useQuery({
-    queryKey: ['fluxo-caixa', activeTenant?.id, date?.from?.toISOString(), date?.to?.toISOString()],
-    enabled: !!activeTenant,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_fluxo_caixa', {
-        _tenant: activeTenant!.id,
-        _data_inicio: date?.from ? format(date.from, 'yyyy-MM-dd') : null,
-        _data_fim: date?.to ? format(date.to, 'yyyy-MM-dd') : null,
-      });
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-  const lancamentos: LancamentoExtendido[] = fluxo.map((mes) => ({
-    id: `fluxo-${mes.mes}`,
-    tenant_id: activeTenant!.id,
-    tipo: 'receita',
-    status: 'recebido',
-    cliente_credor: `Resumo de ${mes.mes}`,
-    valor: Number(mes.entradas) + Number(mes.saidas),
-    valor_pago: Number(mes.entradas),
-    banco_id: null,
-    categoria_id: null,
-    recorrencia_id: null,
-    parcela_atual: 1,
-    total_parcelas: 1,
-    observacao: null,
-    transferencia_vinculo_id: null,
-    frequencia: null,
-    created_at: mes.mes,
-    updated_at: mes.mes,
-    data_pagamento: mes.mes,
-    data_vencimento: mes.mes,
-    bancos: undefined,
-    categorias: undefined,
-  } as LancamentoExtendido));
+  // Extrato linha a linha, não agregado mensal: a policy `lancamentos_select`
+  // libera SELECT para quem tem o módulo 'fluxo-caixa', então a tela mostra o
+  // histórico real de entradas e saídas (coberto por src/test/rls/fluxo_caixa.test.ts).
+  const { data: lancamentos = [], isLoading } = useLancamentos();
   const { data: bancos = [] } = useBancos();
 
   const filteredLancamentos = useMemo(() => {
@@ -109,7 +73,9 @@ export default function FluxoCaixaPage() {
         if (selectedBancoId && lancamento.banco_id !== selectedBancoId) return false;
         return true;
       })
-      .sort((a, b) => getDataEfetiva(b).getTime() - getDataEfetiva(a).getTime());
+      // Ordem cronológica (mais antigo primeiro): é o que faz o saldo acumulado
+      // de cada linha significar "saldo até esta data", como num extrato.
+      .sort((a, b) => getDataEfetiva(a).getTime() - getDataEfetiva(b).getTime());
   }, [lancamentos, date, selectedBancoId]);
 
   // Calcular fluxo de caixa com saldo acumulado e colunas separadas
@@ -156,6 +122,8 @@ export default function FluxoCaixaPage() {
         realizado,
         aPagar,
         pago,
+        entrada: realizado + aReceber,
+        saida: pago + aPagar,
         saldoAcumulado,
       };
     });
@@ -192,22 +160,6 @@ export default function FluxoCaixaPage() {
     } else {
       navigate('/fluxo-caixa', { replace: true });
     }
-  };
-
-  const getValueColorClass = (lancamento: typeof fluxoComSaldo[0]) => {
-    if (lancamento.realizado > 0) return 'text-success';
-    if (lancamento.aReceber > 0) return 'text-blue-400';
-    if (lancamento.pago > 0) return 'text-destructive';
-    if (lancamento.aPagar > 0) return 'text-purple-400';
-    return 'text-foreground';
-  };
-
-  const getDisplayValue = (lancamento: typeof fluxoComSaldo[0]) => {
-    if (lancamento.realizado > 0) return lancamento.realizado;
-    if (lancamento.aReceber > 0) return lancamento.aReceber;
-    if (lancamento.pago > 0) return lancamento.pago;
-    if (lancamento.aPagar > 0) return lancamento.aPagar;
-    return Number(lancamento.valor);
   };
 
   const selectedBancoName = selectedBancoId
@@ -296,13 +248,15 @@ export default function FluxoCaixaPage() {
               <TableHead className="text-muted-foreground">Descrição</TableHead>
               <TableHead className="text-muted-foreground">Banco</TableHead>
               <TableHead className="text-muted-foreground">Status</TableHead>
-              <TableHead className="text-muted-foreground text-right">Valor</TableHead>
+              <TableHead className="text-muted-foreground text-right">Entrada</TableHead>
+              <TableHead className="text-muted-foreground text-right">Saída</TableHead>
+              <TableHead className="text-muted-foreground text-right">Saldo</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   <div className="flex items-center justify-center">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
                   </div>
@@ -310,7 +264,7 @@ export default function FluxoCaixaPage() {
               </TableRow>
             ) : fluxoComSaldo.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   Nenhuma movimentação encontrada para o período.
                 </TableCell>
               </TableRow>
@@ -331,8 +285,31 @@ export default function FluxoCaixaPage() {
                     {lancamento.bancos?.nome || '-'}
                   </TableCell>
                   <TableCell><StatusLabel lancamento={lancamento} /></TableCell>
-                  <TableCell className={cn('text-right font-bold', getValueColorClass(lancamento))}>
-                    {formatCurrency(getDisplayValue(lancamento))}
+                  <TableCell className="text-right font-medium">
+                    {lancamento.entrada > 0 ? (
+                      <span className={lancamento.realizado > 0 ? 'text-success' : 'text-blue-400'}>
+                        {formatCurrency(lancamento.entrada)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {lancamento.saida > 0 ? (
+                      <span className={lancamento.pago > 0 ? 'text-destructive' : 'text-purple-400'}>
+                        {formatCurrency(lancamento.saida)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell
+                    className={cn(
+                      'text-right font-bold',
+                      lancamento.saldoAcumulado < 0 ? 'text-destructive' : 'text-foreground'
+                    )}
+                  >
+                    {formatCurrency(lancamento.saldoAcumulado)}
                   </TableCell>
                 </motion.tr>
               ))
