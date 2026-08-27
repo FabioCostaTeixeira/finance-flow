@@ -32,21 +32,17 @@ Deno.serve(async (req) => {
     const token = req.headers.get('Authorization')?.replace('Bearer ', '');
     if (!token) return out({ error: 'Não autorizado' }, 401);
 
-    // Client "normal" (anon key + JWT do usuário) só para confirmar auth.uid() de forma confiável.
-    // Nunca confiamos em um user_id vindo do body da requisição.
     const authClient = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
+      global: { headers: { Authorization: Bearer  } },
       auth: { autoRefreshToken: false, persistSession: false },
     });
     const { data: { user }, error: authError } = await authClient.auth.getUser();
     if (authError || !user) return out({ error: 'Não autorizado' }, 401);
 
-    // Client service_role: único jeito de ler platform_operators/tenant_members entre tenants.
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Primeiro passo de TODO request: confirma que é operador de plataforma. Sem exceção.
     const { data: operatorRow } = await admin
       .from('platform_operators')
       .select('user_id')
@@ -80,6 +76,30 @@ Deno.serve(async (req) => {
         const { data, error } = await admin
           .from('tenants')
           .insert({ nome, slug })
+          .select('id, nome, slug, plano, ativo, created_at')
+          .single();
+        if (error) return out({ error: error.code === '23505' ? 'Já existe um tenant com esse slug' : error.message }, 400);
+        return out({ tenant: data }, 200);
+      }
+
+      case 'update_tenant': {
+        const tenantId = body.tenant_id as string | undefined;
+        const nome = (body.nome as string | undefined)?.trim();
+        const slugRaw = (body.slug as string | undefined)?.trim();
+        if (!tenantId || (!nome && !slugRaw)) return out({ error: 'tenant_id e nome/slug são obrigatórios' }, 400);
+
+        const updates: Record<string, string> = {};
+        if (nome) updates.nome = nome;
+        if (slugRaw) {
+          const slug = sanitizeSlug(slugRaw);
+          if (!slug) return out({ error: 'Slug inválido' }, 400);
+          updates.slug = slug;
+        }
+
+        const { data, error } = await admin
+          .from('tenants')
+          .update(updates)
+          .eq('id', tenantId)
           .select('id, nome, slug, plano, ativo, created_at')
           .single();
         if (error) return out({ error: error.code === '23505' ? 'Já existe um tenant com esse slug' : error.message }, 400);

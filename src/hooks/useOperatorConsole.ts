@@ -52,6 +52,15 @@ export function useCreateTenant() {
   });
 }
 
+export function useUpdateTenant() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { tenant_id: string; nome?: string; slug?: string }) =>
+      callOperatorConsole<{ tenant: OperatorTenant }>('update_tenant', input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['operator-console', 'tenants'] }),
+  });
+}
+
 export function useToggleTenantAtivo() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { useOperatorTenants, useCreateTenant, useToggleTenantAtivo } from '@/hooks/useOperatorConsole';
+import { useOperatorTenants, useCreateTenant, useToggleTenantAtivo, useUpdateTenant } from '@/hooks/useOperatorConsole';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -10,19 +10,26 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Building2, Plus, LogOut } from 'lucide-react';
+import { Loader2, Building2, Plus, LogOut, Pencil } from 'lucide-react';
 
 export default function OperatorDashboard() {
   const { signOut, userName } = useAuth();
   const { toast } = useToast();
   const { data: tenants, isLoading } = useOperatorTenants();
   const createTenant = useCreateTenant();
+  const updateTenant = useUpdateTenant();
   const toggleAtivo = useToggleTenantAtivo();
 
   const [nome, setNome] = useState('');
   const [slug, setSlug] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+
+  // Modal para editar nome do tenant
+  const [editingTenant, setEditingTenant] = useState<{ id: string; nome: string } | null>(null);
+  const [editNome, setEditNome] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,13 +37,33 @@ export default function OperatorDashboard() {
     setIsCreating(true);
     try {
       await createTenant.mutateAsync({ nome: nome.trim(), slug: slug.trim() });
-      toast({ title: 'Tenant criado', description: `${nome} foi criado com sucesso` });
+      toast({ title: 'Tenant criado', description: nome + ' foi criado com sucesso' });
       setNome('');
       setSlug('');
     } catch (error) {
       toast({ title: 'Erro', description: error instanceof Error ? error.message : 'Erro ao criar tenant', variant: 'destructive' });
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleOpenEdit = (tenant: { id: string; nome: string }) => {
+    setEditingTenant(tenant);
+    setEditNome(tenant.nome);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTenant || !editNome.trim()) return;
+    setIsUpdating(true);
+    try {
+      await updateTenant.mutateAsync({ tenant_id: editingTenant.id, nome: editNome.trim() });
+      toast({ title: 'Tenant atualizado', description: 'Nome alterado com sucesso' });
+      setEditingTenant(null);
+    } catch (error) {
+      toast({ title: 'Erro', description: error instanceof Error ? error.message : 'Erro ao atualizar tenant', variant: 'destructive' });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -60,7 +87,7 @@ export default function OperatorDashboard() {
           <div>
             <h1 className="text-3xl font-bold text-gradient-brand">Console de Operador</h1>
             <p className="text-muted-foreground">
-              Área interna de plataforma{userName ? ` — ${userName}` : ''}. Sem acesso a dados financeiros de tenants.
+              Área interna de plataforma{userName ? ' — ' + userName : ''}. Sem acesso a dados financeiros de tenants.
             </p>
           </div>
           <Button variant="outline" onClick={() => signOut()} className="cursor-pointer">
@@ -129,7 +156,7 @@ export default function OperatorDashboard() {
                       <TableHead>Plano</TableHead>
                       <TableHead>Ativo</TableHead>
                       <TableHead>Criado em</TableHead>
-                      <TableHead className="w-[80px]" />
+                      <TableHead className="w-[120px] text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -142,7 +169,7 @@ export default function OperatorDashboard() {
                         className="table-row-hover border-border/30"
                       >
                         <TableCell className="font-medium">
-                          <Link to={`/operador/tenants/${t.id}`} className="text-primary hover:underline cursor-pointer">
+                          <Link to={'/operador/tenants/' + t.id} className="text-primary hover:underline cursor-pointer">
                             {t.nome}
                           </Link>
                         </TableCell>
@@ -152,9 +179,12 @@ export default function OperatorDashboard() {
                           <Switch checked={t.ativo} onCheckedChange={(v) => handleToggle(t.id, v)} className="cursor-pointer" />
                         </TableCell>
                         <TableCell>{new Date(t.created_at).toLocaleDateString('pt-BR')}</TableCell>
-                        <TableCell>
+                        <TableCell className="text-right space-x-1">
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(t)} title="Renomear" className="h-8 w-8 cursor-pointer">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="sm" asChild className="cursor-pointer">
-                            <Link to={`/operador/tenants/${t.id}`}>Ver</Link>
+                            <Link to={'/operador/tenants/' + t.id}>Ver</Link>
                           </Button>
                         </TableCell>
                       </motion.tr>
@@ -166,6 +196,37 @@ export default function OperatorDashboard() {
           </Card>
         </motion.div>
       </div>
+
+      {/* Modal para Editar Nome do Tenant */}
+      <Dialog open={!!editingTenant} onOpenChange={(open) => !open && setEditingTenant(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <form onSubmit={handleSaveEdit}>
+            <DialogHeader>
+              <DialogTitle>Editar Nome da Organização</DialogTitle>
+            </DialogHeader>
+            <div className="py-4 space-y-2">
+              <Label htmlFor="edit-nome">Novo Nome</Label>
+              <Input
+                id="edit-nome"
+                value={editNome}
+                onChange={(e) => setEditNome(e.target.value)}
+                placeholder="Nome da organização"
+                disabled={isUpdating}
+                autoFocus
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditingTenant(null)} disabled={isUpdating}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isUpdating || !editNome.trim()}>
+                {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Salvar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
