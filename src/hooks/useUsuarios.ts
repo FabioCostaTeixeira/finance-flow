@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+﻿import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenant } from '@/contexts/TenantContext';
 
@@ -57,7 +57,26 @@ export function useCreateUsuario() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
-      queryClient.invalidateQueries({ queryKey: ['user_roles'] });
+      queryClient.invalidateQueries({ queryKey: ['tenant_members'] });
+    },
+  });
+}
+
+export function useUpdateProfileNome() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, nome }: { userId: string; nome: string }) => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ nome })
+        .eq('user_id', userId)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
     },
   });
 }
@@ -75,7 +94,7 @@ export function useDeleteUsuario() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
-      queryClient.invalidateQueries({ queryKey: ['user_roles'] });
+      queryClient.invalidateQueries({ queryKey: ['tenant_members'] });
     },
   });
 }

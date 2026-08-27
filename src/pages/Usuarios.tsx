@@ -1,7 +1,7 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProfiles, useUserRoles, useCreateUsuario, useDeleteUsuario } from '@/hooks/useUsuarios';
+import { useProfiles, useUserRoles, useCreateUsuario, useDeleteUsuario, useUpdateProfileNome } from '@/hooks/useUsuarios';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, UserPlus, Trash2, Shield } from 'lucide-react';
+import { Loader2, UserPlus, Trash2, Shield, Pencil, Check, X } from 'lucide-react';
 import { UserPermissionsManager } from '@/components/UserPermissionsManager';
 import { z } from 'zod';
 import {
@@ -40,12 +40,17 @@ export default function Usuarios() {
   const [isCreating, setIsCreating] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Estado para edição do nome do perfil
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editingNome, setEditingNome] = useState('');
+
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
 
   const { data: profiles, isLoading: loadingProfiles } = useProfiles();
   const { data: roles } = useUserRoles();
   const createUserMutation = useCreateUsuario();
+  const updateProfileNomeMutation = useUpdateProfileNome();
   const deleteUserMutation = useDeleteUsuario();
 
   const getUserRole = (userId: string) => roles?.find(r => r.user_id === userId)?.role || 'user';
@@ -89,6 +94,25 @@ export default function Usuarios() {
     }
   };
 
+  const handleStartEditNome = (userId: string, currentNome: string | null) => {
+    setEditingUserId(userId);
+    setEditingNome(currentNome || '');
+  };
+
+  const handleSaveEditNome = async (userId: string) => {
+    if (!editingNome.trim()) {
+      toast({ title: 'Aviso', description: 'O nome não pode estar em branco.', variant: 'destructive' });
+      return;
+    }
+    try {
+      await updateProfileNomeMutation.mutateAsync({ userId, nome: editingNome.trim() });
+      toast({ title: 'Sucesso!', description: 'Nome atualizado com sucesso.' });
+      setEditingUserId(null);
+    } catch {
+      toast({ title: 'Erro', description: 'Não foi possível atualizar o nome.', variant: 'destructive' });
+    }
+  };
+
   const handleDeleteUser = async (userId: string) => {
     try {
       await deleteUserMutation.mutateAsync(userId);
@@ -103,7 +127,7 @@ export default function Usuarios() {
       case 'master':
         return <Badge className="bg-purple-500 hover:bg-purple-600">Master</Badge>;
       case 'admin':
-        return <Badge className="bg-blue-500 hover:bg-blue-600">Admin</Badge>;
+        return <Badge className="bg-sky-500 hover:bg-sky-600">Admin</Badge>;
       default:
         return <Badge variant="secondary">Usuário</Badge>;
     }
@@ -240,7 +264,7 @@ export default function Usuarios() {
                     <TableHead>Email</TableHead>
                     <TableHead>Perfil</TableHead>
                     <TableHead>Criado em</TableHead>
-                    <TableHead className="w-[100px]">Ações</TableHead>
+                    <TableHead className="w-[120px]">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -248,6 +272,7 @@ export default function Usuarios() {
                     const userRole = getUserRole(profile.user_id);
                     const isCurrentUser = profile.user_id === currentUser?.id;
                     const isMaster = userRole === 'master';
+                    const isEditingThis = editingUserId === profile.user_id;
 
                     return (
                       <motion.tr
@@ -257,7 +282,53 @@ export default function Usuarios() {
                         transition={{ duration: 0.3, delay: Math.min(index, 12) * 0.03, ease: 'easeOut' }}
                         className="table-row-hover border-border/30"
                       >
-                        <TableCell className="font-medium">{profile.nome || '-'}</TableCell>
+                        <TableCell className="font-medium">
+                          {isEditingThis ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={editingNome}
+                                onChange={(e) => setEditingNome(e.target.value)}
+                                className="h-8 text-sm"
+                                placeholder="Digite o nome"
+                                autoFocus
+                              />
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                                onClick={() => handleSaveEditNome(profile.user_id)}
+                                disabled={updateProfileNomeMutation.isPending}
+                              >
+                                {updateProfileNomeMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Check className="h-4 w-4" />
+                                )}
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
+                                onClick={() => setEditingUserId(null)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span>{profile.nome || <span className="italic text-muted-foreground text-xs">Sem nome</span>}</span>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6 text-muted-foreground hover:text-primary cursor-pointer opacity-70 hover:opacity-100"
+                                title="Editar nome"
+                                onClick={() => handleStartEditNome(profile.user_id, profile.nome)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell>{profile.email}</TableCell>
                         <TableCell>{getRoleBadge(userRole)}</TableCell>
                         <TableCell>
