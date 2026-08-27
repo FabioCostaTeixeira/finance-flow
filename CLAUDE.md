@@ -1,18 +1,18 @@
-# Finance Flow — CLAUDE.md
+﻿# Finance Flow — CLAUDE.md
 
-Sistema de gestão financeira pessoal/empresarial com suporte a lançamentos, fluxo de caixa, categorias hierárquicas, e controle de acesso por roles. **A IA embutida no app foi descontinuada** e **a integração com Telegram foi removida por completo** — o único caminho de acesso de IA a dados financeiros é o servidor MCP externo (`mcp/`), autenticado por API key.
+Sistema de gestão financeira pessoal/empresarial com suporte a lançamentos, fluxo de caixa, categorias hierárquicas, gestão multi-tenant e controle de acesso por roles. **A IA embutida no app foi descontinuada** e **a integração com Telegram foi removida por completo** — o único caminho de acesso de IA a dados financeiros é o servidor MCP externo (`mcp/`), autenticado por API key.
 
 ---
 
 ## Stack
 
 - **Frontend:** React 18 + Vite + TypeScript
-- **UI:** Tailwind CSS + shadcn/ui (Radix UI) + Framer Motion
+- **UI & Design:** Tailwind CSS + shadcn/ui (Radix UI) + Framer Motion (Identidade: Obsidian Black, Silver/Ice & Azul LED frio `hsl(200 95% 58%)`)
 - **Estado/Cache:** TanStack React Query v5
 - **Formulários:** React Hook Form + Zod
 - **Roteamento:** React Router DOM v6
 - **Gráficos:** Recharts
-- **Backend:** Supabase (PostgreSQL + Auth + RLS + Storage)
+- **Backend:** Supabase (PostgreSQL + Auth + RLS + Edge Functions + Storage)
 - **Deploy:** Vercel
 
 ---
@@ -53,7 +53,9 @@ SUPABASE_SERVICE_ROLE_KEY=   # chave de service role — nunca expor no frontend
 ```
 finance-flow/
 ├── src/
+│   ├── assets/            # imagens e assets estáticos (ex: logo.png)
 │   ├── components/        # componentes reutilizáveis
+│   │   ├── operator/      # componentes da área de operador de plataforma (/operador)
 │   │   └── ui/            # componentes shadcn/ui (não editar diretamente)
 │   ├── contexts/          # AuthContext (user, session, role)
 │   ├── hooks/             # toda lógica de fetch/mutação de dados
@@ -63,6 +65,9 @@ finance-flow/
 │   │       └── types.ts   # tipos gerados automaticamente (não editar)
 │   ├── lib/               # utilitários (datas, recorrência, status)
 │   └── pages/             # uma página por rota
+├── supabase/
+│   ├── functions/         # Edge Functions (ex: public-auth para gestão de senha sem email rate limit)
+│   └── migrations/        # migrations SQL versionadas
 ├── mcp/                   # servidor MCP externo — único caminho de acesso de IA a dados financeiros
 │   └── src/index.ts
 └── public/
@@ -72,16 +77,18 @@ finance-flow/
 
 ## Páginas e rotas
 
-| Página | Descrição |
-|---|---|
-| `Auth` | Login com email/senha via Supabase Auth |
-| `Receitas` | Lançamentos do tipo receita |
-| `Despesas` | Lançamentos do tipo despesa |
-| `FluxoCaixa` | Visão consolidada de entradas e saídas |
-| `Bancos` | Cadastro de contas bancárias |
-| `Categorias` | Categorias com hierarquia pai/filho |
-| `ApiKeys` | Gerenciamento de chaves de API externas |
-| `Usuarios` | Gerenciamento de permissões de usuários |
+| Página | Rota | Descrição |
+|---|---|---|
+| `Auth` | `/auth` | Login e criação direta de senha no Primeiro Acesso (via Edge Function `public-auth`) |
+| `Receitas` | `/receitas` | Lançamentos do tipo receita |
+| `Despesas` | `/despesas` | Lançamentos do tipo despesa |
+| `FluxoCaixa` | `/fluxo-caixa` | Visão consolidada de entradas, saídas e saldos acumulados/projetados |
+| `Bancos` | `/bancos` | Cadastro de contas bancárias e acompanhamento de saldos |
+| `Categorias` | `/categorias` | Categorias financeiras com hierarquia pai/filho |
+| `ApiKeys` | `/api-keys` | Gerenciamento de chaves de API externas para integração via MCP |
+| `Usuarios` | `/usuarios` | Gerenciamento de permissões de usuários e edição de nomes de perfil |
+| `OperatorDashboard` | `/operador` | Console do operador de plataforma (criação/gestão de tenants e convites diretos) |
+| `OperatorTenantDetail`| `/operador/tenants/:id` | Detalhes, membros e métricas de um tenant específico |
 
 ---
 
@@ -91,10 +98,10 @@ Tabelas principais:
 - **`lancamentos`** — transações financeiras (receitas e despesas). Campos-chave: `tipo`, `status`, `valor`, `data_vencimento`, `data_pagamento`, `banco_id`, `categoria_id`, `recorrencia_id`, `frequencia`, `parcela_atual`, `total_parcelas`
 - **`bancos`** — contas bancárias
 - **`categorias`** — hierarquia de categorias (`categoria_pai_id` auto-referencia)
-- **`tenants`**, **`tenant_members`**, **`platform_operators`** — organizações, papéis por organização e operadores isolados
-- **`audit_log`** — trilha de alterações por tenant
-- **`profiles`** — dados de perfil dos usuários
-- **`api_keys`** — chaves de acesso externo
+- **`tenants`**, **`tenant_members`**, **`platform_operators`** — organizações, papéis por organização e operadores isolados da plataforma
+- **`audit_log`** — trilha de alterações auditáveis por tenant
+- **`profiles`** — dados de perfil dos usuários (inclui `nome`, `email`, `user_id`)
+- **`api_keys`** — chaves de acesso externo para MCP
 - **`api_access_logs`** — log de acessos por API key
 - **`agent_memory`** — memória usada pelo servidor MCP externo (`mcp/`), não pelo frontend
 
@@ -106,15 +113,18 @@ Migrations: toda alteração vai por arquivo versionado em `supabase/migrations/
 
 ---
 
-## Autenticação e roles
+## Autenticação, roles e criação de usuários
 
 O sistema tem três roles por tenant, em `tenant_members.role`, com autorização aplicada no banco por `can_access`:
 
 | Role | Acesso |
 |---|---|
-| `master` | Acesso total, incluindo configurações de sistema |
+| `master` | Acesso total, incluindo configurações de sistema, gestão de membros e edição de nomes em `/usuarios` |
 | `admin` | Acesso operacional completo |
 | `user` | Acesso restrito conforme permissões configuradas |
+
+### Primeiro Acesso & Limites de Email:
+Para evitar estouro de limite de emails do Supabase (`email rate limit exceeded`), o primeiro acesso e definição de senhas ocorrem via Edge Function pública administrativa `public-auth` (`--no-verify-jwt`), que atualiza `auth.users` diretamente utilizando a chave de service role.
 
 **Regra crítica:** qualquer alteração em lógica de permissões, RLS do Supabase ou roles **deve ser validada com o usuário antes de implementar**. Nunca alterar essas regras sem confirmação explícita.
 
