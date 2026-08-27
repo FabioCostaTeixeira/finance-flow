@@ -27,6 +27,39 @@ npm run dev
 
 Aplicacao local: `http://localhost:8080`
 
+## Suite de Testes e Qualidade
+
+```sh
+# Testes unitarios e de contrato do frontend/backend
+npm run test:unit
+
+# Testes de isolamento RLS do Supabase
+npm run test:rls
+
+# Linting e verificacao de tipos
+npm run lint
+
+# Build de producao
+npm run build
+```
+
+## Servidor MCP (Model Context Protocol)
+
+O diretorio `mcp/` contem o servidor MCP para integracao com agentes de IA.
+
+```sh
+cd mcp
+npm install
+npx vitest run --config vitest.contracts.config.ts
+```
+
+Limites e Invariantes MCP:
+- Rate limit por chave: 120 req/min (429 em excesso).
+- Tamanho maximo de lote (`executar_lote`): 250 itens.
+- Idempotencia atomica obrigatoria em operacoes de escrita via cabeçalho `Idempotency-Key`.
+- Versionamento otimista obrigatorio via `expected_version`.
+- Confirmacao tokenizada de uso unico (`confirmation_token`) para operacoes destrutivas/lote.
+
 ## Build de producao
 
 ```sh
@@ -70,8 +103,5 @@ VITE_SUPABASE_ANON_KEY=...
 - `src/` codigo fonte da aplicacao
 - `public/` arquivos estaticos
 - `supabase/` funcoes e migracoes
+- `mcp/` servidor MCP externo e testes de contrato
 - `vercel.json` regra de rewrite para SPA
-
-## Observacao sobre MCP
-
-O diretorio `mcp/` fica separado do fluxo principal do app web. Ele contem um servidor MCP experimental/auxiliar e nao faz parte da execucao normal do Finance Flow no navegador.
