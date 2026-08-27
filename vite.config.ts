@@ -23,7 +23,7 @@ export default defineConfig(() => ({
           environment: "jsdom",
           globals: true,
           setupFiles: "./src/test/setup.ts",
-          exclude: ["**/node_modules/**", "src/test/rls/**"],
+          exclude: ["**/node_modules/**", "src/test/rls/**", "mcp/**"],
         },
       },
       {
@@ -44,3 +44,4 @@ export default defineConfig(() => ({
     ],
   },
 }));
+

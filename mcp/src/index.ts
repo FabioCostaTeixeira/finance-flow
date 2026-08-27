@@ -547,7 +547,7 @@ async function handleRelatorioFluxoCaixa(args: Record<string, unknown>): Promise
     `,
   });
   if (error) return errorResult(error.message);
-  return textResult({ success: true, periodo_meses: meses, count: (data as unknown[])?.length ?? 0, data });
+  return textResult({ success: true, periodo_meses: meses, count: (data as unknown as unknown[])?.length ?? 0, data });
 }
 
 async function handleRelatorioPorCategoria(args: Record<string, unknown>): Promise<ToolResult> {
@@ -574,7 +574,7 @@ async function handleRelatorioPorCategoria(args: Record<string, unknown>): Promi
     `,
   });
   if (error) return errorResult(error.message);
-  return textResult({ success: true, periodo_meses: meses, count: (data as unknown[])?.length ?? 0, data });
+  return textResult({ success: true, periodo_meses: meses, count: (data as unknown as unknown[])?.length ?? 0, data });
 }
 
 async function handleRelatorioInadimplencia(args: Record<string, unknown>): Promise<ToolResult> {
@@ -729,7 +729,7 @@ async function handleProjetarFluxoCaixa(args: Record<string, unknown>): Promise<
 
   if (error) return errorResult(error.message);
 
-  const rows = (historico as Array<{ mes: string; receita: number; despesa: number }>) ?? [];
+  const rows = (historico as unknown as Array<{ mes: string; receita: number; despesa: number }>) ?? [];
   if (rows.length === 0) return errorResult("Histórico insuficiente para projeção.");
 
   const mediaReceita = rows.reduce((s, r) => s + Number(r.receita), 0) / rows.length;
@@ -789,7 +789,7 @@ async function handleCompararPeriodos(args: Record<string, unknown>): Promise<To
 
   if (error) return errorResult(error.message);
 
-  const rows = data as Array<{ periodo: string; receita: number; despesa: number; saldo: number; lancamentos: number }>;
+  const rows = data as unknown as Array<{ periodo: string; receita: number; despesa: number; saldo: number; lancamentos: number }>;
   const a = rows.find((r) => r.periodo === "A") ?? { receita: 0, despesa: 0, saldo: 0, lancamentos: 0 };
   const b = rows.find((r) => r.periodo === "B") ?? { receita: 0, despesa: 0, saldo: 0, lancamentos: 0 };
 
@@ -831,7 +831,7 @@ async function handleTopClientesCredores(args: Record<string, unknown>): Promise
     `,
   });
   if (error) return errorResult(error.message);
-  return textResult({ success: true, periodo_meses: meses, count: (data as unknown[])?.length ?? 0, data });
+  return textResult({ success: true, periodo_meses: meses, count: (data as unknown as unknown[])?.length ?? 0, data });
 }
 
 // ---------------------------------------------------------------------------
