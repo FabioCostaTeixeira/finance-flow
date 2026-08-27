@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn, KeyRound, ArrowLeft, CheckCircle2, ShieldCheck } from 'lucide-react';
-import logo from '@/assets/logo.jpg';
+import logo from '@/assets/logo.png';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -128,7 +128,6 @@ export default function Auth() {
 
     setIsLoading(true);
     try {
-      // Chama a Edge Function public-auth para definir a senha diretamente no banco sem depender de e-mail
       const { data, error } = await supabase.functions.invoke('public-auth', {
         body: {
           action: 'first_access',
@@ -146,7 +145,6 @@ export default function Auth() {
         return;
       }
 
-      // Agora realiza o login automático do usuário com as credenciais criadas
       const { error: signInError } = await signIn(email, password);
 
       if (signInError) {
@@ -175,12 +173,12 @@ export default function Auth() {
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center bg-background p-4 overflow-hidden">
-      {/* Ambient glow */}
+      {/* Ambient LED glow backgrounds */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(circle at 20% 20%, hsl(var(--accent-vibrant) / 0.16), transparent 45%), radial-gradient(circle at 80% 80%, hsl(var(--primary) / 0.14), transparent 45%)',
+            'radial-gradient(circle at 30% 20%, rgba(0, 229, 255, 0.15), transparent 45%), radial-gradient(circle at 70% 80%, rgba(56, 189, 248, 0.12), transparent 45%)',
         }}
       />
 
@@ -188,19 +186,19 @@ export default function Auth() {
         initial={{ opacity: 0, y: 24, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.45, ease: [0.34, 1.56, 0.64, 1] }}
-        className="glass-card relative z-10 w-full max-w-md"
+        className="glass-card relative z-10 w-full max-w-md border border-cyan-500/20 shadow-[0_0_50px_-10px_rgba(0,229,255,0.15)]"
       >
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
             <img
               src={logo}
-              alt="Mary Personal"
-              className="h-20 w-20 object-cover rounded-full shadow-lg ring-2 ring-primary/30"
+              alt="Finance Flow"
+              className="h-20 w-20 object-contain drop-shadow-[0_0_16px_rgba(0,229,255,0.5)]"
             />
           </div>
-          <CardTitle className="text-2xl text-gradient-brand">Financeiro MarySysten</CardTitle>
-          <CardDescription>
-            {mode === 'login' && 'Entre com suas credenciais para acessar o sistema'}
+          <CardTitle className="text-3xl font-extrabold tracking-tight text-gradient-brand">Finance Flow</CardTitle>
+          <CardDescription className="text-slate-400">
+            {mode === 'login' && 'Entre com suas credenciais para acessar a plataforma'}
             {mode === 'first-access' && 'Digite seu e-mail cadastrado e defina sua nova senha'}
           </CardDescription>
         </CardHeader>
@@ -244,7 +242,7 @@ export default function Auth() {
                         setConfirmPassword('');
                         setMode('first-access');
                       }}
-                      className="text-xs text-primary hover:underline font-medium"
+                      className="text-xs text-cyan-400 hover:underline font-medium"
                     >
                       Primeiro Acesso / Definir Senha
                     </button>
@@ -263,7 +261,7 @@ export default function Auth() {
                   )}
                 </div>
 
-                <Button type="submit" className="w-full min-h-[44px]" disabled={isLoading}>
+                <Button type="submit" className="w-full min-h-[44px] shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:shadow-[0_0_25px_rgba(0,229,255,0.5)] transition-all" disabled={isLoading}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -281,7 +279,7 @@ export default function Auth() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full"
+                    className="w-full border-cyan-500/30 hover:border-cyan-500/60 hover:bg-cyan-500/10 text-cyan-300"
                     onClick={() => {
                       setErrors({});
                       setPassword('');
@@ -289,7 +287,7 @@ export default function Auth() {
                       setMode('first-access');
                     }}
                   >
-                    <KeyRound className="mr-2 h-4 w-4" />
+                    <KeyRound className="mr-2 h-4 w-4 text-cyan-400" />
                     Primeiro Acesso (Criar Senha Direta)
                   </Button>
                 </div>
@@ -307,7 +305,7 @@ export default function Auth() {
               >
                 {successMessage ? (
                   <div className="text-center space-y-4 py-4">
-                    <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto" />
+                    <CheckCircle2 className="h-12 w-12 text-emerald-400 mx-auto drop-shadow-[0_0_12px_rgba(52,211,153,0.4)]" />
                     <h3 className="font-semibold text-lg">Senha Cadastrada!</h3>
                     <p className="text-sm text-muted-foreground">
                       Sua senha foi cadastrada com sucesso. Clique abaixo para entrar com suas credenciais.
@@ -315,7 +313,7 @@ export default function Auth() {
                     <Button
                       type="button"
                       variant="default"
-                      className="w-full mt-2"
+                      className="w-full mt-2 shadow-[0_0_20px_rgba(0,229,255,0.3)]"
                       onClick={() => {
                         setSuccessMessage(false);
                         setMode('login');
@@ -375,7 +373,7 @@ export default function Auth() {
                       )}
                     </div>
 
-                    <Button type="submit" className="w-full min-h-[44px]" disabled={isLoading}>
+                    <Button type="submit" className="w-full min-h-[44px] shadow-[0_0_20px_rgba(0,229,255,0.3)]" disabled={isLoading}>
                       {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

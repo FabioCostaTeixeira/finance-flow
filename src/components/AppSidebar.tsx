@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -13,7 +13,6 @@ import {
   Users,
   ArrowLeftRight,
   Menu,
-  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,7 +20,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { ROUTE_TO_MODULE } from '@/hooks/useUserPermissions';
 import { TenantSwitcher } from '@/components/TenantSwitcher';
 import { useIsMobile } from '@/hooks/use-mobile';
-import logo from '@/assets/logo.jpg';
+import logo from '@/assets/logo.png';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 const menuItems = [
@@ -62,9 +61,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       {/* Logo */}
       <div className="h-20 flex items-center px-4 border-b border-sidebar-border/60">
         <div className="flex items-center gap-3">
-          <img src={logo} alt="Mary Personal" className="h-12 w-12 object-cover rounded-full ring-2 ring-primary/30" />
+          <img src={logo} alt="Finance Flow" className="h-10 w-10 object-contain drop-shadow-[0_0_8px_rgba(0,229,255,0.4)]" />
           <div className="flex flex-col">
-            <span className="font-semibold text-foreground text-sm">Financeiro MarySysten</span>
+            <span className="font-semibold text-foreground text-sm tracking-wide">Finance Flow</span>
             {userName && (
               <span className="text-xs text-muted-foreground">Bem Vindo {userName}</span>
             )}
@@ -155,9 +154,9 @@ export function AppSidebar() {
               exit={{ opacity: 0, x: -10 }}
               className="flex items-center gap-3"
             >
-              <img src={logo} alt="Mary Personal" className="h-12 w-12 object-cover rounded-full" />
+              <img src={logo} alt="Finance Flow" className="h-10 w-10 object-contain drop-shadow-[0_0_8px_rgba(0,229,255,0.4)]" />
               <div className="flex flex-col">
-                <span className="font-semibold text-foreground text-sm">Financeiro MarySysten</span>
+                <span className="font-semibold text-foreground text-sm tracking-wide">Finance Flow</span>
                 {userName && (
                   <span className="text-xs text-muted-foreground">Bem Vindo {userName}</span>
                 )}
@@ -167,7 +166,7 @@ export function AppSidebar() {
         </AnimatePresence>
         
         {collapsed && (
-          <img src={logo} alt="Mary Personal" className="h-10 w-10 object-cover rounded-full mx-auto" />
+          <img src={logo} alt="Finance Flow" className="h-9 w-9 object-contain mx-auto drop-shadow-[0_0_8px_rgba(0,229,255,0.4)]" />
         )}
       </div>
 

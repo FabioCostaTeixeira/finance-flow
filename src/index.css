@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,53 +6,65 @@
 
 @layer base {
   :root {
-    /* Finance Flow design system — dark-first glassmorphism (gold + purple over navy) */
-    --background: 222 47% 11%;
+    /* Finance Flow design system — Obsidian Dark & Electric Cyan / LED Blue / Silver Glow */
+    --background: 224 25% 6%;
     --foreground: 210 40% 98%;
-    --card: 222 40% 15%;
+    --card: 224 22% 10%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 44% 13%;
+    --popover: 224 24% 8%;
     --popover-foreground: 210 40% 98%;
-    --primary: 38 92% 50%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 43 96% 56%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 222 26% 21%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 222 26% 21%;
+    
+    /* Azul LED / Cyan elétrico super brilhante (#00E5FF) */
+    --primary: 186 100% 50%;
+    --primary-foreground: 224 25% 6%;
+    
+    /* Azul gelo / prata brilhante (#E0F7FA) */
+    --secondary: 187 80% 92%;
+    --secondary-foreground: 224 25% 6%;
+    
+    --muted: 224 16% 16%;
+    --muted-foreground: 215 15% 65%;
+    --accent: 224 18% 18%;
     --accent-foreground: 210 40% 98%;
-    /* Vibrant accent/CTA (purple) — distinct from shadcn's subtle hover `accent` above */
-    --accent-vibrant: 258 90% 66%;
-    --accent-vibrant-foreground: 210 40% 98%;
+    
+    /* Accent vibrant — Cyan neon reluzente com brilho LED (#38BDF8) */
+    --accent-vibrant: 199 89% 60%;
+    --accent-vibrant-foreground: 224 25% 6%;
+    
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    --success: 142 76% 36%;
+    --success: 160 84% 39%;
     --success-foreground: 210 40% 98%;
     --warning: 38 92% 50%;
-    --warning-foreground: 222 47% 11%;
-    --receita: 217 91% 60%;
-    --receita-foreground: 222 47% 11%;
-    --receita-muted: 217 50% 20%;
+    --warning-foreground: 224 25% 6%;
+    
+    --receita: 186 100% 50%;
+    --receita-foreground: 224 25% 6%;
+    --receita-muted: 186 60% 15%;
+    
     --despesa: 0 84% 60%;
     --despesa-foreground: 210 40% 98%;
     --despesa-muted: 0 50% 20%;
-    --border: 215 25% 27%;
-    --input: 222 26% 21%;
-    --ring: 38 92% 50%;
+    
+    --border: 224 16% 18%;
+    --input: 224 18% 14%;
+    --ring: 186 100% 50%;
     --radius: 0.75rem;
-    --sidebar-background: 222 47% 9%;
-    --sidebar-foreground: 215 20% 65%;
-    --sidebar-primary: 38 92% 50%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 222 26% 21%;
+    
+    --sidebar-background: 224 28% 5%;
+    --sidebar-foreground: 215 15% 65%;
+    --sidebar-primary: 186 100% 50%;
+    --sidebar-primary-foreground: 224 25% 6%;
+    --sidebar-accent: 224 18% 14%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 215 25% 22%;
-    --sidebar-ring: 38 92% 50%;
-    --chart-1: 38 92% 50%;
-    --chart-2: 142 76% 36%;
-    --chart-3: 43 96% 56%;
+    --sidebar-border: 224 18% 12%;
+    --sidebar-ring: 186 100% 50%;
+    
+    --chart-1: 186 100% 50%;
+    --chart-2: 160 84% 39%;
+    --chart-3: 199 89% 60%;
     --chart-4: 0 84% 60%;
-    --chart-5: 258 90% 66%;
+    --chart-5: 215 15% 65%;
   }
 
   * {
@@ -66,8 +78,9 @@
   body {
     @apply bg-background text-foreground antialiased;
     background-image:
-      radial-gradient(circle at 15% 0%, hsl(var(--accent-vibrant) / 0.10), transparent 45%),
-      radial-gradient(circle at 85% 20%, hsl(var(--primary) / 0.08), transparent 40%);
+      radial-gradient(circle at 15% 0%, hsl(186 100% 50% / 0.12), transparent 45%),
+      radial-gradient(circle at 85% 20%, hsl(199 89% 60% / 0.08), transparent 40%),
+      radial-gradient(circle at 50% 100%, hsl(224 25% 10% / 0.8), transparent 70%);
     background-attachment: fixed;
   }
 
@@ -79,7 +92,7 @@
 
 @layer components {
   .glass-card {
-    @apply bg-card/60 backdrop-blur-xl border border-white/10 shadow-xl rounded-xl;
+    @apply bg-card/60 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,229,255,0.05)] rounded-xl;
   }
 
   .glass-panel {
@@ -87,15 +100,15 @@
   }
 
   .glass-nav {
-    @apply bg-sidebar/70 backdrop-blur-xl border-r border-white/10;
+    @apply bg-sidebar/80 backdrop-blur-xl border-r border-white/10;
   }
 
   .glass-modal {
-    @apply bg-popover/90 backdrop-blur-2xl border border-white/10 shadow-2xl;
+    @apply bg-popover/95 backdrop-blur-2xl border border-white/15 shadow-[0_0_40px_-10px_rgba(0,229,255,0.2)];
   }
 
   .text-gradient-brand {
-    @apply bg-gradient-to-r from-primary to-accent-vibrant bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-cyan-400 via-sky-200 to-cyan-300 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(0,229,255,0.4)];
   }
 
   .table-row-hover {
@@ -107,27 +120,27 @@
   }
 
   .status-a-receber {
-    @apply bg-blue-500/20 text-blue-400;
+    @apply bg-cyan-500/20 text-cyan-300 border border-cyan-500/30;
   }
 
   .status-recebido {
-    @apply bg-green-500/20 text-green-400;
+    @apply bg-emerald-500/20 text-emerald-300 border border-emerald-500/30;
   }
 
   .status-a-pagar {
-    @apply bg-red-500/20 text-red-400;
+    @apply bg-red-500/20 text-red-300 border border-red-500/30;
   }
 
   .status-pago {
-    @apply bg-green-500/20 text-green-400;
+    @apply bg-emerald-500/20 text-emerald-300 border border-emerald-500/30;
   }
 
   .status-parcial {
-    @apply bg-yellow-500/20 text-yellow-400;
+    @apply bg-amber-500/20 text-amber-300 border border-amber-500/30;
   }
 
   .fab-button {
-    @apply fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 z-50 bg-primary;
+    @apply fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-[0_0_24px_rgba(0,229,255,0.4)] flex items-center justify-center transition-all duration-300 hover:scale-110 z-50 bg-primary text-primary-foreground;
   }
 
   .sidebar-item {
@@ -135,7 +148,7 @@
   }
 
   .sidebar-item-active {
-    @apply bg-primary/10 text-primary font-medium border-l-2 border-primary shadow-[0_0_16px_-4px_hsl(var(--primary)/0.4)];
+    @apply bg-primary/10 text-primary font-medium border-l-2 border-primary shadow-[0_0_20px_-4px_rgba(0,229,255,0.5)];
   }
 
   .chat-bubble-user {
