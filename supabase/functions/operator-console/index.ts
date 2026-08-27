@@ -29,20 +29,23 @@ Deno.serve(async (req) => {
     const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-    const token = req.headers.get('Authorization')?.replace('Bearer ', '');
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
     if (!token) return out({ error: 'Não autorizado' }, 401);
 
+    // Valida o JWT do usuário passando o token explicitamente para getUser(token)
     const authClient = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: Bearer  } },
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    const { data: { user }, error: authError } = await authClient.auth.getUser();
-    if (authError || !user) return out({ error: 'Não autorizado' }, 401);
+    const { data: { user }, error: authError } = await authClient.auth.getUser(token);
+    if (authError || !user) return out({ error: 'Não autorizado: token inválido' }, 401);
 
+    // Client service_role para ler platform_operators e tenant_members
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    // Primeiro passo de TODO request: confirma que é operador de plataforma. Sem exceção.
     const { data: operatorRow } = await admin
       .from('platform_operators')
       .select('user_id')
