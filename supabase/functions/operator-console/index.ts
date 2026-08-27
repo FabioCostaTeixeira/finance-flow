@@ -33,19 +33,16 @@ Deno.serve(async (req) => {
     const token = authHeader.replace(/^Bearer\s+/i, '').trim();
     if (!token) return out({ error: 'Não autorizado' }, 401);
 
-    // Valida o JWT do usuário passando o token explicitamente para getUser(token)
     const authClient = createClient(SUPABASE_URL, ANON_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
     const { data: { user }, error: authError } = await authClient.auth.getUser(token);
     if (authError || !user) return out({ error: 'Não autorizado: token inválido' }, 401);
 
-    // Client service_role para ler platform_operators e tenant_members
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Primeiro passo de TODO request: confirma que é operador de plataforma. Sem exceção.
     const { data: operatorRow } = await admin
       .from('platform_operators')
       .select('user_id')
@@ -163,17 +160,55 @@ Deno.serve(async (req) => {
         const { data: tenant } = await admin.from('tenants').select('id').eq('id', tenantId).maybeSingle();
         if (!tenant) return out({ error: 'Tenant não encontrado' }, 404);
 
+        let userId: string | undefined;
+
+        // 1. Busca na tabela profiles primeiro
         const { data: existingProfile } = await admin
           .from('profiles')
           .select('user_id')
           .eq('email', email)
           .maybeSingle();
 
-        let userId = existingProfile?.user_id as string | undefined;
-        if (!userId) {
-          const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email);
-          if (inviteError) return out({ error: inviteError.message }, 400);
-          userId = invited.user.id;
+        if (existingProfile?.user_id) {
+          userId = existingProfile.user_id;
+        } else {
+          // Detecta a URL pública da aplicação a partir dos cabeçalhos da requisição
+          const originHeader = req.headers.get('origin') || req.headers.get('referer');
+          let siteUrl = 'https://finance-flow-supabase.vercel.app';
+          if (originHeader) {
+            try {
+              const parsed = new URL(originHeader);
+              if (!parsed.hostname.includes('localhost') && !parsed.hostname.includes('127.0.0.1')) {
+                siteUrl = parsed.origin;
+              }
+            } catch {
+              // fallback para vercel
+            }
+          }
+          const redirectTo = siteUrl + '/auth';
+
+          // 2. Se não achou no profiles, tenta criar/enviar convite por email com a URL de produção
+          const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+            redirectTo,
+          });
+
+          if (inviteError) {
+            if (inviteError.message?.toLowerCase().includes('already') || inviteError.message?.toLowerCase().includes('registered')) {
+              const { data: userList, error: listError } = await admin.auth.admin.listUsers();
+              if (listError) return out({ error: inviteError.message }, 400);
+
+              const foundUser = userList?.users?.find((u) => u.email?.toLowerCase() === email);
+              if (foundUser) {
+                userId = foundUser.id;
+              } else {
+                return out({ error: inviteError.message }, 400);
+              }
+            } else {
+              return out({ error: inviteError.message }, 400);
+            }
+          } else {
+            userId = invited.user.id;
+          }
         }
 
         const { error: memberError } = await admin
@@ -216,7 +251,8 @@ Deno.serve(async (req) => {
       default:
         return out({ error: 'Ação desconhecida' }, 400);
     }
-  } catch {
-    return out({ error: 'Erro interno do servidor' }, 500);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Erro interno do servidor';
+    return out({ error: msg }, 500);
   }
 });
