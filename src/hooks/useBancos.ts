@@ -17,12 +17,6 @@ export interface BancoComSaldo extends Banco {
   entradas_a_receber: number;
   saidas_pagas: number;
   saidas_a_pagar: number;
-  /**
-   * Saldo real da conta: entradas recebidas menos saídas pagas em TODO o
-   * histórico, sem o filtro de período da tela. "Saldo atual" é o que tem na
-   * conta agora — não pode sumir dinheiro de meses anteriores só porque o
-   * usuário está olhando um período menor.
-   */
   saldoAtualReal: number;
 }
 
@@ -53,6 +47,7 @@ export interface BancoComSaldoRPC {
   entradas_a_receber: number;
   saidas_pagas: number;
   saidas_a_pagar: number;
+  saldo_atual_real: number;
 }
 
 // Hook to get banks with their calculated balances
@@ -63,45 +58,36 @@ export function useBancosComSaldos(startDate?: Date, endDate?: Date) {
   return useQuery({
     queryKey, enabled: !!activeTenant,
     queryFn: async () => {
-      // Duas chamadas: uma com o período selecionado (para Realizado/Projetado,
-      // que fazem sentido escopados) e uma sem limite de data (para o saldo
-      // atual real da conta, que é acumulado desde sempre).
-      const [periodo, semLimite] = await Promise.all([
-        supabase.rpc('get_bancos_com_saldos', {
-          _tenant: activeTenant!.id,
-          _data_inicio: startDate ? toISODateLocal(startDate) : undefined,
-          _data_fim: endDate ? toISODateLocal(endDate) : undefined,
-        }),
-        supabase.rpc('get_bancos_com_saldos', { _tenant: activeTenant!.id }),
-      ]);
+      const { data, error } = await supabase.rpc('get_bancos_com_saldos', {
+        _tenant: activeTenant!.id,
+        _data_inicio: startDate ? toISODateLocal(startDate) : undefined,
+        _data_fim: endDate ? toISODateLocal(endDate) : undefined,
+      });
 
-      if (periodo.error) throw periodo.error;
-      if (semLimite.error) throw semLimite.error;
+      if (error) throw error;
 
-      const saldoAtualPorBanco = new Map<string, number>(
-        (semLimite.data as BancoComSaldoRPC[]).map((item) => [
-          item.banco_id,
-          Number(item.entradas_recebidas ?? 0) - Number(item.saidas_pagas ?? 0),
-        ])
-      );
+      return (data as BancoComSaldoRPC[]).map((item) => {
+        const entradasRecebidas = item.entradas_recebidas ?? 0;
+        const saidasPagas = item.saidas_pagas ?? 0;
+        const saldoAtualReal = item.saldo_atual_real ?? (entradasRecebidas - saidasPagas);
 
-      return (periodo.data as BancoComSaldoRPC[]).map((item) => ({
-        id: item.banco_id,
-        nome: item.banco_nome,
-        created_at: '',
-        total_entradas: item.total_entradas ?? 0,
-        total_saidas: item.total_saidas ?? 0,
-        saldo: item.saldo ?? 0,
-        entradas_recebidas: item.entradas_recebidas ?? 0,
-        entradas_a_receber: item.entradas_a_receber ?? 0,
-        saidas_pagas: item.saidas_pagas ?? 0,
-        saidas_a_pagar: item.saidas_a_pagar ?? 0,
-        saldoAtualReal: saldoAtualPorBanco.get(item.banco_id) ?? 0,
-      })) as BancoComSaldo[];
+        return {
+          id: item.banco_id,
+          nome: item.banco_nome,
+          created_at: '',
+          total_entradas: item.total_entradas ?? 0,
+          total_saidas: item.total_saidas ?? 0,
+          saldo: item.saldo ?? 0,
+          entradas_recebidas: entradasRecebidas,
+          entradas_a_receber: item.entradas_a_receber ?? 0,
+          saidas_pagas: saidasPagas,
+          saidas_a_pagar: item.saidas_a_pagar ?? 0,
+          saldoAtualReal: saldoAtualReal,
+        };
+      }) as BancoComSaldo[];
     },
   });
 }
-
 
 export function useCreateBanco() {
   const queryClient = useQueryClient();

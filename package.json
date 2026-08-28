@@ -12,7 +12,7 @@
     "test": "vitest",
     "test:coverage": "vitest --coverage",
     "test:unit": "vitest --project unit",
-    "test:rls": "vitest --project rls --maxWorkers=1 --run src/test/rls/isolamento.test.ts && vitest --project rls --maxWorkers=1 --run src/test/rls/permissoes.test.ts && vitest --project rls --maxWorkers=1 --run src/test/rls/operador.test.ts && vitest --project rls --maxWorkers=1 --run src/test/rls/funcoes.test.ts && vitest --project rls --maxWorkers=1 --run src/test/rls/tenant_insert_audit.test.ts && vitest --project rls --maxWorkers=1 --run src/test/rls/operator_console.test.ts && vitest --project rls --maxWorkers=1 --run src/test/rls/fluxo_caixa.test.ts"
+    "test:rls": "vitest --project rls --maxWorkers=1 --run src/test/rls/isolamento.test.ts && vitest --project rls --maxWorkers=1 --run src/test/rls/permissoes.test.ts && vitest --project rls --maxWorkers=1 --run src/test/rls/operador.test.ts && vitest --project rls --maxWorkers=1 --run src/test/rls/funcoes.test.ts && vitest --project rls --maxWorkers=1 --run src/test/rls/tenant_insert_audit.test.ts && vitest --project rls --maxWorkers=1 --run src/test/rls/operator_console.test.ts && vitest --project rls --maxWorkers=1 --run src/test/rls/fluxo_caixa.test.ts && vitest --project rls --maxWorkers=1 --run src/test/rls/api_integration.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
