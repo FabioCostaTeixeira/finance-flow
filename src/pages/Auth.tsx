@@ -43,7 +43,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/receitas');
+      navigate('/painel');
     }
   }, [user, navigate]);
 
@@ -109,8 +109,8 @@ export default function Auth() {
         title: 'Bem-vindo!',
         description: 'Login realizado com sucesso',
       });
-      
-      navigate('/receitas');
+
+      navigate('/painel');
     } catch {
       toast({
         title: 'Erro',
@@ -158,7 +158,7 @@ export default function Auth() {
           title: 'Bem-vindo!',
           description: 'Senha criada e login realizado com sucesso!',
         });
-        navigate('/receitas');
+        navigate('/painel');
       }
     } catch {
       toast({

@@ -39,3 +39,6 @@ supabase/.branches/
 # Backups de banco (podem conter dados reais de producao)
 backups/
 .vercel
+
+# Artefatos locais de planejamento/SDD (superpowers)
+.superpowers/

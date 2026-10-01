@@ -58,25 +58,42 @@ export function useLancamentos(tipo?: 'receita' | 'despesa') {
   return useQuery({
     queryKey: ['lancamentos', activeTenant?.id, tipo], enabled: !!activeTenant,
     queryFn: async () => {
-      let query = supabase
-        .from('lancamentos')
-        .select(`
-          id, data_vencimento, cliente_credor, valor, valor_pago, banco_id, status, tipo,
-          categoria_id, recorrencia_id, parcela_atual, total_parcelas, observacao,
-          data_pagamento, transferencia_vinculo_id, frequencia, created_at, updated_at,
-          categorias ( id, nome, categoria_pai_id ),
-          bancos ( id, nome )
-        `)
-        .order('data_vencimento', { ascending: false });
+      // O PostgREST devolve no máximo 1000 linhas por request. Sem paginação a
+      // tela silenciosamente perdia lançamentos e divergia da aba Bancos (que
+      // agrega no servidor). Busca em páginas até esgotar.
+      const PAGE_SIZE = 1000;
+      const todos: LancamentoExtendido[] = [];
 
-      if (tipo) {
-        query = query.eq('tipo', tipo);
+      for (let pagina = 0; ; pagina++) {
+        let query = supabase
+          .from('lancamentos')
+          .select(`
+            id, data_vencimento, cliente_credor, valor, valor_pago, banco_id, status, tipo,
+            categoria_id, recorrencia_id, parcela_atual, total_parcelas, observacao,
+            data_pagamento, transferencia_vinculo_id, frequencia, created_at, updated_at,
+            categorias ( id, nome, categoria_pai_id ),
+            bancos ( id, nome )
+          `)
+          // A RLS já isola por tenant, mas a RPC get_bancos_com_saldos filtra
+          // tenant_id explicitamente. Sem o mesmo filtro aqui, qualquer linha
+          // órfã (tenant_id nulo, legado) aparecia só numa das duas telas.
+          .eq('tenant_id', activeTenant!.id)
+          .order('data_vencimento', { ascending: false })
+          .order('id', { ascending: false })
+          .range(pagina * PAGE_SIZE, (pagina + 1) * PAGE_SIZE - 1);
+
+        if (tipo) {
+          query = query.eq('tipo', tipo);
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        todos.push(...((data ?? []) as LancamentoExtendido[]));
+        if (!data || data.length < PAGE_SIZE) break;
       }
 
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return data as LancamentoExtendido[];
+      return todos;
     },
   });
 }

@@ -2,6 +2,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
+  LayoutDashboard,
   TrendingUp,
   TrendingDown,
   Tags,
@@ -24,6 +25,7 @@ import logo from '@/assets/logo.png';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 const menuItems = [
+  { path: '/painel', label: 'Painel de Controle', icon: LayoutDashboard },
   { path: '/receitas', label: 'Receitas', icon: TrendingUp },
   { path: '/despesas', label: 'Despesas', icon: TrendingDown },
   { path: '/categorias', label: 'Categorias', icon: Tags },

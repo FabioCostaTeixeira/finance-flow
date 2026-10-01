@@ -42,7 +42,7 @@ export default function BancosPage() {
   });
   const [selectedBancoId, setSelectedBancoId] = useState<string | undefined>(undefined);
 
-  const { data: bancosComSaldo = [], isLoading } = useBancosComSaldos(date?.from, date?.to);
+  const { data: bancosComSaldo = [], isLoading, error } = useBancosComSaldos(date?.from, date?.to);
   const { data: bancosList = [] } = useBancos();
 
   // Filtrar bancos se um banco específico foi selecionado
@@ -174,6 +174,12 @@ export default function BancosPage() {
           <TableBody>
             {isLoading ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-8">Carregando dados...</TableCell></TableRow>
+            ) : error ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8 text-destructive">
+                  Erro ao carregar bancos: {error instanceof Error ? error.message : 'erro desconhecido'}
+                </TableCell>
+              </TableRow>
             ) : filteredBancos.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">

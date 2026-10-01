@@ -12,6 +12,7 @@ import { useBancos } from '@/hooks/useBancos';
 import { formatCurrency } from '@/lib/recurrence';
 import { cn } from '@/lib/utils';
 import { getStatusConfig, StatusLancamento } from '@/lib/statusUtils';
+import { calcularSaldoLancamento } from '@/lib/saldo';
 import { FluxoCaixaFAB } from '@/components/FluxoCaixaFAB';
 import { LancamentoForm } from '@/components/LancamentoForm';
 import { TransferenciaModal } from '@/components/TransferenciaModal';
@@ -83,36 +84,15 @@ export default function FluxoCaixaPage() {
   const fluxoComSaldo = useMemo(() => {
     let saldoAcumulado = 0;
     return filteredLancamentos.map((lancamento) => {
-      const valor = Number(lancamento.valor);
-      const valorPago = Number(lancamento.valor_pago) || 0;
       const isEntrada = lancamento.tipo === 'receita';
-      const isQuitado = ['recebido', 'pago', 'transferencia'].includes(lancamento.status);
+      // Mesma conta que a RPC get_bancos_com_saldos faz em SQL. Ver src/lib/saldo.ts.
+      const { realizado: valorRealizado, pendente } = calcularSaldoLancamento(lancamento);
 
       // Separar valores projetados (a_receber/a_pagar) dos realizados (recebido/pago)
-      let aReceber = 0;
-      let realizado = 0;
-      let aPagar = 0;
-      let pago = 0;
-
-      if (isEntrada) {
-        if (isQuitado) {
-          realizado = valorPago || valor;
-        } else if (lancamento.status === 'parcial') {
-          realizado = valorPago;
-          aReceber = valor - valorPago;
-        } else {
-          aReceber = valor;
-        }
-      } else {
-        if (isQuitado) {
-          pago = valorPago || valor;
-        } else if (lancamento.status === 'parcial') {
-          pago = valorPago;
-          aPagar = valor - valorPago;
-        } else {
-          aPagar = valor;
-        }
-      }
+      const aReceber = isEntrada ? pendente : 0;
+      const realizado = isEntrada ? valorRealizado : 0;
+      const aPagar = isEntrada ? 0 : pendente;
+      const pago = isEntrada ? 0 : valorRealizado;
 
       const valorEfetivo = isEntrada ? (realizado + aReceber) : -(pago + aPagar);
       saldoAcumulado += valorEfetivo;

@@ -1,2 +1,82 @@
-import{describe,it,expect,beforeAll,afterAll}from'vitest';import type{SupabaseClient}from'@supabase/supabase-js';import{createAdminClient,createUserClient,seedTenant,createMember,cleanup,uniqueEmail}from'./helpers';
-describe('RPCs com escopo',()=>{const admin=createAdminClient();let a:string,b:string;let ca:SupabaseClient,cb:SupabaseClient;let ids:string[]=[];beforeAll(async()=>{a=(await seedTenant(admin,'RPC A')).tenantId;b=(await seedTenant(admin,'RPC B')).tenantId;const x=await createMember(admin,a,uniqueEmail('a'),'master');const y=await createMember(admin,b,uniqueEmail('b'),'master');ids=[x.userId,y.userId];const{data:bank}=await admin.from('bancos').insert({tenant_id:a,nome:'Banco A'}).select('id').single();await admin.from('lancamentos').insert({tenant_id:a,banco_id:bank!.id,tipo:'receita',status:'recebido',cliente_credor:'A',valor:5,valor_pago:5,data_vencimento:'2026-09-10',data_pagamento:'2026-09-10'});ca=await createUserClient((await admin.auth.admin.getUserById(x.userId)).data.user!.email!,x.password);cb=await createUserClient((await admin.auth.admin.getUserById(y.userId)).data.user!.email!,y.password)});afterAll(()=>cleanup(admin,ids,[a,b]));it('RPC invoker respeita tenant',async()=>{const x=await ca.rpc('get_bancos_com_saldos',{_tenant:a});const y=await cb.rpc('get_bancos_com_saldos',{_tenant:b});expect(x.data?.some((v:{banco_nome:string})=>v.banco_nome==='Banco A')).toBe(true);expect(y.data?.some((v:{banco_nome:string})=>v.banco_nome==='Banco A')).toBe(false)});it('fluxo alheio recusa',async()=>{const{error}=await cb.rpc('get_fluxo_caixa',{_tenant:a});expect(error?.message).toContain('Acesso negado')});it('query privilegiada não é exposta',async()=>{expect((await ca.rpc('execute_readonly_query',{query_text:'SELECT 1'})).error).not.toBeNull()})});
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  createAdminClient,
+  createUserClient,
+  seedTenant,
+  createMember,
+  cleanup,
+  uniqueEmail,
+} from './helpers';
+
+describe('RPCs com escopo', () => {
+  const admin = createAdminClient();
+  let tenantA: string;
+  let tenantB: string;
+  let clientA: SupabaseClient;
+  let clientB: SupabaseClient;
+  let userIds: string[] = [];
+
+  beforeAll(async () => {
+    tenantA = (await seedTenant(admin, 'RPC A')).tenantId;
+    tenantB = (await seedTenant(admin, 'RPC B')).tenantId;
+
+    const memberA = await createMember(admin, tenantA, uniqueEmail('a'), 'master');
+    const memberB = await createMember(admin, tenantB, uniqueEmail('b'), 'master');
+    userIds = [memberA.userId, memberB.userId];
+
+    const { data: bank } = await admin
+      .from('bancos')
+      .insert({ tenant_id: tenantA, nome: 'Banco A' })
+      .select('id')
+      .single();
+
+    // Regressão de 2026-09-19: valor_pago é DEFAULT 0, mas a RPC usava
+    // COALESCE(valor_pago, valor). O realizado ficava 0 em vez de 5.
+    await admin.from('lancamentos').insert({
+      tenant_id: tenantA,
+      banco_id: bank!.id,
+      tipo: 'receita',
+      status: 'recebido',
+      cliente_credor: 'A',
+      valor: 5,
+      valor_pago: 0,
+      data_vencimento: '2026-09-10',
+      data_pagamento: '2026-09-10',
+    });
+
+    clientA = await createUserClient(
+      (await admin.auth.admin.getUserById(memberA.userId)).data.user!.email!,
+      memberA.password,
+    );
+    clientB = await createUserClient(
+      (await admin.auth.admin.getUserById(memberB.userId)).data.user!.email!,
+      memberB.password,
+    );
+  });
+
+  afterAll(() => cleanup(admin, userIds, [tenantA, tenantB]));
+
+  it('calcula liquidado com valor_pago zero pelo valor do lançamento', async () => {
+    const { data, error } = await clientA.rpc('get_bancos_com_saldos', { _tenant: tenantA });
+    expect(error).toBeNull();
+    const banco = data?.find((row: { banco_nome: string }) => row.banco_nome === 'Banco A');
+    expect(Number(banco?.entradas_recebidas)).toBe(5);
+    expect(Number(banco?.saldo_atual_real)).toBe(5);
+  });
+
+  it('RPC recusa tenant alheio', async () => {
+    const { data, error } = await clientB.rpc('get_bancos_com_saldos', { _tenant: tenantA });
+    expect(data).toBeNull();
+    expect(error?.message).toContain('Acesso negado');
+  });
+
+  it('fluxo alheio recusa', async () => {
+    const { error } = await clientB.rpc('get_fluxo_caixa', { _tenant: tenantA });
+    expect(error?.message).toContain('Acesso negado');
+  });
+
+  it('query privilegiada não é exposta', async () => {
+    expect((await clientA.rpc('execute_readonly_query', { query_text: 'SELECT 1' })).error).not.toBeNull();
+  });
+});

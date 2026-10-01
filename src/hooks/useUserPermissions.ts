@@ -17,6 +17,7 @@ export type ModuleKey = typeof ALL_MODULES[number]['key'];
 
 // Map route paths to module keys
 export const ROUTE_TO_MODULE: Record<string, ModuleKey> = {
+  '/painel': 'fluxo-caixa',
   '/receitas': 'receitas',
   '/despesas': 'despesas',
   '/categorias': 'categorias',

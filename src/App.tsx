@@ -13,6 +13,7 @@ import { Loader2 } from "lucide-react";
 
 // Rotas carregadas sob demanda (code-splitting): reduz o chunk inicial,
 // já que a maioria dessas telas não é acessada em toda sessão.
+const PainelControle = lazy(() => import("./pages/PainelControle"));
 const Receitas = lazy(() => import("./pages/Receitas"));
 const Despesas = lazy(() => import("./pages/Despesas"));
 const Categorias = lazy(() => import("./pages/Categorias"));
@@ -114,8 +115,9 @@ function AppRoutes() {
   return (
     <Suspense fallback={<RouteFallback />}>
     <Routes>
-      <Route path="/auth" element={user ? <Navigate to="/receitas" replace /> : <Auth />} />
-      <Route path="/" element={<Navigate to={user ? "/receitas" : "/auth"} replace />} />
+      <Route path="/auth" element={user ? <Navigate to="/painel" replace /> : <Auth />} />
+      <Route path="/" element={<Navigate to={user ? "/painel" : "/auth"} replace />} />
+      <Route path="/painel" element={<ProtectedLayout><PermissionRoute moduleKey="fluxo-caixa"><PainelControle /></PermissionRoute></ProtectedLayout>} />
       <Route path="/receitas" element={<ProtectedLayout><PermissionRoute moduleKey="receitas"><Receitas /></PermissionRoute></ProtectedLayout>} />
       <Route path="/despesas" element={<ProtectedLayout><PermissionRoute moduleKey="despesas"><Despesas /></PermissionRoute></ProtectedLayout>} />
       <Route path="/categorias" element={<ProtectedLayout><PermissionRoute moduleKey="categorias"><Categorias /></PermissionRoute></ProtectedLayout>} />

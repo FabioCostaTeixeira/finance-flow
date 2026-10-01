@@ -10,6 +10,7 @@ import { useLancamentos } from '@/hooks/useLancamentos';
 import { useCategorias } from '@/hooks/useCategorias';
 import { useLancamentosFilter } from '@/hooks/useLancamentosFilter';
 import { LancamentosFiltersState } from '@/components/LancamentosFilters';
+import { calcularSaldoLancamento } from '@/lib/saldo';
 
 export default function DespesasPage() {
   const [formOpen, setFormOpen] = useState(false);
@@ -33,12 +34,10 @@ export default function DespesasPage() {
   // acima não mexe nisso); só os totais do card acima ignoram elas.
   const lancamentosParaTotais = filteredLancamentos.filter((l) => l.status !== 'transferencia');
   const totalDespesas = lancamentosParaTotais.reduce((acc, l) => acc + Number(l.valor), 0);
-  const totalPago = lancamentosParaTotais
-    .filter((l) => l.status === 'pago')
-    .reduce((acc, l) => acc + Number(l.valor), 0);
-  const totalAPagar = lancamentosParaTotais
-    .filter((l) => ['a_pagar', 'parcial'].includes(l.status))
-    .reduce((acc, l) => acc + Number(l.valor) - Number(l.valor_pago || 0), 0);
+  // Mesma conta da aba Bancos e do Fluxo de Caixa. Ver src/lib/saldo.ts.
+  const saldos = lancamentosParaTotais.map(calcularSaldoLancamento);
+  const totalPago = saldos.reduce((acc, s) => acc + s.realizado, 0);
+  const totalAPagar = saldos.reduce((acc, s) => acc + s.pendente, 0);
 
   return (
     <div className="flex-1 p-3 md:p-6 space-y-4 md:space-y-6 overflow-auto">

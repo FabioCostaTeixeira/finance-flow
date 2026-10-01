@@ -489,10 +489,12 @@ serve(async (req) => {
           }
         } else if (method === "GET") {
           if (url.searchParams.get("com_saldos") === "true") {
+            // Os parâmetros da RPC são _data_inicio/_data_fim. Enviar
+            // data_inicio/data_fim fazia o PostgREST não achar a assinatura.
             const { data, error } = await supabase.rpc("get_bancos_com_saldos", {
               _tenant: tenantId,
-              data_inicio: url.searchParams.get("data_inicio") || undefined,
-              data_fim: url.searchParams.get("data_fim") || undefined,
+              _data_inicio: url.searchParams.get("data_inicio") || undefined,
+              _data_fim: url.searchParams.get("data_fim") || undefined,
             });
             if (error) throw error;
             await logAndReturn(data);
@@ -513,17 +515,30 @@ serve(async (req) => {
         if (error) throw error;
         const receitas = lancamentos?.filter((l: any) => l.tipo === "receita") || [];
         const despesas = lancamentos?.filter((l: any) => l.tipo === "despesa") || [];
+        // Mesma semântica da RPC get_bancos_com_saldos e de src/lib/saldo.ts:
+        // valor_pago é DEFAULT 0, então num lançamento liquidado com valor_pago
+        // zerado o valor previsto é a melhor informação disponível.
+        const saldoDe = (l: any) => {
+          const valor = Number(l.valor) || 0;
+          const valorPago = Number(l.valor_pago) || 0;
+          if (["recebido", "pago", "transferencia"].includes(l.status)) {
+            return { realizado: valorPago > 0 ? valorPago : valor, pendente: 0 };
+          }
+          if (l.status === "parcial") {
+            return { realizado: valorPago, pendente: Math.max(valor - valorPago, 0) };
+          }
+          return { realizado: 0, pendente: Math.max(valor - valorPago, 0) };
+        };
+        const somar = (linhas: any[], campo: "realizado" | "pendente") =>
+          linhas.reduce((s: number, l: any) => s + saldoDe(l)[campo], 0);
+
         await logAndReturn({
           total_receitas: receitas.reduce((s: number, l: any) => s + (Number(l.valor) || 0), 0),
           total_despesas: despesas.reduce((s: number, l: any) => s + (Number(l.valor) || 0), 0),
-          total_recebido: receitas.filter((l: any) => l.status === "recebido")
-            .reduce((s: number, l: any) => s + (Number(l.valor_pago) || 0), 0),
-          total_pago: despesas.filter((l: any) => l.status === "pago")
-            .reduce((s: number, l: any) => s + (Number(l.valor_pago) || 0), 0),
-          a_receber: receitas.filter((l: any) => ["a_receber", "vencida"].includes(l.status))
-            .reduce((s: number, l: any) => s + (Number(l.valor) || 0), 0),
-          a_pagar: despesas.filter((l: any) => ["a_pagar", "atrasado"].includes(l.status))
-            .reduce((s: number, l: any) => s + (Number(l.valor) || 0), 0),
+          total_recebido: somar(receitas, "realizado"),
+          total_pago: somar(despesas, "realizado"),
+          a_receber: somar(receitas, "pendente"),
+          a_pagar: somar(despesas, "pendente"),
           quantidade_lancamentos: lancamentos?.length || 0,
         });
       }
